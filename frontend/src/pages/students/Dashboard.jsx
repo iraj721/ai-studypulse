@@ -29,7 +29,7 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
 );
 
 export default function Dashboard() {
@@ -434,8 +434,8 @@ export default function Dashboard() {
                             {a.difficulty === "easy"
                               ? "🟢 Easy"
                               : a.difficulty === "medium"
-                              ? "🟡 Medium"
-                              : "🔴 Hard"}
+                                ? "🟡 Medium"
+                                : "🔴 Hard"}
                           </td>
                           <td data-label="Insights">
                             {(a.insights || []).length > 0 ? (
@@ -809,7 +809,138 @@ export default function Dashboard() {
     height: 250px;
   }
 }
+  /* Mobile Responsive - Dashboard */
+@media (max-width: 768px) {
+  .dashboard-page .hero-section {
+    padding: 40px 20px;
+    min-height: auto;
+    text-align: center;
+  }
+  
+  .hero-section .row {
+    flex-direction: column;
+  }
+  
+  .hero-section .col-md-6:first-child {
+    margin-bottom: 30px;
+  }
+  
+  .hero-section h1 {
+    font-size: 1.6rem;
+  }
+  
+  .hero-section p {
+    font-size: 0.9rem;
+  }
+  
+  .hero-img {
+    max-height: 200px;
+  }
+  
+  .add-activity-card {
+    margin: 0 16px;
+    padding: 20px 16px !important;
+  }
+  
+  .add-activity-card h4 {
+    font-size: 1.2rem;
+  }
+  
+  .summary-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 0 16px;
+  }
+  
+  .summary-card {
+    min-height: auto;
+    padding: 16px;
+  }
+  
+  .summary-card h6 {
+    font-size: 0.9rem;
+  }
+  
+  .summary-card h3 {
+    font-size: 1.4rem;
+  }
+  
+  .summary-card p {
+    font-size: 0.75rem;
+  }
+  
+  .row.g-3 {
+    flex-direction: column;
+    padding: 0 16px;
+  }
+  
+  .row.g-3 .col-md-8,
+  .row.g-3 .col-md-4 {
+    width: 100%;
+  }
+  
+  .chart-wrapper {
+    height: 250px;
+  }
+  
+  .table thead {
+    display: none;
+  }
+  
+  .table tbody tr {
+    display: block;
+    margin-bottom: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 12px;
+  }
+  
+  .table tbody tr td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border: none;
+  }
+  
+  .table tbody tr td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    width: 40%;
+  }
+  
+  .col-md-4 .summary-card ul li {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .col-md-4 .summary-card ul li button {
+    width: 100%;
+  }
+}
 
+@media (max-width: 480px) {
+  .hero-section h1 {
+    font-size: 1.3rem;
+  }
+  
+  .hero-section .btn-light.btn-lg {
+    font-size: 0.9rem;
+    padding: 8px 20px;
+  }
+  
+  .summary-card {
+    padding: 12px;
+  }
+  
+  .summary-card h3 {
+    font-size: 1.2rem;
+  }
+  
+  .chart-wrapper {
+    height: 200px;
+  }
+}
       `}</style>
     </div>
   );

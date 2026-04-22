@@ -202,6 +202,47 @@ export default function AddActivity() {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
+          /* Mobile Responsive - AddActivity */
+@media (max-width: 768px) {
+  .add-activity-bg {
+    padding: 80px 16px 40px !important;
+  }
+  
+  .page-top-bar {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+    padding: 0 16px;
+    top: 16px;
+  }
+  
+  .page-title {
+    font-size: 1.4rem;
+  }
+  
+  .activity-page {
+    margin-top: 120px;
+    padding: 0 8px;
+  }
+  
+  .activity-card {
+    padding: 20px 16px !important;
+  }
+  
+  .activity-card .form-input {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+  
+  .btn-add, .btn-outline-light {
+    width: 100%;
+    margin-top: 8px;
+  }
+  
+  .d-flex.gap-2 {
+    flex-direction: column;
+  }
+}
       `}</style>
     </div>
   );

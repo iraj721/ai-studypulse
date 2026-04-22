@@ -101,6 +101,32 @@ export default function JoinClass() {
           color: #fff;
           border-color: #6366f1;
           box-shadow: 0 0 0 0.2rem rgba(99,102,241,0.25);
+          /* Mobile Responsive - JoinClass */
+@media (max-width: 768px) {
+  .join-bg .container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  
+  .join-card {
+    max-width: 100% !important;
+    margin: 0 16px;
+  }
+  
+  .join-card h4 {
+    font-size: 1.3rem;
+  }
+  
+  .join-input {
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+  
+  .btn-gradient {
+    padding: 10px;
+    font-size: 14px;
+  }
+}
         }
       `}</style>
     </div>

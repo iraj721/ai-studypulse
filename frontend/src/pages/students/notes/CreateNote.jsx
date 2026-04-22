@@ -34,7 +34,6 @@ export default function CreateNote() {
       setGenerating(false);
     }
   };
-  
 
   return (
     <div className="create-note-bg min-vh-100 d-flex align-items-center justify-content-center py-5 position-relative">
@@ -160,6 +159,35 @@ export default function CreateNote() {
           background: rgba(255,255,255,0.1);
           transform: translateY(-1px);
         }
+          /* Mobile Responsive - CreateNote */
+@media (max-width: 768px) {
+  .create-note-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .create-note-card {
+    margin: 0 8px;
+    padding: 20px 16px !important;
+  }
+  
+  .create-note-card h2 {
+    font-size: 1.5rem;
+  }
+  
+  .d-flex.gap-2 {
+    flex-direction: column;
+  }
+  
+  .d-flex.gap-2 button {
+    width: 100%;
+  }
+  
+  .input-field {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+}
       `}</style>
     </div>
   );

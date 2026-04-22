@@ -34,7 +34,7 @@ export default function StudentAnnouncements() {
     try {
       await api.post(
         `/student/classes/${classId}/announcements/${announcementId}/reply`,
-        { text }
+        { text },
       );
       setReplyTexts({ ...replyTexts, [announcementId]: "" });
       fetchAnnouncements();
@@ -68,7 +68,7 @@ export default function StudentAnnouncements() {
                   onClick={() =>
                     window.open(
                       `${import.meta.env.VITE_API_URL}${a.attachment}`,
-                      "_blank"
+                      "_blank",
                     )
                   }
                 >
@@ -143,6 +143,43 @@ export default function StudentAnnouncements() {
         .border-start {
           border-left: 3px solid rgba(255,255,255,0.3);
         }
+          /* Mobile Responsive - StudentAnnouncements */
+@media (max-width: 768px) {
+  .announcements-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .announcement-card {
+    padding: 14px;
+  }
+  
+  .announcement-card p {
+    font-size: 0.9rem;
+  }
+  
+  .d-flex.gap-2 {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .d-flex.gap-2 input {
+    width: 100%;
+  }
+  
+  .d-flex.gap-2 button {
+    width: 100%;
+  }
+  
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  
+  .border-start {
+    padding-left: 12px;
+  }
+}
       `}</style>
     </div>
   );

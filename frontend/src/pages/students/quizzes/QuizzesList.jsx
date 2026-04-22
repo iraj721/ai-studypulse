@@ -200,7 +200,54 @@ background: #ffffff;
   z-index: 1051;
   pointer-events: auto;
 }
-
+/* Mobile Responsive - QuizzesList */
+@media (max-width: 768px) {
+  .quizzes-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .d-flex.justify-content-between {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+  
+  .quiz-item {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+    padding: 16px !important;
+  }
+  
+  .quiz-item .d-flex {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .badge {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+  }
+  
+  .btn-danger {
+    padding: 4px 12px;
+    font-size: 12px;
+  }
+  
+  .custom-modal .modal-dialog {
+    margin: 16px;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .modal-footer button {
+    width: 100%;
+  }
+}
       `}</style>
     </div>
   );

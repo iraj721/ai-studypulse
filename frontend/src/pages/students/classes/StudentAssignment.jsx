@@ -36,7 +36,7 @@ export default function StudentAssignments() {
     try {
       await api.post(
         `/student/classes/${classId}/assignments/${id}/submit`,
-        data
+        data,
       );
       fetchAssignments();
     } catch (err) {
@@ -49,9 +49,7 @@ export default function StudentAssignments() {
     if (!window.confirm("Are you sure you want to unsend your submission?"))
       return;
     try {
-      await api.delete(
-        `/student/classes/${classId}/assignments/${id}/unsend`
-      );
+      await api.delete(`/student/classes/${classId}/assignments/${id}/unsend`);
       fetchAssignments();
     } catch (err) {
       console.error(err);
@@ -63,7 +61,7 @@ export default function StudentAssignments() {
     if (!fileUrl) return;
     const url = fileUrl.startsWith("http") ? fileUrl : `${BASE_URL}${fileUrl}`;
     const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(
-      url
+      url,
     )}&embedded=true`;
     window.open(viewer, "_blank");
   };
@@ -98,7 +96,9 @@ export default function StudentAssignments() {
                 <p>{a.instructions}</p>
 
                 {/* Total Marks */}
-                <p className="fw-semibold text-light-opacity">Total Marks: {totalMarks}</p>
+                <p className="fw-semibold text-light-opacity">
+                  Total Marks: {totalMarks}
+                </p>
 
                 {a.attachment && (
                   <button
@@ -130,7 +130,9 @@ export default function StudentAssignments() {
                       </button>
                     )}
 
-                    {a.submission?.answerText && <p>{a.submission.answerText}</p>}
+                    {a.submission?.answerText && (
+                      <p>{a.submission.answerText}</p>
+                    )}
 
                     {isBeforeDue ? (
                       <button
@@ -222,6 +224,42 @@ export default function StudentAssignments() {
           background-color: #00bfff;
           color: #fff;
         }
+          /* Mobile Responsive - StudentAssignments */
+@media (max-width: 768px) {
+  .assignments-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .assignment-card {
+    padding: 14px;
+  }
+  
+  .assignment-card h5 {
+    font-size: 1.1rem;
+  }
+  
+  .assignment-card p {
+    font-size: 0.85rem;
+  }
+  
+  .form-control, input[type="file"] {
+    font-size: 13px;
+  }
+  
+  textarea.form-control {
+    font-size: 13px;
+  }
+  
+  .btn-success, .btn-danger, .btn-outline-primary {
+    width: 100%;
+    margin-top: 8px;
+  }
+  
+  .d-flex.gap-2 {
+    flex-direction: column;
+  }
+}
       `}</style>
     </div>
   );

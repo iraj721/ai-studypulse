@@ -205,6 +205,48 @@ export default function StudentClasses() {
 .class-card button {
   width: auto; /* better spacing */
 }
+  /* Mobile Responsive - StudentClasses */
+@media (max-width: 768px) {
+  .classes-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .d-flex.justify-content-between {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+  
+  .row.g-3 {
+    flex-direction: column;
+  }
+  
+  .row.g-3 .col-md-4 {
+    width: 100%;
+  }
+  
+  .class-card {
+    padding: 16px;
+  }
+  
+  .class-card h5 {
+    font-size: 1.1rem;
+  }
+  
+  .custom-modal .modal-dialog {
+    margin: 16px;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .modal-footer button {
+    width: 100%;
+  }
+}
       `}</style>
     </div>
   );

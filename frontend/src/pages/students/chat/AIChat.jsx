@@ -114,7 +114,6 @@ export default function AIChat() {
 
   const toggleDarkMode = () => setDarkMode((prev) => !prev);
 
-
   // Group messages by date
   const groupedMessages = [];
   let lastDate = null;
@@ -177,7 +176,7 @@ export default function AIChat() {
                 <div style={{ fontSize: 28, marginLeft: 8 }}>👤</div>
               )}
             </div>
-          )
+          ),
         )}
         <div ref={messagesEndRef}></div>
       </div>
@@ -323,6 +322,67 @@ export default function AIChat() {
           z-index: 4;
         }
                   .dark .msg-bubble.ai { background:#333; color:#fff; }
+
+        /* Mobile Responsive - AIChat */
+@media (max-width: 768px) {
+  .ai-header {
+    padding: 0 16px;
+    height: 56px;
+  }
+  
+  .ai-header h5 {
+    font-size: 1rem;
+  }
+  
+  .ai-chat {
+    padding: 80px 12px 120px;
+  }
+  
+  .msg-bubble {
+    max-width: 85% !important;
+    font-size: 0.85rem;
+    padding: 8px 12px;
+  }
+  
+  .msg-row .msg-bubble.ai,
+  .msg-row .msg-bubble.user {
+    max-width: 85%;
+  }
+  
+  .msg-row div[style*="fontSize: 28"] {
+    font-size: 20px !important;
+  }
+  
+  .ai-input {
+    padding: 10px;
+    gap: 8px;
+  }
+  
+  .ai-input textarea {
+    font-size: 14px;
+    padding: 10px;
+  }
+  
+  .ai-input button {
+    padding: 0 16px;
+    font-size: 14px;
+  }
+  
+  .scroll-btn {
+    bottom: 100px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+  }
+  
+  .date-badge {
+    font-size: 0.7rem;
+  }
+  
+  .msg-time {
+    font-size: 0.6rem;
+  }
+}
 
       `}</style>
     </div>

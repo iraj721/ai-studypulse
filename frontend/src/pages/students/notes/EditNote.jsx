@@ -197,6 +197,41 @@ export default function EditNote({ user, onLogout }) {
         @media (max-width: 768px) {
           .d-flex.gap-2.flex-wrap { flex-direction: column; }
         }
+          /* Mobile Responsive - EditNote */
+@media (max-width: 768px) {
+  .notes-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .d-flex.justify-content-between {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+  
+  .notes-card {
+    padding: 16px !important;
+  }
+  
+  .input-field, .textarea-field {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+  
+  .d-flex.gap-2.flex-wrap {
+    flex-direction: column;
+  }
+  
+  .d-flex.gap-2.flex-wrap button {
+    width: 100%;
+  }
+  
+  .preview-card {
+    padding: 12px;
+    font-size: 13px;
+  }
+}
       `}</style>
     </div>
   );

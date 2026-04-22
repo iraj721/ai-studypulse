@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import api from "../../../services/api";
 import { useNavigate } from "react-router-dom";
 
-
 export default function GenerateQuiz() {
   const navigate = useNavigate();
   const [topic, setTopic] = useState("");
@@ -15,7 +14,10 @@ export default function GenerateQuiz() {
     if (!topic.trim()) return alert("Please enter a topic");
     setLoading(true);
     try {
-      const res = await api.post("/quizzes/generate", { topic, numQuestions: Number(num) });
+      const res = await api.post("/quizzes/generate", {
+        topic,
+        numQuestions: Number(num),
+      });
       navigate(`/quizzes/${res.data._id}`);
     } catch (err) {
       console.error(err);
@@ -27,7 +29,6 @@ export default function GenerateQuiz() {
 
   return (
     <div className="min-vh-100 d-flex justify-content-center align-items-start generate-bg pt-5 pb-5 position-relative">
-
       <div className="card generate-card p-5 shadow-lg animate-card">
         <h3 className="text-center mb-4 fw-bold">Generate Quiz</h3>
         <form onSubmit={handleGenerate}>
@@ -38,19 +39,21 @@ export default function GenerateQuiz() {
               className="form-control form-input"
               placeholder="Enter quiz topic"
               value={topic}
-              onChange={e => setTopic(e.target.value)}
+              onChange={(e) => setTopic(e.target.value)}
               required
             />
           </div>
           <div className="mb-3">
-            <label className="form-label fw-semibold">Number of Questions</label>
+            <label className="form-label fw-semibold">
+              Number of Questions
+            </label>
             <input
               type="number"
               className="form-control form-input"
               min={1}
               max={50}
               value={num}
-              onChange={e => setNum(e.target.value)}
+              onChange={(e) => setNum(e.target.value)}
               required
             />
           </div>
@@ -123,6 +126,31 @@ export default function GenerateQuiz() {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
+          /* Mobile Responsive - GenerateQuiz */
+@media (max-width: 768px) {
+  .generate-bg {
+    padding: 80px 16px 40px !important;
+  }
+  
+  .generate-card {
+    margin: 0 16px;
+    padding: 24px 20px !important;
+  }
+  
+  .generate-card h3 {
+    font-size: 1.4rem;
+  }
+  
+  .form-input {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+  
+  .btn-generate {
+    padding: 10px;
+    font-size: 14px;
+  }
+}
       `}</style>
     </div>
   );

@@ -266,6 +266,59 @@ export default function TakeQuiz() {
           box-shadow: 0 8px 20px rgba(255,255,255,0.3);
           background: rgba(255,255,255,0.1);
         }
+          /* Mobile Responsive - TakeQuiz */
+@media (max-width: 768px) {
+  .quiz-page-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .quiz-page-bg h3 {
+    font-size: 1.3rem;
+    text-align: center;
+  }
+  
+  .quiz-card {
+    padding: 16px !important;
+  }
+  
+  .quiz-card .fw-semibold {
+    font-size: 0.95rem;
+  }
+  
+  .option-label {
+    font-size: 0.85rem;
+    padding: 10px 12px;
+  }
+  
+  .option-label input[type="radio"] {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .btn-gradient {
+    padding: 12px;
+    font-size: 14px;
+  }
+  
+  .alert-info {
+    font-size: 0.9rem;
+    padding: 12px;
+  }
+  
+  .d-flex.justify-content-center.gap-2 {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .d-flex.justify-content-center.gap-2 button {
+    width: 100%;
+  }
+  
+  .correct-answer {
+    font-size: 0.85rem;
+  }
+}
       `}</style>
     </div>
   );

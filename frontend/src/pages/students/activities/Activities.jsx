@@ -12,8 +12,6 @@ export default function Activities() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-
-
   useEffect(() => {
     loadActivities();
   }, []);
@@ -46,7 +44,7 @@ export default function Activities() {
       data = data.filter(
         (a) =>
           a.subject.toLowerCase().includes(s.toLowerCase()) ||
-          a.topic.toLowerCase().includes(s.toLowerCase())
+          a.topic.toLowerCase().includes(s.toLowerCase()),
       );
     if (d !== "all") data = data.filter((a) => a.difficulty === d);
     setFiltered(data);
@@ -124,8 +122,8 @@ export default function Activities() {
                       {a.difficulty === "easy"
                         ? "🟢 Easy"
                         : a.difficulty === "medium"
-                        ? "🟡 Medium"
-                        : "🔴 Hard"}
+                          ? "🟡 Medium"
+                          : "🔴 Hard"}
                     </td>
                     <td>
                       {(a.insights || []).length > 0 ? (
@@ -214,6 +212,45 @@ export default function Activities() {
           box-shadow: 0 12px 25px rgba(0,0,0,0.25);
           background: linear-gradient(135deg, #5b4be8, #7b66f3);
         }
+          /* Mobile Responsive - Activities */
+@media (max-width: 768px) {
+  .activities-bg .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  
+  .activities-bg .d-flex.justify-content-between {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+  
+  .row.g-3.mb-4 {
+    flex-direction: column;
+  }
+  
+  .row.g-3.mb-4 .col-md-6,
+  .row.g-3.mb-4 .col-md-3 {
+    width: 100%;
+  }
+  
+  .activities-card {
+    overflow-x: auto;
+  }
+  
+  .activities-card .table {
+    min-width: 600px;
+  }
+  
+  .activity-row td {
+    white-space: nowrap;
+  }
+  
+  .btn-gradient, .btn-outline-danger, .btn-outline-info {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
       `}</style>
     </div>
   );

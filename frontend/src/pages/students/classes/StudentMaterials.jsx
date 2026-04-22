@@ -32,7 +32,7 @@ export default function StudentMaterials() {
     if (!fileUrl) return;
     const url = fileUrl.startsWith("http") ? fileUrl : `${BASE_URL}${fileUrl}`;
     const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(
-      url
+      url,
     )}&embedded=true`;
     window.open(viewer, "_blank");
   };
@@ -112,6 +112,29 @@ export default function StudentMaterials() {
           background-color: #003243ff;
           color: #fff;
         }
+          /* Mobile Responsive - StudentMaterials */
+@media (max-width: 768px) {
+  .materials-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .material-card {
+    padding: 14px;
+  }
+  
+  .material-card h5 {
+    font-size: 1rem;
+  }
+  
+  .material-card p {
+    font-size: 0.85rem;
+  }
+  
+  .btn-outline-primary {
+    width: 100%;
+  }
+}
       `}</style>
     </div>
   );

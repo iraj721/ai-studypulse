@@ -50,7 +50,7 @@ export default function StudentClassDashboard() {
     try {
       await api.post(
         `/student/classes/${classId}/assignments/${id}/submit`,
-        data
+        data,
       );
       fetchDashboard();
     } catch (err) {
@@ -78,7 +78,7 @@ export default function StudentClassDashboard() {
     try {
       await api.post(
         `/student/classes/${classId}/announcements/${announcementId}/reply`,
-        { text }
+        { text },
       );
       setReplyTexts({ ...replyTexts, [announcementId]: "" });
       fetchDashboard();
@@ -94,7 +94,7 @@ export default function StudentClassDashboard() {
       ? fileUrl
       : `${import.meta.env.VITE_API_URL}${fileUrl}`;
     const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(
-      url
+      url,
     )}&embedded=true`;
     window.open(viewer, "_blank");
   };
@@ -402,6 +402,52 @@ export default function StudentClassDashboard() {
           border-color: #fff;
           color: #fff;
         }
+          /* Mobile Responsive - StudentClassDashboard */
+@media (max-width: 768px) {
+  .dashboard-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .row.g-3.my-4 {
+    flex-direction: column;
+  }
+  
+  .row.g-3.my-4 .col-md-4 {
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  
+  .top-cards, .dashboard-card {
+    padding: 16px !important;
+  }
+  
+  .top-cards h4, .dashboard-card h4, .dashboard-card h5 {
+    font-size: 1rem;
+  }
+  
+  .d-flex.gap-2 {
+    flex-direction: column;
+  }
+  
+  .d-flex.gap-2 input,
+  .d-flex.gap-2 button {
+    width: 100%;
+  }
+  
+  .btn-sm {
+    width: 100%;
+    margin-bottom: 6px;
+  }
+  
+  .border-start {
+    padding-left: 12px;
+  }
+  
+  textarea.form-control {
+    font-size: 13px;
+  }
+}
       `}</style>
     </div>
   );

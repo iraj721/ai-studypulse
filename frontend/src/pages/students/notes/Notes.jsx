@@ -51,16 +51,15 @@ export default function Notes() {
   };
 
   const filtered = notes.filter(
-    n =>
+    (n) =>
       n.subject.toLowerCase().includes(search.toLowerCase()) ||
-      n.topic.toLowerCase().includes(search.toLowerCase())
+      n.topic.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
     <div className="notes-bg min-vh-100 py-5 position-relative">
       <Stars />
       <div className="container">
-
         {/* HEADER */}
         <div className="notes-header mb-4">
           <div>
@@ -68,23 +67,24 @@ export default function Notes() {
             <p className="text-light-opacity">Manage your notes</p>
           </div>
           <div>
-            <Link to="/notes/create" className="btn btn-gradient">➕ Create</Link>
+            <Link to="/notes/create" className="btn btn-gradient">
+              ➕ Create
+            </Link>
           </div>
         </div>
 
         <div className="row g-4">
-
           {/* LEFT LIST */}
           <div className="col-md-4">
             <input
               className="form-control search-input mb-3"
               placeholder="🔍 Search notes..."
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
             />
 
             <div className="notes-list">
-              {filtered.map(note => (
+              {filtered.map((note) => (
                 <div
                   key={note._id}
                   className={`note-tile ${selected?._id === note._id ? "active" : ""}`}
@@ -120,22 +120,31 @@ export default function Notes() {
                     <h4>{selected.subject}</h4>
                     <span>{selected.topic}</span>
                   </div>
-                  <button className="btn-close" onClick={() => setSelected(null)} />
+                  <button
+                    className="btn-close"
+                    onClick={() => setSelected(null)}
+                  />
                 </div>
 
                 <div className="note-actions">
-                  <button className="btn btn-sm btn-outline-primary"
-                    onClick={() => navigate(`/notes/edit/${selected._id}`)}>
+                  <button
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={() => navigate(`/notes/edit/${selected._id}`)}
+                  >
                     ✏️ Edit
                   </button>
 
-                  <button className="btn btn-sm btn-outline-secondary"
-                    onClick={() => downloadPDF(selected)}>
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => downloadPDF(selected)}
+                  >
                     📄 PDF
                   </button>
 
-                  <button className="btn btn-sm btn-outline-danger"
-                    onClick={() => deleteNote(selected._id)}>
+                  <button
+                    className="btn btn-sm btn-outline-danger"
+                    onClick={() => deleteNote(selected._id)}
+                  >
                     ❌ Delete
                   </button>
                 </div>
@@ -151,7 +160,6 @@ export default function Notes() {
               </div>
             )}
           </div>
-
         </div>
       </div>
 
@@ -207,6 +215,63 @@ export default function Notes() {
           box-shadow: 0 12px 25px rgba(0,0,0,0.25);
           background: linear-gradient(135deg, #005ce6, #00bfff);
         }
+          /* Mobile Responsive - Notes */
+@media (max-width: 768px) {
+  .notes-bg .container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .notes-header {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+  
+  .row.g-4 {
+    flex-direction: column;
+  }
+  
+  .row.g-4 .col-md-4,
+  .row.g-4 .col-md-8 {
+    width: 100%;
+  }
+  
+  .notes-list {
+    max-height: 300px;
+    margin-bottom: 16px;
+  }
+  
+  .note-tile {
+    padding: 12px;
+  }
+  
+  .note-view-header {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+  
+  .note-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .note-actions button {
+    font-size: 12px;
+    padding: 6px 12px;
+  }
+  
+  .note-content {
+    padding: 12px;
+    font-size: 13px;
+  }
+  
+  .empty-state {
+    padding: 40px 16px;
+    text-align: center;
+  }
+}
       `}</style>
     </div>
   );
