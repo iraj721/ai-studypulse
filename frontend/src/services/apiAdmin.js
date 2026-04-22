@@ -1,6 +1,5 @@
 import axios from "axios";
 
-/* ================= CREATE INSTANCE ================= */
 const apiAdmin = axios.create({
   baseURL: `${import.meta.env.VITE_API_URL.replace(/\/$/, "")}/api`,
   headers: {
@@ -8,49 +7,29 @@ const apiAdmin = axios.create({
   },
 });
 
-/* ================= REQUEST INTERCEPTOR ================= */
+// Request Interceptor - Add token
 apiAdmin.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("adminToken");
-
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-/* ================= RESPONSE INTERCEPTOR ================= */
+// Response Interceptor - Handle 401
 apiAdmin.interceptors.response.use(
-  (response) => {
-    // console.log(
-    //   "✅ API RESPONSE:",
-    //   response.config.method?.toUpperCase(),
-    //   response.config.url,
-    //   response.status
-    // );
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.error(
-      "❌ API ERROR:",
-      error.response?.status,
-      error.config?.url
-    );
-
-    if (
-      error.response &&
-      (error.response.status === 401 ||
-        error.response.status === 403)
-    ) {
+    if (error.response?.status === 401) {
       localStorage.removeItem("adminToken");
-      window.location.href = "/admin/login";
+      // Redirect only if not already on login page
+      if (!window.location.pathname.includes("/admin/login")) {
+        window.location.href = "/admin/login";
+      }
     }
-
     return Promise.reject(error);
   }
 );

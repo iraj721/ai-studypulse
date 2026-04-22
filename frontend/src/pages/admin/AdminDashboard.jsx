@@ -13,7 +13,6 @@ export default function AdminDashboard() {
     fetchUsers();
   }, []);
 
-  /* ================= FETCH USERS ================= */
   const fetchUsers = async () => {
     try {
       const res = await apiAdmin.get("/admin/users");
@@ -24,23 +23,16 @@ export default function AdminDashboard() {
     }
   };
 
-  /* ================= LOGOUT ================= */
   const logout = () => {
     localStorage.removeItem("adminToken");
     navigate("/admin/login");
   };
 
-  /* ================= DELETE USER ================= */
   const handleDelete = async () => {
     if (!userToDelete) return;
-
     try {
-      console.log("DELETE USER ID:", userToDelete._id);
-
       await apiAdmin.delete(`/admin/users/${userToDelete._id}`);
-
       setUsers((prev) => prev.filter((u) => u._id !== userToDelete._id));
-
       setUserToDelete(null);
     } catch (error) {
       console.error("Delete error:", error);
@@ -48,18 +40,14 @@ export default function AdminDashboard() {
     }
   };
 
-  /* ================= FILTERS ================= */
   const filteredUsers = users.filter((u) => {
     const matchSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase());
-
     const matchRole = roleFilter === "all" || u.role === roleFilter;
-
     return matchSearch && matchRole;
   });
 
-  /* ================= STATS ================= */
   const totalUsers = users.length;
   const adminCount = users.filter((u) => u.role === "admin").length;
   const teacherCount = users.filter((u) => u.role === "teacher").length;
@@ -67,35 +55,37 @@ export default function AdminDashboard() {
 
   return (
     <div className="admin-wrapper min-vh-100">
-      <div className="container py-4">
-        {/* ================= HEADER ================= */}
-        <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="container py-3 py-md-4">
+        {/* HEADER */}
+        <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
           <div>
-            <h2 className="fw-bold">👑 Admin Dashboard</h2>
-            <small className="text-muted">
-              System control & role management
-            </small>
+            <h2 className="fw-bold fs-3 fs-md-2">👑 Admin Dashboard</h2>
+            <small className="text-muted">System control & role management</small>
           </div>
-          <button
-            type="button"
-            className="btn btn-outline-danger btn-sm"
-            onClick={logout}
-          >
+          <button type="button" className="btn btn-outline-danger btn-sm" onClick={logout}>
             Logout
           </button>
         </div>
 
-        {/* ================= STATS ================= */}
+        {/* STATS CARDS - Fully Responsive Grid */}
         <div className="row g-3 mb-4">
-          <StatCard title="👥 Total Users" value={totalUsers} />
-          <StatCard title="🛡️ Admins" value={adminCount} color="purple" />
-          <StatCard title="👨‍🏫 Teachers" value={teacherCount} color="blue" />
-          <StatCard title="🎓 Students" value={studentCount} color="green" />
+          <div className="col-6 col-md-3">
+            <StatCard title="👥 Total Users" value={totalUsers} />
+          </div>
+          <div className="col-6 col-md-3">
+            <StatCard title="🛡️ Admins" value={adminCount} color="purple" />
+          </div>
+          <div className="col-6 col-md-3">
+            <StatCard title="👨‍🏫 Teachers" value={teacherCount} color="blue" />
+          </div>
+          <div className="col-6 col-md-3">
+            <StatCard title="🎓 Students" value={studentCount} color="green" />
+          </div>
         </div>
 
-        {/* ================= FILTERS ================= */}
+        {/* FILTERS */}
         <div className="card shadow-sm mb-3 border-0">
-          <div className="card-body d-flex flex-wrap gap-3">
+          <div className="card-body d-flex flex-column flex-md-row gap-3">
             <div className="flex-grow-1">
               <label className="small text-muted">🔍 Search Users</label>
               <input
@@ -106,8 +96,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-
-            <div style={{ width: 220 }}>
+            <div style={{ minWidth: "180px" }}>
               <label className="small text-muted">🎭 Role Filter</label>
               <select
                 className="form-control"
@@ -123,11 +112,12 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* ================= USERS TABLE ================= */}
+        {/* USERS SECTION - Desktop Table, Mobile Cards */}
         <div className="card admin-card shadow-sm border-0">
           <div className="card-header fw-semibold">👤 Registered Users</div>
 
-          <div className="table-responsive">
+          {/* Desktop View - Table (hidden on mobile) */}
+          <div className="d-none d-md-block table-responsive">
             <table className="table table-hover align-middle mb-0">
               <thead>
                 <tr>
@@ -135,7 +125,7 @@ export default function AdminDashboard() {
                   <th>Email</th>
                   <th>Role</th>
                   <th>Joined</th>
-                  <th className="text-end">⚙️ Actions</th>
+                  <th className="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -159,7 +149,6 @@ export default function AdminDashboard() {
                       >
                         View
                       </button>
-
                       <button
                         type="button"
                         className="btn btn-sm btn-outline-danger"
@@ -170,7 +159,6 @@ export default function AdminDashboard() {
                     </td>
                   </tr>
                 ))}
-
                 {!filteredUsers.length && (
                   <tr>
                     <td colSpan="5" className="text-center text-muted py-4">
@@ -181,95 +169,159 @@ export default function AdminDashboard() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile View - Cards (visible only on mobile) */}
+          <div className="d-block d-md-none">
+            {filteredUsers.length === 0 ? (
+              <div className="text-center text-muted py-4">No users found</div>
+            ) : (
+              <div className="p-3">
+                {filteredUsers.map((u) => (
+                  <div key={u._id} className="user-card-mobile mb-3 p-3 border rounded-3 shadow-sm">
+                    <div className="d-flex justify-content-between align-items-start mb-2">
+                      <div>
+                        <h6 className="fw-bold mb-1">{u.name}</h6>
+                        <span className={`role-badge ${u.role} mb-2 d-inline-block`}>
+                          {u.role === "admin" && "🛡️ Admin"}
+                          {u.role === "teacher" && "👨‍🏫 Teacher"}
+                          {u.role === "student" && "🎓 Student"}
+                        </span>
+                      </div>
+                      <small className="text-muted">{new Date(u.createdAt).toLocaleDateString()}</small>
+                    </div>
+                    <div className="text-muted small mb-3">
+                      <div>📧 {u.email}</div>
+                    </div>
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary flex-grow-1"
+                        onClick={() => navigate(`/admin/users/${u._id}`)}
+                      >
+                        View Details
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => setUserToDelete(u)}
+                      >
+                        🗑 Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        </div>
+      </div>
 
-        {/* ================= DELETE CONFIRM ================= */}
-        {userToDelete && (
-          <div className="delete-card shadow position-fixed bottom-3 end-3 bg-white border rounded-3">
-            <div className="delete-card-body">
-              <p className="delete-title">⚠️ Delete User</p>
-
-              <p className="delete-text">
-                Are you sure you want to delete{" "}
-                <strong>{userToDelete.name}</strong> permanently?
-              </p>
-
-              <div className="delete-actions">
-                <button
-                  type="button"
-                  className="btn btn-sm btn-danger"
-                  onClick={handleDelete}
-                >
-                  Yes, Delete
-                </button>
-
-                <button
-                  type="button"
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => setUserToDelete(null)}
-                >
-                  Cancel
-                </button>
+      {/* DELETE MODAL */}
+      {userToDelete && (
+        <>
+          <div
+            className="delete-overlay"
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.5)",
+              zIndex: 9999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            onClick={() => setUserToDelete(null)}
+          >
+            <div
+              className="delete-modal bg-white rounded-3 shadow-lg"
+              style={{ width: "320px", maxWidth: "90%" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-4">
+                <h6 className="fw-bold mb-2 text-danger">⚠️ Delete User</h6>
+                <p className="mb-3">
+                  Are you sure you want to delete <strong>{userToDelete.name}</strong>?
+                  <br />
+                  <span className="text-danger small">This action cannot be undone.</span>
+                </p>
+                <div className="d-flex justify-content-end gap-2">
+                  <button className="btn btn-sm btn-secondary" onClick={() => setUserToDelete(null)}>
+                    Cancel
+                  </button>
+                  <button className="btn btn-sm btn-danger" onClick={handleDelete}>
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        )}
-      
+        </>
+      )}
 
-      {/* ================= STYLES ================= */}
+      {/* STYLES */}
       <style>{`
         .admin-wrapper {
-  background: #f4f6fb;
-  position: relative;
-  z-index: 1;
-}
-
-        .admin-card { border-radius:14px; overflow:hidden; }
+          background: #f4f6fb;
+          min-height: 100vh;
+        }
+        .admin-card {
+          border-radius: 14px;
+          overflow: hidden;
+        }
         .role-badge {
-          padding:4px 12px;
-          border-radius:999px;
-          font-size:0.75rem;
-          font-weight:500;
-          display:inline-block;
+          padding: 4px 12px;
+          border-radius: 999px;
+          font-size: 0.75rem;
+          font-weight: 500;
+          display: inline-block;
         }
-        .role-badge.admin { background:#ede9fe; color:#6d28d9; }
-        .role-badge.teacher { background:#e0f2fe; color:#0369a1; }
-        .role-badge.student { background:#e2e8f0; color:#334155; }
-        .delete-card {
-          width:300px;
-          z-index:9999;
+        .role-badge.admin { background: #ede9fe; color: #6d28d9; }
+        .role-badge.teacher { background: #e0f2fe; color: #0369a1; }
+        .role-badge.student { background: #e2e8f0; color: #334155; }
+        
+        /* Mobile User Card Styles */
+        .user-card-mobile {
+          background: white;
+          transition: all 0.2s ease;
         }
-
-        .delete-card {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  width: 320px;
-  background: white;
-  border-radius: 12px;
-  z-index: 100000;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
-}
-
-.delete-card-body {
-  padding: 16px;
-}
-
-.delete-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-
-
+        .user-card-mobile:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(0,0,0,0.1) !important;
+        }
+        
+        .delete-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.5);
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .delete-modal {
+          animation: fadeInScale 0.2s ease;
+        }
+        @keyframes fadeInScale {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        
+        /* Responsive */
+        @media (max-width: 576px) {
+          .container { padding-left: 12px; padding-right: 12px; }
+          .admin-wrapper h2 { font-size: 1.5rem; }
+          .user-card-mobile { padding: 12px !important; }
+          .user-card-mobile h6 { font-size: 1rem; }
+        }
       `}</style>
     </div>
   );
 }
 
-/* ================= STAT CARD ================= */
+/* STAT CARD Component */
 function StatCard({ title, value, color }) {
   const colors = {
     purple: "#7c3aed",
@@ -279,11 +331,11 @@ function StatCard({ title, value, color }) {
   };
 
   return (
-    <div className="col-md-3">
-      <div className="card shadow-sm border-0 p-3">
-        <h6 className="text-muted">{title}</h6>
-        <h2 style={{ color: colors[color] || colors.default }}>{value}</h2>
-      </div>
+    <div className="card shadow-sm border-0 p-2 p-md-3 h-100 text-center">
+      <h6 className="text-muted small mb-1">{title}</h6>
+      <h3 className="fw-bold mb-0" style={{ color: colors[color] || colors.default, fontSize: "clamp(1.5rem, 5vw, 2rem)" }}>
+        {value}
+      </h3>
     </div>
   );
 }

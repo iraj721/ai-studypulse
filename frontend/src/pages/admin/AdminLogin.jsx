@@ -8,8 +8,7 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const onChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -81,10 +80,14 @@ export default function AdminLogin() {
           </button>
         </form>
 
-        <div className="text-center mt-3">
+        <div className="text-center mt-4 pt-2 border-top">
           <small className="text-muted">
-            AI StudyPulse Admin Panel
+            Default Admin: admin@studypulse.com / admin123
           </small>
+        </div>
+
+        <div className="text-center mt-3">
+          <small className="text-muted">AI StudyPulse Admin Panel</small>
         </div>
       </div>
 
