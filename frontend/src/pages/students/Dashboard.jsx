@@ -72,7 +72,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user) return;
-    const socket = io("http://localhost:5000");
+    const socket = io(import.meta.env.VITE_API_URL, {
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+    });
     socket.emit("joinUserRoom", user._id);
     socket.on("newNotification", (data) => {
       setNotifications((prev) => [data, ...prev]);
