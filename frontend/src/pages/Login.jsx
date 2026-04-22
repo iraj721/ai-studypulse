@@ -41,24 +41,18 @@ export default function Login() {
   };
 
   return (
-    <>
-      <AuthCard
-        title="AI StudyPulse"
-        subtitle="Login to access your dashboard"
-        fields={[
-          { name: "email", label: "Email", type: "email", required: true },
-          { name: "password", label: "Password", type: "password", required: true },
-        ]}
-        submitText="Login"
-        onSubmit={handleLogin}
-        linkText="Don't have an account? Register"
-        linkTo="/register"
-      />
-      <div className="text-center mt-4">
-        <Link to="/forgot-password" className="text-sm text-indigo-600 hover:text-indigo-700">
-          Forgot Password?
-        </Link>
-      </div>
-    </>
+    <AuthCard
+      title="AI StudyPulse"
+      subtitle="Login to access your dashboard"
+      fields={[
+        { name: "email", label: "Email", type: "email", required: true },
+        { name: "password", label: "Password", type: "password", required: true },
+      ]}
+      submitText="Login"
+      onSubmit={handleLogin}
+      linkText="Don't have an account? Register"
+      linkTo="/register"
+      forgotPasswordLink={true}  // ← Naya prop
+    />
   );
 }

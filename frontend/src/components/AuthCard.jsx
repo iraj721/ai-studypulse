@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import Stars from "./Stars";
 import Toast from "./Toast";
 
@@ -11,13 +12,17 @@ export default function AuthCard({
   linkText,
   linkTo,
   loading,
+  forgotPasswordLink = false, // New prop
 }) {
-  const [form, setForm] = useState(fields.reduce((acc, f) => ({ ...acc, [f.name]: "" }), {}));
+  const [form, setForm] = useState(
+    fields.reduce((acc, f) => ({ ...acc, [f.name]: "" }), {}),
+  );
   const [showPassword, setShowPassword] = useState({});
   const [toast, setToast] = useState({ message: "", type: "success" });
   const [rippleStyle, setRippleStyle] = useState({});
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleRipple = (e) => {
     const rect = e.target.getBoundingClientRect();
@@ -73,12 +78,20 @@ export default function AuthCard({
                   required={f.required}
                 >
                   {f.options.map((opt, i) => (
-                    <option key={i} value={opt.value}>{opt.label}</option>
+                    <option key={i} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
               ) : (
                 <input
-                  type={f.type === "password" ? (showPassword[f.name] ? "text" : "password") : f.type}
+                  type={
+                    f.type === "password"
+                      ? showPassword[f.name]
+                        ? "text"
+                        : "password"
+                      : f.type
+                  }
                   name={f.name}
                   value={form[f.name]}
                   onChange={handleChange}
@@ -94,14 +107,29 @@ export default function AuthCard({
                 <span
                   className="toggle-password"
                   onClick={(e) => handleToggle(f.name, e)}
-                  title={showPassword[f.name] ? "Hide password 🙈" : "Show password 👀"}
+                  title={
+                    showPassword[f.name]
+                      ? "Hide password 🙈"
+                      : "Show password 👀"
+                  }
                 >
                   {showPassword[f.name] ? "🙈" : "👀"}
-                  {rippleStyle.width && <span className="ripple" style={rippleStyle}></span>}
+                  {rippleStyle.width && (
+                    <span className="ripple" style={rippleStyle}></span>
+                  )}
                 </span>
               )}
             </div>
           ))}
+
+          {/* Forgot Password Link - Right aligned, before button */}
+          {forgotPasswordLink && (
+            <div className="text-end mb-3">
+              <Link to="/forgot-password" className="forgot-link">
+                Forgot Password?
+              </Link>
+            </div>
+          )}
 
           <button
             type="submit"
@@ -114,7 +142,9 @@ export default function AuthCard({
 
         {linkText && linkTo && (
           <div className="d-flex justify-content-between mt-3">
-            <a href={linkTo} className="link-primary small">{linkText}</a>
+            <a href={linkTo} className="link-primary small">
+              {linkText}
+            </a>
           </div>
         )}
       </div>
@@ -198,6 +228,18 @@ export default function AuthCard({
           font-weight: 500;
         }
         a.link-primary:hover {
+          text-decoration: underline;
+        }
+        /* Forgot Password Link Style */
+        .forgot-link {
+          color: #0066ff;
+          text-decoration: none;
+          font-size: 0.85rem;
+          font-weight: 500;
+          transition: all 0.2s ease;
+        }
+        .forgot-link:hover {
+          color: #005ce6;
           text-decoration: underline;
         }
         @keyframes fadeInUp {
