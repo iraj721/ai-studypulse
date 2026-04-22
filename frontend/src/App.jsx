@@ -4,6 +4,9 @@ import AppLayout from "./layouts/AppLayout";
 
 /* ================= PUBLIC ================= */
 import Home from "./pages/Home";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 /* ================= STUDENT ================= */
@@ -57,6 +60,9 @@ export default function App() {
       <Routes>
         {/* ========= PUBLIC ========= */}
         <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 

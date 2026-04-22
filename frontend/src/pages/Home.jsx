@@ -103,30 +103,24 @@ export default function Home() {
       </section>
 
       {/* Footer Section */}
-      <footer className="text-center footer py-4 bg-light shadow-sm mt-auto">
-        <p className="mb-1 text-muted">
-          AI StudyPulse &copy; {new Date().getFullYear()} — Intelligent
-          MERN-based learning platform.
-        </p>
-        <div className="d-flex justify-content-center gap-3 flex-wrap">
-          <a
-            href="#about"
-            className="text-decoration-none text-primary footer-link"
-          >
-            About
-          </a>
-          <a
-            href="#contact"
-            className="text-decoration-none text-primary footer-link"
-          >
-            Contact
-          </a>
-          <a
-            href="#privacy"
-            className="text-decoration-none text-primary footer-link"
-          >
-            Privacy Policy
-          </a>
+      {/* Footer Section */}
+      <footer className="footer-section">
+        <div className="footer-container">
+          <p className="footer-copyright">
+            AI StudyPulse &copy; {new Date().getFullYear()} — Intelligent
+            MERN-based learning platform.
+          </p>
+          <div className="footer-links">
+            <Link to="/about" className="footer-link">
+              About
+            </Link>
+            <Link to="/contact" className="footer-link">
+              Contact
+            </Link>
+            <Link to="/privacy" className="footer-link">
+              Privacy Policy
+            </Link>
+          </div>
         </div>
       </footer>
 
@@ -249,24 +243,49 @@ export default function Home() {
 
 /* ================= FOOTER ================= */
 
-.footer-link {
-  position: relative;
-  transition: color 0.3s;
-}
-
-.footer-link::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -2px;
-  width: 0;
-  height: 2px;
-  background-color: #2563eb;
-  transition: width 0.3s ease;
-}
-
-.footer-link:hover::after {
+.footer-section {
+  background: rgba(255,255,255,0.95);
+  padding: 20px 16px;
+  margin-top: 60px;
+  border-top: 1px solid rgba(0,0,0,0.05);
   width: 100%;
+}
+
+.footer-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 0 12px;
+}
+
+.footer-copyright {
+  color: #6b7280;
+  font-size: 0.8rem;
+  margin-bottom: 10px;
+  line-height: 1.4;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.footer-link {
+  color: #4f46e5;
+  text-decoration: none;
+  font-size: 0.8rem;
+  transition: color 0.3s ease;
+  white-space: nowrap;
+}
+
+.footer-link:hover {
+  color: #6366f1;
+  text-decoration: underline;
 }
 
 /* ================= RESPONSIVE ================= */
@@ -311,6 +330,89 @@ export default function Home() {
   }
 }
 
+/* Desktop */
+@media (min-width: 769px) {
+  .footer-container {
+    max-width: 500px;
+  }
+  
+  .footer-copyright {
+    font-size: 0.85rem;
+  }
+  
+  .footer-link {
+    font-size: 0.85rem;
+  }
+}
+
+/* Tablet */
+@media (max-width: 768px) {
+  .footer-section {
+    padding: 18px 12px;
+  }
+  
+  .footer-container {
+    max-width: 400px;
+    padding: 0 8px;
+  }
+  
+  .footer-copyright {
+    font-size: 0.7rem;
+  }
+  
+  .footer-links {
+    gap: 16px;
+  }
+  
+  .footer-link {
+    font-size: 0.7rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .footer-section {
+    padding: 16px 10px;
+  }
+  
+  .footer-container {
+    max-width: 320px;
+    padding: 0 6px;
+  }
+  
+  .footer-copyright {
+    font-size: 0.65rem;
+    margin-bottom: 8px;
+  }
+  
+  .footer-links {
+    gap: 12px;
+  }
+  
+  .footer-link {
+    font-size: 0.65rem;
+    white-space: nowrap;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 380px) {
+  .footer-container {
+    max-width: 280px;
+  }
+  
+  .footer-copyright {
+    font-size: 0.6rem;
+  }
+  
+  .footer-link {
+    font-size: 0.6rem;
+  }
+  
+  .footer-links {
+    gap: 10px;
+  }
+}
 
       `}</style>
     </div>
