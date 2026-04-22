@@ -1,6 +1,34 @@
 {
   "rewrites": [
     {
+      "source": "/admin/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/activities/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/classes/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/chat",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/notes/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/quizzes/(.*)",
+      "destination": "/index.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
