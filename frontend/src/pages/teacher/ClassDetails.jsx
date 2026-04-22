@@ -48,7 +48,7 @@ export default function ClassDetails() {
       >
         ⬅ Back
       </button>
-      {/* Header */}
+
       <div
         className="card border-0 mb-4"
         style={{
@@ -67,7 +67,6 @@ export default function ClassDetails() {
         </div>
       </div>
 
-      {/* Action Cards */}
       <div className="row g-4">
         {[
           {
@@ -119,8 +118,7 @@ export default function ClassDetails() {
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow =
-                  "0 6px 20px rgba(0,0,0,0.1)";
+                e.currentTarget.style.boxShadow = "0 6px 20px rgba(0,0,0,0.1)";
                 e.currentTarget.style.background = "#fff";
               }}
             >
@@ -144,6 +142,17 @@ export default function ClassDetails() {
           </div>
         ))}
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .container { padding-left: 16px; padding-right: 16px; }
+          .row.g-4 { flex-direction: column; }
+          .row.g-4 .col-sm-6.col-lg-3 { width: 100%; }
+          .card-body.d-flex.flex-column { padding: 1.5rem 1rem; }
+          .card-body .fs-1 { font-size: 2rem; }
+          h2.fw-bold { font-size: 1.5rem; }
+        }
+      `}</style>
     </div>
   );
 }

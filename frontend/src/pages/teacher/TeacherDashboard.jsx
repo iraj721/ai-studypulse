@@ -43,7 +43,6 @@ export default function TeacherDashboard() {
 
   return (
     <div className="container py-5">
-      {/* Header */}
       <div
         className="card border-0 mb-4"
         style={{
@@ -145,7 +144,7 @@ export default function TeacherDashboard() {
                   <button
                     className="btn btn-sm btn-outline-danger"
                     onClick={(e) => {
-                      e.stopPropagation(); // 🔥 card click prevent
+                      e.stopPropagation();
                       setClassToDelete(c);
                     }}
                   >
@@ -157,7 +156,7 @@ export default function TeacherDashboard() {
           ))}
         </div>
       )}
-      {/* 🔴 Delete Confirmation Card */}
+
       {classToDelete && (
         <div className="delete-overlay">
           <div className="delete-modal bg-white shadow rounded-3">
@@ -189,33 +188,80 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
+
       <style>{`
-.delete-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100000;
-}
+        .delete-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 100000;
+        }
 
-.delete-modal {
-  width: 360px;
-  animation: scaleIn 0.2s ease-out;
-}
+        .delete-modal {
+          width: 360px;
+          animation: scaleIn 0.2s ease-out;
+        }
 
-@keyframes scaleIn {
-  from {
-    transform: scale(0.9);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-`}</style>
+        @keyframes scaleIn {
+          from {
+            transform: scale(0.9);
+            opacity: 0;
+          }
+          to {
+            transform: scale(1);
+            opacity: 1;
+          }
+        }
+
+        @media (max-width: 768px) {
+          .container {
+            padding-left: 16px;
+            padding-right: 16px;
+          }
+          
+          .card-body.d-flex {
+            flex-direction: column;
+            text-align: center;
+          }
+          
+          .btn-light.fw-semibold {
+            width: 100%;
+          }
+          
+          .row.g-4 {
+            flex-direction: column;
+          }
+          
+          .row.g-4 .col-sm-6.col-lg-4 {
+            width: 100%;
+          }
+          
+          .card-footer.d-flex {
+            flex-direction: column;
+            gap: 10px;
+          }
+          
+          .card-footer .btn-outline-danger {
+            width: 100%;
+          }
+          
+          .delete-modal {
+            width: 90%;
+            margin: 0 16px;
+          }
+          
+          .d-flex.justify-content-end.gap-2 {
+            flex-direction: column;
+          }
+          
+          .d-flex.justify-content-end.gap-2 button {
+            width: 100%;
+          }
+        }
+      `}</style>
     </div>
   );
 }

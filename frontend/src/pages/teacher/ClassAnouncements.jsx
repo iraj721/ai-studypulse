@@ -19,9 +19,14 @@ export default function ClassAnnouncements() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const [modal, setModal] = useState({ show: false, type: "", announcement: null, newText: "" });
+  const [modal, setModal] = useState({
+    show: false,
+    type: "",
+    announcement: null,
+    newText: "",
+  });
   const [repliesOpen, setRepliesOpen] = useState({});
-  const [replyText, setReplyText] = useState({}); // store teacher replies per announcement
+  const [replyText, setReplyText] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -75,7 +80,10 @@ export default function ClassAnnouncements() {
 
   const editAnnouncement = async () => {
     try {
-      await api.put(`/teacher/classes/${id}/announcement/${modal.announcement._id}`, { text: modal.newText });
+      await api.put(
+        `/teacher/classes/${id}/announcement/${modal.announcement._id}`,
+        { text: modal.newText },
+      );
       setToast("Announcement updated successfully!");
       fetchData();
     } catch (err) {
@@ -86,14 +94,17 @@ export default function ClassAnnouncements() {
     }
   };
 
-  // Teacher reply to a student
   const sendReply = async (announcementId) => {
-    if (!replyText[announcementId]?.trim()) return setToast("Reply cannot be empty");
+    if (!replyText[announcementId]?.trim())
+      return setToast("Reply cannot be empty");
 
     try {
-      await api.post(`/teacher/classes/${id}/announcement/${announcementId}/reply`, {
-        text: replyText[announcementId],
-      });
+      await api.post(
+        `/teacher/classes/${id}/announcement/${announcementId}/reply`,
+        {
+          text: replyText[announcementId],
+        },
+      );
       setReplyText({ ...replyText, [announcementId]: "" });
       fetchData();
     } catch (err) {
@@ -106,7 +117,6 @@ export default function ClassAnnouncements() {
 
   const isTeacher = userRole === "teacher";
 
-  // Pagination logic
   const indexOfLast = currentPage * itemsPerPage;
   const indexOfFirst = indexOfLast - itemsPerPage;
   const currentAnnouncements = announcements.slice(indexOfFirst, indexOfLast);
@@ -116,12 +126,13 @@ export default function ClassAnnouncements() {
     <div className="container py-5 position-relative">
       <Toast message={toast} onClose={() => setToast("")} />
 
-      {/* Back Button */}
-      <button className="btn btn-outline-secondary mb-4" onClick={() => navigate(-1)}>
+      <button
+        className="btn btn-outline-secondary mb-4"
+        onClick={() => navigate(-1)}
+      >
         ⬅ Back
       </button>
 
-      {/* Header */}
       <div
         className="card border-0 mb-4"
         style={{
@@ -140,9 +151,11 @@ export default function ClassAnnouncements() {
         </div>
       </div>
 
-      {/* Teacher Create Announcement */}
       {isTeacher && (
-        <div className="card mb-4 shadow-sm border-0" style={{ borderRadius: "12px" }}>
+        <div
+          className="card mb-4 shadow-sm border-0"
+          style={{ borderRadius: "12px" }}
+        >
           <div className="card-body d-flex flex-column gap-2">
             <textarea
               className="form-control shadow-sm"
@@ -151,14 +164,16 @@ export default function ClassAnnouncements() {
               onChange={(e) => setText(e.target.value)}
               style={{ borderRadius: "8px", minHeight: "80px" }}
             />
-            <button className="btn btn-primary align-self-end" onClick={createAnnouncement}>
+            <button
+              className="btn btn-primary align-self-end"
+              onClick={createAnnouncement}
+            >
               Post Announcement
             </button>
           </div>
         </div>
       )}
 
-      {/* Previous Announcements */}
       {currentAnnouncements.length === 0 ? (
         <div className="card p-4 text-center text-muted border-0 shadow-sm">
           No announcements yet.
@@ -178,27 +193,37 @@ export default function ClassAnnouncements() {
               <div className="d-flex justify-content-between align-items-start">
                 <div>
                   <p className="mb-1">{a.text}</p>
-                  <small className="text-muted">{new Date(a.createdAt).toLocaleString()}</small>
+                  <small className="text-muted">
+                    {new Date(a.createdAt).toLocaleString()}
+                  </small>
 
-                  {/* Replies */}
                   {a.replies?.length > 0 && (
                     <div className="mt-2">
                       <button
                         className="btn btn-sm btn-outline-secondary mb-1"
                         onClick={() =>
-                          setRepliesOpen({ ...repliesOpen, [a._id]: !repliesOpen[a._id] })
+                          setRepliesOpen({
+                            ...repliesOpen,
+                            [a._id]: !repliesOpen[a._id],
+                          })
                         }
                       >
-                        {repliesOpen[a._id] ? "Hide Replies" : `View Replies (${a.replies.length})`}
+                        {repliesOpen[a._id]
+                          ? "Hide Replies"
+                          : `View Replies (${a.replies.length})`}
                       </button>
                       {repliesOpen[a._id] &&
                         a.replies.map((r, i) => (
                           <div
                             key={i}
                             className="card mt-1 p-2"
-                            style={{ backgroundColor: "#f8f9fa", fontSize: "0.9rem" }}
+                            style={{
+                              backgroundColor: "#f8f9fa",
+                              fontSize: "0.9rem",
+                            }}
                           >
-                            <strong>{r.studentName || r.teacherName}</strong>: {r.text}{" "}
+                            <strong>{r.studentName || r.teacherName}</strong>:{" "}
+                            {r.text}{" "}
                             <small className="text-muted">
                               ({new Date(r.createdAt).toLocaleString()})
                             </small>
@@ -207,7 +232,6 @@ export default function ClassAnnouncements() {
                     </div>
                   )}
 
-                  {/* Teacher reply input */}
                   {isTeacher && (
                     <div className="mt-2 d-flex gap-2">
                       <input
@@ -215,7 +239,12 @@ export default function ClassAnnouncements() {
                         className="form-control form-control-sm"
                         placeholder="Write a reply..."
                         value={replyText[a._id] || ""}
-                        onChange={(e) => setReplyText({ ...replyText, [a._id]: e.target.value })}
+                        onChange={(e) =>
+                          setReplyText({
+                            ...replyText,
+                            [a._id]: e.target.value,
+                          })
+                        }
                       />
                       <button
                         className="btn btn-sm btn-primary"
@@ -232,14 +261,25 @@ export default function ClassAnnouncements() {
                     <button
                       className="btn btn-sm btn-outline-primary"
                       onClick={() =>
-                        setModal({ show: true, type: "edit", announcement: a, newText: a.text })
+                        setModal({
+                          show: true,
+                          type: "edit",
+                          announcement: a,
+                          newText: a.text,
+                        })
                       }
                     >
                       Edit
                     </button>
                     <button
                       className="btn btn-sm btn-outline-danger"
-                      onClick={() => setModal({ show: true, type: "delete", announcement: a })}
+                      onClick={() =>
+                        setModal({
+                          show: true,
+                          type: "delete",
+                          announcement: a,
+                        })
+                      }
                     >
                       Delete
                     </button>
@@ -251,7 +291,6 @@ export default function ClassAnnouncements() {
         ))
       )}
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="d-flex justify-content-center align-items-center gap-2 py-3">
           <button
@@ -274,13 +313,15 @@ export default function ClassAnnouncements() {
         </div>
       )}
 
-      {/* Modal for Edit/Delete */}
       {modal.show && (
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
           style={{ background: "rgba(0,0,0,0.4)", zIndex: 1050 }}
         >
-          <div className="card p-4" style={{ maxWidth: "400px", borderRadius: "12px" }}>
+          <div
+            className="card p-4"
+            style={{ maxWidth: "400px", borderRadius: "12px" }}
+          >
             {modal.type === "delete" && (
               <>
                 <h5 className="mb-3">Confirm Delete</h5>
@@ -288,11 +329,21 @@ export default function ClassAnnouncements() {
                 <div className="d-flex justify-content-end gap-2 mt-3">
                   <button
                     className="btn btn-outline-secondary"
-                    onClick={() => setModal({ show: false, type: "", announcement: null, newText: "" })}
+                    onClick={() =>
+                      setModal({
+                        show: false,
+                        type: "",
+                        announcement: null,
+                        newText: "",
+                      })
+                    }
                   >
                     Cancel
                   </button>
-                  <button className="btn btn-danger" onClick={() => deleteAnnouncement(modal.announcement)}>
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => deleteAnnouncement(modal.announcement)}
+                  >
                     Delete
                   </button>
                 </div>
@@ -304,17 +355,29 @@ export default function ClassAnnouncements() {
                 <textarea
                   className="form-control mb-3"
                   value={modal.newText}
-                  onChange={(e) => setModal({ ...modal, newText: e.target.value })}
+                  onChange={(e) =>
+                    setModal({ ...modal, newText: e.target.value })
+                  }
                   style={{ minHeight: "80px" }}
                 />
                 <div className="d-flex justify-content-end gap-2">
                   <button
                     className="btn btn-outline-secondary"
-                    onClick={() => setModal({ show: false, type: "", announcement: null, newText: "" })}
+                    onClick={() =>
+                      setModal({
+                        show: false,
+                        type: "",
+                        announcement: null,
+                        newText: "",
+                      })
+                    }
                   >
                     Cancel
                   </button>
-                  <button className="btn btn-primary" onClick={editAnnouncement}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={editAnnouncement}
+                  >
                     Save
                   </button>
                 </div>
@@ -323,6 +386,20 @@ export default function ClassAnnouncements() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 768px) {
+          .container { padding-left: 16px; padding-right: 16px; }
+          .card-body.d-flex.flex-column-flex-md-row { flex-direction: column; text-align: center; }
+          .d-flex.justify-content-between.align-items-start { flex-direction: column; gap: 12px; }
+          .d-flex.gap-2 { flex-direction: column; width: 100%; }
+          .d-flex.gap-2 button { width: 100%; }
+          .mt-2.d-flex.gap-2 { flex-direction: column; }
+          .mt-2.d-flex.gap-2 input, .mt-2.d-flex.gap-2 button { width: 100%; }
+          .card { margin-bottom: 16px; }
+          .modal-content { width: calc(100% - 32px); margin: 0 auto; }
+        }
+      `}</style>
     </div>
   );
 }

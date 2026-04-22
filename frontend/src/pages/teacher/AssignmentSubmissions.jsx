@@ -53,9 +53,7 @@ export default function AssignmentSubmissions() {
 
   const openFile = (fileUrl) => {
     if (!fileUrl) return;
-    const url = fileUrl.startsWith("http")
-      ? fileUrl
-      : `${BASE_URL}${fileUrl}`;
+    const url = fileUrl.startsWith("http") ? fileUrl : `${BASE_URL}${fileUrl}`;
     window.open(
       `https://docs.google.com/viewer?url=${encodeURIComponent(
         url
@@ -78,9 +76,7 @@ export default function AssignmentSubmissions() {
       );
 
       setSubmissions((prev) =>
-        prev.map((s) =>
-          s._id === submissionId ? { ...s, marks } : s
-        )
+        prev.map((s) => (s._id === submissionId ? { ...s, marks } : s))
       );
 
       setMarksUploaded((prev) => ({
@@ -112,9 +108,7 @@ export default function AssignmentSubmissions() {
         }}
       >
         <div className="card-body d-flex justify-content-between align-items-center">
-          <h3 className="fw-bold mb-0">
-            📥 Submissions — {assignment?.title}
-          </h3>
+          <h3 className="fw-bold mb-0">📥 Submissions — {assignment?.title}</h3>
           <span className="badge bg-light text-dark">
             Total Marks: {assignment?.marks ?? 0}
           </span>
@@ -197,6 +191,19 @@ export default function AssignmentSubmissions() {
           ))}
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 768px) {
+          .container { padding-left: 16px; padding-right: 16px; }
+          .card-body.d-flex { flex-direction: column; text-align: center; gap: 12px; }
+          .row.g-3 { flex-direction: column; }
+          .row.g-3 .col-md-6 { width: 100%; }
+          .d-flex.align-items-center.gap-2 { flex-direction: column; align-items: stretch !important; }
+          .d-flex.align-items-center.gap-2 input { max-width: 100% !important; width: 100%; }
+          .btn-sm { width: 100%; margin-top: 4px; }
+          .card-body { padding: 16px; }
+        }
+      `}</style>
     </div>
   );
 }

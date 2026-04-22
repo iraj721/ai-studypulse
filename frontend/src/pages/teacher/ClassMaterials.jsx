@@ -17,7 +17,6 @@ export default function ClassMaterials() {
   const [className, setClassName] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Edit / Delete states
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
@@ -66,10 +65,12 @@ export default function ClassMaterials() {
 
   const openFile = (fileUrl) => {
     if (!fileUrl) return;
-    const absoluteUrl = fileUrl.startsWith("http") ? fileUrl : `${BASE_URL}${fileUrl}`;
+    const absoluteUrl = fileUrl.startsWith("http")
+      ? fileUrl
+      : `${BASE_URL}${fileUrl}`;
     window.open(
       `https://docs.google.com/viewer?url=${encodeURIComponent(absoluteUrl)}&embedded=true`,
-      "_blank"
+      "_blank",
     );
   };
 
@@ -89,7 +90,7 @@ export default function ClassMaterials() {
 
     await api.put(
       `/teacher/classes/${id}/material/${selectedMaterial._id}`,
-      formData
+      formData,
     );
 
     setShowEdit(false);
@@ -97,9 +98,7 @@ export default function ClassMaterials() {
   };
 
   const deleteMaterial = async () => {
-    await api.delete(
-      `/teacher/classes/${id}/material/${selectedMaterial._id}`
-    );
+    await api.delete(`/teacher/classes/${id}/material/${selectedMaterial._id}`);
     setShowDelete(false);
     fetchData();
   };
@@ -107,13 +106,19 @@ export default function ClassMaterials() {
   if (loading) return <Spinner message="Loading materials..." />;
 
   const indexOfLast = currentPage * itemsPerPage;
-  const currentMaterials = materials.slice(indexOfLast - itemsPerPage, indexOfLast);
+  const currentMaterials = materials.slice(
+    indexOfLast - itemsPerPage,
+    indexOfLast,
+  );
   const totalPages = Math.ceil(materials.length / itemsPerPage);
   const isTeacher = userRole === "teacher";
 
   return (
     <div className="container py-5">
-      <button className="btn btn-outline-secondary mb-4" onClick={() => navigate(-1)}>
+      <button
+        className="btn btn-outline-secondary mb-4"
+        onClick={() => navigate(-1)}
+      >
         ⬅ Back
       </button>
 
@@ -134,31 +139,63 @@ export default function ClassMaterials() {
 
       {isTeacher && (
         <div className="card mb-4 shadow-sm border-0 p-3">
-          <input className="form-control mb-2" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea className="form-control mb-2" rows="3" placeholder="Content" value={content} onChange={(e) => setContent(e.target.value)} />
-          <input type="file" className="form-control mb-2" onChange={(e) => setFile(e.target.files[0])} />
-          <button className="btn btn-info" onClick={uploadMaterial}>Upload Material</button>
+          <input
+            className="form-control mb-2"
+            placeholder="Title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <textarea
+            className="form-control mb-2"
+            rows="3"
+            placeholder="Content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+          />
+          <input
+            type="file"
+            className="form-control mb-2"
+            onChange={(e) => setFile(e.target.files[0])}
+          />
+          <button className="btn btn-info" onClick={uploadMaterial}>
+            Upload Material
+          </button>
         </div>
       )}
 
       <div className="row g-3">
         {currentMaterials.map((m) => (
           <div key={m._id} className="col-md-6">
-            <div className="card shadow-sm border-0" style={{ borderRadius: "12px" }}>
+            <div
+              className="card shadow-sm border-0"
+              style={{ borderRadius: "12px" }}
+            >
               <div className="card-body">
                 <h5>{m.title}</h5>
                 {m.content && <p className="text-muted">{m.content}</p>}
                 {m.fileUrl && (
-                  <button className="btn btn-sm btn-outline-primary me-2" onClick={() => openFile(m.fileUrl)}>
+                  <button
+                    className="btn btn-sm btn-outline-primary me-2"
+                    onClick={() => openFile(m.fileUrl)}
+                  >
                     📎 View
                   </button>
                 )}
                 {isTeacher && (
                   <>
-                    <button className="btn btn-sm btn-outline-warning me-2" onClick={() => openEditModal(m)}>
+                    <button
+                      className="btn btn-sm btn-outline-warning me-2"
+                      onClick={() => openEditModal(m)}
+                    >
                       Edit
                     </button>
-                    <button className="btn btn-sm btn-outline-danger" onClick={() => { setSelectedMaterial(m); setShowDelete(true); }}>
+                    <button
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => {
+                        setSelectedMaterial(m);
+                        setShowDelete(true);
+                      }}
+                    >
                       Delete
                     </button>
                   </>
@@ -169,38 +206,74 @@ export default function ClassMaterials() {
         ))}
       </div>
 
-      {/* EDIT MODAL */}
       {showEdit && (
-        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.5)" }}>
+        <div
+          className="modal fade show d-block"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+        >
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
                 <h5>Edit Material</h5>
-                <button className="btn-close" onClick={() => setShowEdit(false)} />
+                <button
+                  className="btn-close"
+                  onClick={() => setShowEdit(false)}
+                />
               </div>
               <div className="modal-body">
-                <input className="form-control mb-2" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
-                <textarea className="form-control mb-2" value={editContent} onChange={(e) => setEditContent(e.target.value)} />
-                <input type="file" className="form-control" onChange={(e) => setEditFile(e.target.files[0])} />
+                <input
+                  className="form-control mb-2"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                />
+                <textarea
+                  className="form-control mb-2"
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                />
+                <input
+                  type="file"
+                  className="form-control"
+                  onChange={(e) => setEditFile(e.target.files[0])}
+                />
               </div>
               <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setShowEdit(false)}>Cancel</button>
-                <button className="btn btn-primary" onClick={updateMaterial}>Save</button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowEdit(false)}
+                >
+                  Cancel
+                </button>
+                <button className="btn btn-primary" onClick={updateMaterial}>
+                  Save
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* DELETE MODAL */}
       {showDelete && (
-        <div className="modal fade show d-block" style={{ background: "rgba(0,0,0,0.5)" }}>
+        <div
+          className="modal fade show d-block"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+        >
           <div className="modal-dialog modal-sm">
             <div className="modal-content">
               <div className="modal-body text-center">
                 <p>Delete this material?</p>
-                <button className="btn btn-danger me-2" onClick={deleteMaterial}>Delete</button>
-                <button className="btn btn-secondary" onClick={() => setShowDelete(false)}>Cancel</button>
+                <button
+                  className="btn btn-danger me-2"
+                  onClick={deleteMaterial}
+                >
+                  Delete
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={() => setShowDelete(false)}
+                >
+                  Cancel
+                </button>
               </div>
             </div>
           </div>
@@ -209,11 +282,42 @@ export default function ClassMaterials() {
 
       {totalPages > 1 && (
         <div className="d-flex justify-content-center gap-2 mt-4">
-          <button className="btn btn-outline-secondary btn-sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>⬅</button>
-          <span>{currentPage} / {totalPages}</span>
-          <button className="btn btn-outline-secondary btn-sm" disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)}>➡</button>
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((p) => p - 1)}
+          >
+            ⬅
+          </button>
+          <span>
+            {currentPage} / {totalPages}
+          </span>
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            disabled={currentPage === totalPages}
+            onClick={() => setCurrentPage((p) => p + 1)}
+          >
+            ➡
+          </button>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 768px) {
+          .container { padding-left: 16px; padding-right: 16px; }
+          .card-body.d-flex { flex-direction: column; text-align: center; gap: 12px; }
+          .row.g-3 { flex-direction: column; }
+          .row.g-3 .col-md-6 { width: 100%; }
+          .card.mb-4.shadow-sm.p-3 .form-control,
+          .card.mb-4.shadow-sm.p-3 textarea,
+          .card.mb-4.shadow-sm.p-3 input[type="file"] { font-size: 14px; }
+          .card.mb-4.shadow-sm.p-3 button { width: 100%; }
+          .modal-dialog { margin: 16px; }
+          .modal-content { width: calc(100% - 32px); }
+          .d-flex.gap-2 { flex-direction: column; }
+          .d-flex.gap-2 button { width: 100%; margin-bottom: 8px; }
+        }
+      `}</style>
     </div>
   );
 }

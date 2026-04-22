@@ -8,12 +8,12 @@ export default function CreateClass() {
   const [form, setForm] = useState({ name: "", subject: "" });
   const [loading, setLoading] = useState(false);
 
-  const onChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.subject.trim()) return alert("Class name and subject are required");
+    if (!form.name.trim() || !form.subject.trim())
+      return alert("Class name and subject are required");
 
     setLoading(true);
     try {
@@ -28,11 +28,10 @@ export default function CreateClass() {
     }
   };
 
-    if (loading) return <Spinner message="Creating Class..." />;
+  if (loading) return <Spinner message="Creating Class..." />;
 
   return (
     <div className="container py-5">
-      {/* Header */}
       <div
         className="card border-0 mb-4"
         style={{
@@ -43,11 +42,12 @@ export default function CreateClass() {
       >
         <div className="card-body">
           <h2 className="fw-bold mb-1">➕ Create New Class</h2>
-          <p className="mb-0 opacity-75">Fill in the details below to create a class.</p>
+          <p className="mb-0 opacity-75">
+            Fill in the details below to create a class.
+          </p>
         </div>
       </div>
 
-      {/* Form Card */}
       <div
         className="card border-0 shadow-sm p-4"
         style={{ maxWidth: "600px", margin: "0 auto", borderRadius: "12px" }}
@@ -86,7 +86,10 @@ export default function CreateClass() {
           >
             {loading ? (
               <>
-                <span className="spinner-border spinner-border-sm me-2" role="status" />
+                <span
+                  className="spinner-border spinner-border-sm me-2"
+                  role="status"
+                />
                 Creating...
               </>
             ) : (
@@ -95,6 +98,16 @@ export default function CreateClass() {
           </button>
         </form>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .container { padding-left: 16px; padding-right: 16px; }
+          .card.p-4 { padding: 20px 16px !important; max-width: 100% !important; }
+          .form-control { font-size: 14px; }
+          button[type="submit"] { width: 100%; }
+          h2.fw-bold { font-size: 1.4rem; }
+        }
+      `}</style>
     </div>
   );
 }

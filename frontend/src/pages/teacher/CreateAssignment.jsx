@@ -4,13 +4,13 @@ import api from "../../services/api";
 import Spinner from "../../components/Spinner";
 
 export default function CreateAssignment() {
-  const { id } = useParams(); // class ID
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
   const [dueDate, setDueDate] = useState("");
-  const [marks, setMarks] = useState(""); // ✅ new field
+  const [marks, setMarks] = useState("");
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -24,9 +24,9 @@ export default function CreateAssignment() {
     const formData = new FormData();
     formData.append("title", title);
     formData.append("instructions", instructions);
-    formData.append("marks", marks || ""); // ✅ marks optional
+    formData.append("marks", marks || "");
     if (dueDate) formData.append("dueDate", dueDate);
-    if (file) formData.append("attachment", file); // ✅ backend expects "attachment"
+    if (file) formData.append("attachment", file);
 
     try {
       setLoading(true);
@@ -47,12 +47,13 @@ export default function CreateAssignment() {
 
   return (
     <div className="container py-5">
-      {/* Back Button */}
-      <button className="btn btn-outline-secondary mb-4" onClick={() => navigate(-1)}>
+      <button
+        className="btn btn-outline-secondary mb-4"
+        onClick={() => navigate(-1)}
+      >
         ⬅ Back
       </button>
 
-      {/* Header */}
       <div
         className="card mb-4 border-0 shadow-sm"
         style={{
@@ -67,8 +68,10 @@ export default function CreateAssignment() {
         </div>
       </div>
 
-      {/* Form Card */}
-      <div className="card shadow-sm border-0 p-4" style={{ borderRadius: "12px" }}>
+      <div
+        className="card shadow-sm border-0 p-4"
+        style={{ borderRadius: "12px" }}
+      >
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
             <label className="form-label fw-semibold">Title</label>
@@ -104,9 +107,10 @@ export default function CreateAssignment() {
             />
           </div>
 
-          {/* ✅ Marks */}
           <div className="mb-3">
-            <label className="form-label fw-semibold">Total Marks (optional)</label>
+            <label className="form-label fw-semibold">
+              Total Marks (optional)
+            </label>
             <input
               type="number"
               className="form-control shadow-sm"
@@ -117,7 +121,9 @@ export default function CreateAssignment() {
           </div>
 
           <div className="mb-4">
-            <label className="form-label fw-semibold">Attachment (optional)</label>
+            <label className="form-label fw-semibold">
+              Attachment (optional)
+            </label>
             <input
               type="file"
               className="form-control shadow-sm"
@@ -125,11 +131,25 @@ export default function CreateAssignment() {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ minWidth: "150px" }}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ minWidth: "150px" }}
+          >
             Create Assignment
           </button>
         </form>
       </div>
+
+      <style>{`
+        @media (max-width: 768px) {
+          .container { padding-left: 16px; padding-right: 16px; }
+          .card.p-4 { padding: 20px 16px !important; }
+          .form-control { font-size: 14px; }
+          button[type="submit"] { width: 100%; }
+          .card-body h3 { font-size: 1.3rem; }
+        }
+      `}</style>
     </div>
   );
 }

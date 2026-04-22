@@ -281,6 +281,36 @@ export default function Home() {
   .hero-title { font-size: 1.9rem; }
 }
 
+/* Additional Mobile Responsive - Home */
+@media (max-width: 768px) {
+  .hero-buttons {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .hero-buttons .btn {
+    width: 200px;
+  }
+  
+  .row.g-4 {
+    flex-direction: column;
+  }
+  
+  .row.g-4 .col-md-4 {
+    width: 100%;
+  }
+  
+  .feature-card {
+    padding: 20px 16px !important;
+  }
+  
+  .footer .d-flex {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
 
       `}</style>
     </div>

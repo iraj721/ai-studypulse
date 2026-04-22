@@ -59,12 +59,8 @@ export default function ClassStudents() {
       await api.delete(`/teacher/classes/${id}/students/${modal.student._id}`);
       setToast("Student removed successfully");
 
-      setStudents((prev) =>
-        prev.filter((s) => s._id !== modal.student._id)
-      );
-      setFiltered((prev) =>
-        prev.filter((s) => s._id !== modal.student._id)
-      );
+      setStudents((prev) => prev.filter((s) => s._id !== modal.student._id));
+      setFiltered((prev) => prev.filter((s) => s._id !== modal.student._id));
     } catch (err) {
       console.error(err);
       setToast("Failed to remove student");
@@ -84,7 +80,6 @@ export default function ClassStudents() {
     <div className="container py-5">
       <Toast message={toast} onClose={() => setToast("")} />
 
-      {/* Back Button */}
       <button
         className="btn btn-outline-secondary mb-4"
         onClick={() => navigate(-1)}
@@ -92,7 +87,6 @@ export default function ClassStudents() {
         ⬅ Back
       </button>
 
-      {/* Header */}
       <div
         className="card border-0 mb-4"
         style={{
@@ -119,7 +113,6 @@ export default function ClassStudents() {
         </div>
       </div>
 
-      {/* Students List */}
       {currentStudents.length === 0 ? (
         <div className="card border-0 shadow-sm p-4 text-center">
           <p className="text-muted mb-0">
@@ -129,7 +122,11 @@ export default function ClassStudents() {
       ) : (
         <div
           className="card shadow-sm border-0"
-          style={{ borderRadius: "12px", maxHeight: "500px", overflowY: "auto" }}
+          style={{
+            borderRadius: "12px",
+            maxHeight: "500px",
+            overflowY: "auto",
+          }}
         >
           <ul className="list-group list-group-flush">
             {currentStudents.map((s, index) => (
@@ -172,9 +169,7 @@ export default function ClassStudents() {
                   </div>
                 </div>
                 <div className="d-flex align-items-center gap-2">
-                  <span className="text-muted">
-                    {indexOfFirst + index + 1}
-                  </span>
+                  <span className="text-muted">{indexOfFirst + index + 1}</span>
                   <button
                     className="btn btn-sm btn-outline-danger"
                     onClick={() => confirmRemoveStudent(s)}
@@ -186,7 +181,6 @@ export default function ClassStudents() {
             ))}
           </ul>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="d-flex justify-content-center align-items-center gap-2 py-2">
               <button
@@ -211,7 +205,6 @@ export default function ClassStudents() {
         </div>
       )}
 
-      {/* Remove Confirmation Modal */}
       {modal.show && (
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
@@ -237,6 +230,21 @@ export default function ClassStudents() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 768px) {
+          .container { padding-left: 16px; padding-right: 16px; }
+          .card-body.d-flex { flex-direction: column; text-align: center; }
+          .card-body input.form-control { max-width: 100% !important; width: 100%; }
+          .list-group-item { flex-direction: column; text-align: center; gap: 12px; }
+          .d-flex.align-items-center.gap-3 { flex-direction: column; }
+          .d-flex.align-items-center.gap-2 { flex-direction: column; width: 100%; }
+          .d-flex.align-items-center.gap-2 button { width: 100%; }
+          .rounded-circle { width: 50px !important; height: 50px !important; margin-bottom: 8px; }
+          .card { max-height: none !important; }
+          .modal-content { margin: 16px; width: calc(100% - 32px); }
+        }
+      `}</style>
     </div>
   );
 }

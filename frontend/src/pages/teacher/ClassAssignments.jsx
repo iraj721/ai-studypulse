@@ -20,8 +20,8 @@ export default function ClassAssignments() {
     title: "",
     instructions: "",
     dueDate: "",
-    attachment: null, 
-    marks: "", // ✅ added marks field
+    attachment: null,
+    marks: "",
   });
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function ClassAssignments() {
       await api.delete(
         `/teacher/classes/${id}/assignments/${modal.assignment._id}`
       );
-      setAssignments(assignments.filter(a => a._id !== modal.assignment._id));
+      setAssignments(assignments.filter((a) => a._id !== modal.assignment._id));
     } catch (err) {
       console.error(err);
     } finally {
@@ -58,7 +58,7 @@ export default function ClassAssignments() {
       formData.append("title", modal.title);
       formData.append("instructions", modal.instructions);
       formData.append("dueDate", modal.dueDate || "");
-      formData.append("marks", modal.marks || ""); // ✅ send marks to backend
+      formData.append("marks", modal.marks || "");
 
       if (modal.attachment) {
         formData.append("attachment", modal.attachment);
@@ -86,11 +86,13 @@ export default function ClassAssignments() {
 
   return (
     <div className="container py-5">
-      <button className="btn btn-outline-secondary mb-4" onClick={() => navigate(-1)}>
+      <button
+        className="btn btn-outline-secondary mb-4"
+        onClick={() => navigate(-1)}
+      >
         ⬅ Back
       </button>
 
-      {/* Header */}
       <div
         className="card mb-4 border-0"
         style={{
@@ -102,7 +104,9 @@ export default function ClassAssignments() {
       >
         <div className="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
           <h3 className="fw-bold mb-0">📝 Assignments</h3>
-          <span className="badge bg-light text-dark">Total: {assignments.length}</span>
+          <span className="badge bg-light text-dark">
+            Total: {assignments.length}
+          </span>
         </div>
       </div>
 
@@ -129,9 +133,11 @@ export default function ClassAssignments() {
             <div key={a._id} className="col-md-6">
               <div
                 className="card border-0 shadow-sm"
-                style={{ borderRadius: "12px", cursor: "pointer" }} // ✅ pointer on hover
+                style={{ borderRadius: "12px", cursor: "pointer" }}
                 onClick={() =>
-                  navigate(`/teacher/classes/${id}/assignments/${a._id}/submissions`)
+                  navigate(
+                    `/teacher/classes/${id}/assignments/${a._id}/submissions`
+                  )
                 }
               >
                 <div className="card-body">
@@ -150,7 +156,7 @@ export default function ClassAssignments() {
                             instructions: a.instructions,
                             dueDate: a.dueDate ? a.dueDate.slice(0, 10) : "",
                             attachment: null,
-                            marks: a.marks || "", // ✅ show existing marks
+                            marks: a.marks || "",
                           });
                         }}
                       >
@@ -160,7 +166,11 @@ export default function ClassAssignments() {
                         className="btn btn-sm btn-outline-danger"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setModal({ show: true, type: "delete", assignment: a });
+                          setModal({
+                            show: true,
+                            type: "delete",
+                            assignment: a,
+                          });
                         }}
                       >
                         Delete
@@ -170,9 +180,14 @@ export default function ClassAssignments() {
 
                   <p className="text-muted mb-2">{a.instructions}</p>
                   <div className="text-muted small">
-                    Due: {a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A"}
+                    Due:{" "}
+                    {a.dueDate
+                      ? new Date(a.dueDate).toLocaleDateString()
+                      : "N/A"}
                   </div>
-                  {a.marks && <div className="text-muted small">Marks: {a.marks}</div>}
+                  {a.marks && (
+                    <div className="text-muted small">Marks: {a.marks}</div>
+                  )}
                 </div>
               </div>
             </div>
@@ -180,7 +195,6 @@ export default function ClassAssignments() {
         </div>
       )}
 
-      {/* MODAL */}
       {modal.show && (
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
@@ -212,21 +226,27 @@ export default function ClassAssignments() {
                 <input
                   className="form-control mb-2"
                   value={modal.title}
-                  onChange={(e) => setModal({ ...modal, title: e.target.value })}
+                  onChange={(e) =>
+                    setModal({ ...modal, title: e.target.value })
+                  }
                 />
 
                 <textarea
                   className="form-control mb-2"
                   rows={3}
                   value={modal.instructions}
-                  onChange={(e) => setModal({ ...modal, instructions: e.target.value })}
+                  onChange={(e) =>
+                    setModal({ ...modal, instructions: e.target.value })
+                  }
                 />
 
                 <input
                   type="date"
                   className="form-control mb-2"
                   value={modal.dueDate}
-                  onChange={(e) => setModal({ ...modal, dueDate: e.target.value })}
+                  onChange={(e) =>
+                    setModal({ ...modal, dueDate: e.target.value })
+                  }
                 />
 
                 <input
@@ -234,15 +254,21 @@ export default function ClassAssignments() {
                   className="form-control mb-2"
                   placeholder="Marks (optional)"
                   value={modal.marks}
-                  onChange={(e) => setModal({ ...modal, marks: e.target.value })}
+                  onChange={(e) =>
+                    setModal({ ...modal, marks: e.target.value })
+                  }
                 />
 
                 <input
                   type="file"
                   className="form-control mb-2"
-                  onChange={(e) => setModal({ ...modal, attachment: e.target.files[0] })}
+                  onChange={(e) =>
+                    setModal({ ...modal, attachment: e.target.files[0] })
+                  }
                 />
-                <small className="text-muted">Leave empty to keep existing attachment</small>
+                <small className="text-muted">
+                  Leave empty to keep existing attachment
+                </small>
 
                 <div className="d-flex justify-content-end gap-2 mt-3">
                   <button
@@ -260,6 +286,21 @@ export default function ClassAssignments() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @media (max-width: 768px) {
+          .container { padding-left: 16px; padding-right: 16px; }
+          .card-body.d-flex { flex-direction: column; text-align: center; gap: 12px; }
+          .row.g-3 { flex-direction: column; }
+          .row.g-3 .col-md-6 { width: 100%; }
+          .d-flex.justify-content-between.align-items-start { flex-direction: column; gap: 12px; }
+          .d-flex.justify-content-between.align-items-start .d-flex.gap-2 { flex-direction: row; justify-content: center; }
+          .card-body .d-flex.gap-2 { flex-direction: column; }
+          .card-body .d-flex.gap-2 button { width: 100%; }
+          .btn-primary.mb-4 { width: 100%; }
+          .modal-content { margin: 16px; width: calc(100% - 32px); }
+        }
+      `}</style>
     </div>
   );
 }
