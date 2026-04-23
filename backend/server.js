@@ -33,7 +33,7 @@ const app = express();
 const server = http.createServer(app);
 
 /* =========================
-   CORS CONFIGURATION - FIXED FOR PRODUCTION
+   CORS CONFIGURATION - PRODUCTION READY
 ========================= */
 const allowedOrigins = [
   'http://localhost:5173',
@@ -44,7 +44,7 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
-// CORS options for Express
+// CORS options
 const corsOptions = {
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, postman)
@@ -63,19 +63,10 @@ const corsOptions = {
   exposedHeaders: ['Authorization']
 };
 
-// Apply CORS middleware
+// Apply CORS middleware - this automatically handles OPTIONS preflight
 app.use(cors(corsOptions));
 
-// ✅ Handle preflight requests - FIXED VERSION (No app.options('*', ...))
-app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
-});
-
-// ✅ Socket.IO with same CORS configuration
+// ✅ Socket.IO configuration
 const io = new Server(server, { 
   cors: {
     origin: function(origin, callback) {
@@ -94,7 +85,6 @@ const io = new Server(server, {
 /* =========================
    OTHER MIDDLEWARE
 ========================= */
-// ✅ Security headers (but don't block CORS)
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
