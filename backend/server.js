@@ -42,7 +42,7 @@ const allowedOrigins = [
   'https://ai-studypulse.vercel.app',
   'https://ai-studypulse.vercel.app/',
   process.env.FRONTEND_URL
-].filter(Boolean); // Remove undefined values
+].filter(Boolean);
 
 // CORS options for Express
 const corsOptions = {
@@ -54,8 +54,7 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.log(`❌ CORS blocked origin: ${origin}`);
-      console.log(`✅ Allowed origins: ${allowedOrigins.join(', ')}`);
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
@@ -67,8 +66,14 @@ const corsOptions = {
 // Apply CORS middleware
 app.use(cors(corsOptions));
 
-// Handle preflight requests explicitly
-app.options('*', cors(corsOptions));
+// ✅ Handle preflight requests - FIXED VERSION (No app.options('*', ...))
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // ✅ Socket.IO with same CORS configuration
 const io = new Server(server, { 
@@ -89,7 +94,7 @@ const io = new Server(server, {
 /* =========================
    OTHER MIDDLEWARE
 ========================= */
-// ✅ Security headers (but don't override CORS)
+// ✅ Security headers (but don't block CORS)
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
@@ -100,21 +105,18 @@ app.use(express.json());
 /* =========================
    RATE LIMITING
 ========================= */
-// ✅ Rate limiting - prevent abuse
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // 200 requests per 15 minutes per IP
+  windowMs: 15 * 60 * 1000,
+  max: 200,
   message: { message: "Too many requests, please try again later." },
-  skipSuccessfulRequests: false,
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use("/api/", globalLimiter);
 
-// Stricter limit for AI endpoints
 const aiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 10, // 10 AI requests per minute
+  windowMs: 60 * 1000,
+  max: 10,
   message: { message: "Too many AI requests. Please wait a moment." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -160,7 +162,7 @@ app.use("/api/student", studentRoutes);
 // Health check endpoint
 app.get("/", (req, res) => res.json({ message: "API Running", status: "ok" }));
 
-// Debug endpoint to check CORS (remove in production if needed)
+// Debug endpoint
 app.get("/api/debug/cors", (req, res) => {
   res.json({
     message: "CORS is working!",
@@ -172,20 +174,12 @@ app.get("/api/debug/cors", (req, res) => {
 /* =========================
    ERROR HANDLING
 ========================= */
-// 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: "Route not found" });
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
-  
-  // CORS error
-  if (err.message === 'Not allowed by CORS') {
-    return res.status(403).json({ message: "CORS policy blocked this request" });
-  }
-  
   res.status(500).json({ message: err.message || "Internal server error" });
 });
 
