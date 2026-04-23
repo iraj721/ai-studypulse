@@ -8,6 +8,7 @@ import Stars from "../../../components/Stars";
 import BackButton from "../../../components/BackButton";
 import Toast from "../../../components/Toast";
 import ExportNotes from "../../../components/ExportNotes";
+import { FaBookmark, FaRegBookmark } from "react-icons/fa";
 
 export default function Notes() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export default function Notes() {
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState({ message: "", type: "success" });
+  const [bookmarkStatus, setBookmarkStatus] = useState({});
 
   useEffect(() => {
     fetchNotes();
@@ -73,7 +75,28 @@ export default function Notes() {
   };
 
   const handleExport = (type) => {
-    setToast({ message: `Note exported as ${type.toUpperCase()}!`, type: "success" });
+    setToast({
+      message: `Note exported as ${type.toUpperCase()}!`,
+      type: "success",
+    });
+  };
+
+  const handleBookmark = async (note) => {
+    try {
+      await api.post("/student/bookmarks", {
+        type: "note",
+        itemId: note._id,
+        collectionName: "Notes",
+      });
+      setToast({ message: "Note bookmarked successfully!", type: "success" });
+      setBookmarkStatus({ ...bookmarkStatus, [note._id]: true });
+    } catch (err) {
+      if (err.response?.data?.message === "Already bookmarked") {
+        setToast({ message: "Already bookmarked!", type: "info" });
+      } else {
+        setToast({ message: "Failed to bookmark", type: "error" });
+      }
+    }
   };
 
   const filtered = notes.filter(
@@ -85,7 +108,11 @@ export default function Notes() {
   return (
     <div className="notes-bg min-vh-100 py-5 position-relative">
       <Stars />
-      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: "", type: "success" })}
+      />
 
       <div className="container">
         <BackButton to="/dashboard" label="← Back to Dashboard" />
@@ -148,7 +175,10 @@ export default function Notes() {
                     <h4>{selected.subject}</h4>
                     <span>{selected.topic}</span>
                   </div>
-                  <button className="btn-close btn-close-white" onClick={() => setSelected(null)} />
+                  <button
+                    className="btn-close btn-close-white"
+                    onClick={() => setSelected(null)}
+                  />
                 </div>
                 <div className="note-actions">
                   <button
@@ -164,6 +194,12 @@ export default function Notes() {
                     📄 PDF
                   </button>
                   <ExportNotes note={selected} onExport={handleExport} />
+                  <button
+                    className="btn btn-sm btn-outline-warning"
+                    onClick={() => handleBookmark(selected)}
+                  >
+                    {bookmarkStatus[selected._id] ? <FaBookmark /> : <FaRegBookmark />} Bookmark
+                  </button>
                   <button
                     className="btn btn-sm btn-outline-danger"
                     onClick={() => deleteNote(selected._id)}

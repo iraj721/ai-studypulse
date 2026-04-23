@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Stars from "../../../components/Stars";
 import BackButton from "../../../components/BackButton";
 import Toast from "../../../components/Toast";
-import { FaFileUpload, FaSpinner, FaPlus } from "react-icons/fa";
+import { FaFileUpload, FaSpinner } from "react-icons/fa";
 
 export default function CreateNote() {
   const navigate = useNavigate();
@@ -77,7 +77,25 @@ export default function CreateNote() {
       }
       
       setToast({ message: "Note created successfully! 🎉", type: "success" });
-      setTimeout(() => navigate("/notes"), 1500);
+      
+      // ✅ Ask user if they want to bookmark the note
+      setTimeout(async () => {
+        const shouldBookmark = window.confirm("Note created successfully! Do you want to bookmark it?");
+        if (shouldBookmark && response.data?._id) {
+          try {
+            await api.post("/student/bookmarks", {
+              type: "note",
+              itemId: response.data._id,
+              collectionName: "Notes"
+            });
+            setToast({ message: "Note bookmarked successfully!", type: "success" });
+          } catch (bookmarkErr) {
+            console.error("Bookmark error:", bookmarkErr);
+          }
+        }
+        navigate("/notes");
+      }, 1000);
+      
     } catch (err) {
       setToast({ message: err.response?.data?.message || "Failed to create note", type: "error" });
     } finally {
