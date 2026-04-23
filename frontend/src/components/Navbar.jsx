@@ -10,19 +10,13 @@ export default function Navbar({ user, onLogout }) {
   // Close navbar function
   const closeNavbar = () => setExpanded(false);
 
-  // Handle navigation with auto-close
-  const handleNavigate = (path) => {
-    closeNavbar();
-    navigate(path);
-  };
-
   // Handle logout
   const handleLogout = () => {
     closeNavbar();
     onLogout();
   };
 
-  // Close navbar when clicking outside (extra polish)
+  // Close navbar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (expanded && navRef.current && !navRef.current.contains(event.target)) {
@@ -72,15 +66,21 @@ export default function Navbar({ user, onLogout }) {
         {/* Navbar Links - Collapsible */}
         <div className={`collapse navbar-collapse ${expanded ? "show" : ""}`}>
           <ul className="navbar-nav mx-auto gap-3">
-            {/* Notes Dropdown */}
+            {/* Notes Dropdown - USING LINK with data-bs-toggle */}
             <li className="nav-item dropdown">
-              <button
-                className="nav-link dropdown-toggle btn btn-link"
-                type="button"
-                onClick={(e) => e.preventDefault()}
+              <Link
+                className="nav-link dropdown-toggle"
+                to="#"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+                onClick={(e) => {
+                  // Don't navigate, just toggle dropdown
+                  e.preventDefault();
+                }}
               >
                 Notes
-              </button>
+              </Link>
               <ul className="dropdown-menu">
                 <li>
                   <Link className="dropdown-item" to="/notes" onClick={closeNavbar}>
@@ -97,13 +97,16 @@ export default function Navbar({ user, onLogout }) {
 
             {/* Quizzes Dropdown */}
             <li className="nav-item dropdown">
-              <button
-                className="nav-link dropdown-toggle btn btn-link"
-                type="button"
+              <Link
+                className="nav-link dropdown-toggle"
+                to="#"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
                 onClick={(e) => e.preventDefault()}
               >
                 Quizzes
-              </button>
+              </Link>
               <ul className="dropdown-menu">
                 <li>
                   <Link className="dropdown-item" to="/quizzes" onClick={closeNavbar}>
@@ -120,13 +123,16 @@ export default function Navbar({ user, onLogout }) {
 
             {/* Classes Dropdown */}
             <li className="nav-item dropdown">
-              <button
-                className="nav-link dropdown-toggle btn btn-link"
-                type="button"
+              <Link
+                className="nav-link dropdown-toggle"
+                to="#"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
                 onClick={(e) => e.preventDefault()}
               >
                 Classes
-              </button>
+              </Link>
               <ul className="dropdown-menu">
                 <li>
                   <Link className="dropdown-item" to="/classes" onClick={closeNavbar}>
@@ -143,13 +149,16 @@ export default function Navbar({ user, onLogout }) {
 
             {/* Activities Dropdown */}
             <li className="nav-item dropdown">
-              <button
-                className="nav-link dropdown-toggle btn btn-link"
-                type="button"
+              <Link
+                className="nav-link dropdown-toggle"
+                to="#"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
                 onClick={(e) => e.preventDefault()}
               >
                 Activities
-              </button>
+              </Link>
               <ul className="dropdown-menu">
                 <li>
                   <Link className="dropdown-item" to="/activities" onClick={closeNavbar}>
@@ -164,7 +173,7 @@ export default function Navbar({ user, onLogout }) {
               </ul>
             </li>
 
-            {/* AI Assistant Link */}
+            {/* AI Assistant Link - No dropdown */}
             <li className="nav-item">
               <Link className="nav-link" to="/chat" onClick={closeNavbar}>
                 AI Assistant
@@ -194,7 +203,7 @@ export default function Navbar({ user, onLogout }) {
             padding: 20px;
             border-radius: 0 0 20px 20px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            transition: all 0.3s ease;
+            z-index: 1000;
           }
           
           .navbar-collapse.collapse:not(.show) {
@@ -211,32 +220,34 @@ export default function Navbar({ user, onLogout }) {
           
           .nav-item {
             width: 100%;
+          }
+          
+          .nav-link.dropdown-toggle {
+            display: block;
+            width: 100%;
             text-align: center;
+            padding: 10px;
           }
           
           .dropdown-menu {
             position: static !important;
             transform: none !important;
             width: 100%;
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.15);
             backdrop-filter: blur(10px);
-            margin-top: 8px;
+            margin-top: 5px;
+            border: none;
           }
           
           .dropdown-item {
             color: white;
+            text-align: center;
+            padding: 8px 16px;
           }
           
           .dropdown-item:hover {
             background: rgba(255,255,255,0.2);
             color: white;
-          }
-          
-          .btn.btn-link {
-            color: white;
-            text-decoration: none;
-            width: 100%;
-            text-align: center;
           }
           
           .d-flex.align-items-center {
@@ -260,6 +271,19 @@ export default function Navbar({ user, onLogout }) {
           .navbar-collapse {
             top: 60px;
             padding: 16px;
+          }
+          
+          .nav-link.dropdown-toggle {
+            font-size: 0.95rem;
+            padding: 8px;
+          }
+        }
+        
+        /* Desktop dropdown hover effect */
+        @media (min-width: 992px) {
+          .dropdown:hover .dropdown-menu {
+            display: block;
+            margin-top: 0;
           }
         }
       `}</style>
