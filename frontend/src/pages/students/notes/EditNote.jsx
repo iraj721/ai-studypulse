@@ -1,14 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import ReactMarkdown from "react-markdown";
+import BackButton from "../../../components/BackButton";
+import Toast from "../../../components/Toast";
+import Stars from "../../../components/Stars";
 
-export default function EditNote({ user, onLogout }) {
+export default function EditNote() {
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [form, setForm] = useState({ subject: "", topic: "", content: "" });
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   useEffect(() => {
     const fetchNote = async () => {
@@ -16,8 +19,7 @@ export default function EditNote({ user, onLogout }) {
         const res = await api.get(`/notes/${id}`);
         setForm(res.data);
       } catch (err) {
-        console.error(err);
-        alert("Failed to load note");
+        setToast({ message: "Failed to load note", type: "error" });
         navigate("/notes");
       } finally {
         setLoading(false);
@@ -26,18 +28,16 @@ export default function EditNote({ user, onLogout }) {
     fetchNote();
   }, [id, navigate]);
 
-  const handleChange = (e) =>
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       await api.put(`/notes/${id}`, form);
-      alert("Note updated successfully");
-      navigate("/notes");
+      setToast({ message: "Note updated successfully!", type: "success" });
+      setTimeout(() => navigate("/notes"), 1000);
     } catch (err) {
-      console.error(err);
-      alert("Failed to update note");
+      setToast({ message: "Failed to update note", type: "error" });
     }
   };
 
@@ -50,16 +50,16 @@ export default function EditNote({ user, onLogout }) {
   }
 
   return (
-    <div className="notes-bg min-vh-100 position-relative">
-      <div className="container py-5">
-        <div className="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <h2 className="fw-bold text-white">✏️ Edit Note</h2>
-          <Link to="/notes" className="btn btn-outline-light">
-            ← Back
-          </Link>
-        </div>
+    <div className="notes-bg min-vh-100 position-relative py-5">
+      <Stars />
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
+
+      <div className="container">
+        <BackButton to="/notes" label="← Back to Notes" />
 
         <div className="card shadow-lg border-0 p-4 notes-card">
+          <h2 className="fw-bold text-center mb-4">✏️ Edit Note</h2>
+
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
               <label className="form-label">Subject</label>
@@ -86,7 +86,7 @@ export default function EditNote({ user, onLogout }) {
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Content</label>
+              <label className="form-label">Content (Markdown supported)</label>
               <textarea
                 className="form-control input-field textarea-field"
                 name="content"
@@ -105,133 +105,34 @@ export default function EditNote({ user, onLogout }) {
             </div>
 
             <div className="d-flex gap-2 flex-wrap">
-              <button type="submit" className="btn btn-gradient">
-                💾 Save Changes
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline-light"
-                onClick={() => navigate("/notes")}
-              >
-                Cancel
-              </button>
+              <button type="submit" className="btn btn-gradient">💾 Save Changes</button>
+              <button type="button" className="btn btn-outline-secondary" onClick={() => navigate("/notes")}>Cancel</button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* STYLES */}
       <style>{`
         .notes-bg {
           background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #1a2a3d 100%);
-          min-height: 100vh;
-          color: #fff;
-          position: relative;
         }
-
         .notes-card {
           background: rgba(24, 34, 52, 0.85);
-          border-radius: 16px;
-          transition: transform 0.3s, box-shadow 0.3s;
+          backdrop-filter: blur(10px);
+          border-radius: 20px;
         }
-        .notes-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-        }
-
-        .form-label {
-          font-weight: 600;
-          color: #e5e7eb;
-        }
-
+        .form-label { color: #e5e7eb; font-weight: 600; }
         .input-field {
           border-radius: 12px;
-          border: none;
           padding: 10px 14px;
-          background: rgba(255,255,255,0.05);
-          color: #fff;
-          transition: all 0.3s;
-        }
-        .input-field:focus {
-          outline: none;
-          box-shadow: 0 0 0 3px rgba(99,102,241,0.2);
           background: rgba(255,255,255,0.1);
-        }
-        .textarea-field {
-          font-family: monospace;
-        }
-
-        .preview-card {
-          background: rgba(255,255,255,0.08);
-          color: #fff;
-          border-radius: 12px;
-          min-height: 120px;
-          overflow-wrap: break-word;
-        }
-
-        .btn-gradient {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          border: none;
+          border: 1px solid rgba(255,255,255,0.2);
           color: white;
-          font-weight: 600;
-          transition: transform 0.3s, box-shadow 0.3s;
         }
-        .btn-gradient:hover {
-          transform: translateY(-2px) scale(1.03);
-          box-shadow: 0 12px 25px rgba(0,0,0,0.25);
-          background: linear-gradient(135deg, #5b4be8, #7b66f3);
-        }
-
-        .btn-outline-light {
-          border: 1px solid #fff;
-          color: #fff;
-          background: transparent;
-          transition: transform 0.3s, box-shadow 0.3s;
-        }
-        .btn-outline-light:hover {
-          transform: translateY(-2px) scale(1.03);
-          box-shadow: 0 8px 20px rgba(255,255,255,0.3);
-          background: rgba(255,255,255,0.1);
-        }
-
-        @media (max-width: 768px) {
-          .d-flex.gap-2.flex-wrap { flex-direction: column; }
-        }
-          /* Mobile Responsive - EditNote */
-@media (max-width: 768px) {
-  .notes-bg .container {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  
-  .d-flex.justify-content-between {
-    flex-direction: column;
-    gap: 12px;
-    text-align: center;
-  }
-  
-  .notes-card {
-    padding: 16px !important;
-  }
-  
-  .input-field, .textarea-field {
-    font-size: 14px;
-    padding: 10px 12px;
-  }
-  
-  .d-flex.gap-2.flex-wrap {
-    flex-direction: column;
-  }
-  
-  .d-flex.gap-2.flex-wrap button {
-    width: 100%;
-  }
-  
-  .preview-card {
-    padding: 12px;
-    font-size: 13px;
-  }
-}
+        .input-field:focus { background: rgba(255,255,255,0.15); color: white; }
+        .preview-card { background: rgba(255,255,255,0.08); color: white; border-radius: 12px; }
+        .btn-gradient { background: linear-gradient(135deg, #4f46e5, #6366f1); border: none; color: white; }
+        @media (max-width: 768px) { .d-flex.gap-2 { flex-direction: column; } }
       `}</style>
     </div>
   );

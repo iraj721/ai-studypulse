@@ -2,11 +2,14 @@ import React, { useEffect, useState } from "react";
 import api from "../../../services/api";
 import { Link } from "react-router-dom";
 import Stars from "../../../components/Stars";
+import BackButton from "../../../components/BackButton";
+import Toast from "../../../components/Toast";
 
 export default function QuizzesList() {
   const [quizzes, setQuizzes] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [selectedQuizId, setSelectedQuizId] = useState(null);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   useEffect(() => {
     fetchQuizzes();
@@ -17,8 +20,7 @@ export default function QuizzesList() {
       const res = await api.get("/quizzes");
       setQuizzes(res.data);
     } catch (err) {
-      console.error(err);
-      alert("Failed to fetch quizzes");
+      setToast({ message: "Failed to fetch quizzes", type: "error" });
     }
   };
 
@@ -26,11 +28,11 @@ export default function QuizzesList() {
     try {
       await api.delete(`/quizzes/${selectedQuizId}`);
       setQuizzes((prev) => prev.filter((q) => q._id !== selectedQuizId));
+      setToast({ message: "Quiz deleted successfully!", type: "success" });
       setShowModal(false);
       setSelectedQuizId(null);
     } catch (err) {
-      console.error(err);
-      alert("Failed to delete quiz");
+      setToast({ message: "Failed to delete quiz", type: "error" });
     }
   };
 
@@ -44,27 +46,29 @@ export default function QuizzesList() {
   return (
     <div className="min-vh-100 quizzes-bg d-flex justify-content-center align-items-start pt-5 pb-5 position-relative">
       <Stars />
-      <div className="container" style={{ maxWidth: "800px" }}>
-        {/* Header */}
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h3 className="fw-bold text-light">Your Quizzes</h3>
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
+
+      <div className="container" style={{ maxWidth: "900px" }}>
+        <BackButton to="/dashboard" label="← Back to Dashboard" />
+
+        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+          <h3 className="fw-bold text-light">📋 Your Quizzes</h3>
           <Link to="/quizzes/generate" className="btn btn-gradient">
-            Generate Quiz
+            + Generate New Quiz
           </Link>
         </div>
 
-        {/* Quiz List */}
         {quizzes.length === 0 ? (
-          <div className="alert alert-info text-center">
-            No quizzes yet — generate one!
+          <div className="alert alert-info text-center bg-transparent text-light border-light">
+            No quizzes yet — generate your first quiz!
           </div>
         ) : (
-          <div className="list-group quiz-list">
+          <div className="quiz-list">
             {quizzes.map((q) => (
               <Link
                 key={q._id}
                 to={`/quizzes/${q._id}`}
-                className="list-group-item list-group-item-action quiz-item d-flex justify-content-between align-items-center p-4 mb-3 shadow-sm rounded-3"
+                className="quiz-item d-flex justify-content-between align-items-center p-4 mb-3 shadow-sm rounded-3 text-decoration-none"
               >
                 <div>
                   <strong className="fs-5">{q.topic}</strong>
@@ -72,182 +76,73 @@ export default function QuizzesList() {
                     Created: {new Date(q.createdAt).toLocaleString()}
                   </div>
                 </div>
-                <div className="d-flex align-items-center gap-2">
-                  <span
-                    className={`badge ${
-                      q.score === null ? "bg-secondary" : "bg-success"
-                    } fs-6`}
-                  >
+                <div className="d-flex align-items-center gap-3">
+                  <span className={`badge ${q.score === null ? "bg-secondary" : "bg-success"} fs-6 px-3 py-2`}>
                     {q.score === null ? "Not taken" : Math.round(q.score) + "%"}
                   </span>
-                  <button
-                    className="btn btn-sm btn-danger"
-                    onClick={(e) => openDeleteModal(q._id, e)}
-                  >
-                    Delete
+                  <button className="btn btn-sm btn-outline-danger" onClick={(e) => openDeleteModal(q._id, e)}>
+                    🗑 Delete
                   </button>
-                  <span className="text-muted fw-semibold">View →</span>
+                  <span className="text-muted">→</span>
                 </div>
               </Link>
             ))}
           </div>
         )}
-        {showModal && (
-          <div className="custom-modal">
-            <div className="modal-dialog modal-dialog-centered modal-lg">
-              <div className="modal-content rounded-4 shadow p-3">
-                <div className="modal-header pb-2">
-                  <h5 className="modal-title text-danger fw-bold">
-                    Delete Quiz?
-                  </h5>
-                  <button
-                    type="button"
-                    className="btn-close"
-                    onClick={() => {
-                      setShowModal(false);
-                      setSelectedQuizId(null);
-                    }}
-                  ></button>
-                </div>
+      </div>
 
-                <div className="modal-body py-4 px-4">
-                  <p className="mb-0 fs-6 lh-lg">
-                    Are you sure you want to delete this quiz?
-                    <br />
-                    <span className="text-danger fw-semibold">
-                      This action cannot be undone.
-                    </span>
-                  </p>
-                </div>
-
-                <div className="modal-footer pt-2 px-4 flex gap-3">
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() => {
-                      setShowModal(false);
-                      setSelectedQuizId(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button className="btn btn-danger" onClick={confirmDelete}>
-                    Yes, Delete
-                  </button>
-                </div>
+      {showModal && (
+        <div className="custom-modal">
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content rounded-4 shadow p-3">
+              <div className="modal-header pb-2">
+                <h5 className="modal-title text-danger fw-bold">⚠️ Delete Quiz?</h5>
+                <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
+              </div>
+              <div className="modal-body py-3">
+                <p>Are you sure you want to delete this quiz?</p>
+                <span className="text-danger fw-semibold">This action cannot be undone.</span>
+              </div>
+              <div className="modal-footer pt-2 d-flex gap-2">
+                <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                <button className="btn btn-danger" onClick={confirmDelete}>Yes, Delete</button>
               </div>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <style>{`
-           .quizzes-bg {
-          background: linear-gradient(180deg,
-            #080e18ff 0%,
-            #122138ff 25%,
-            #1e3652ff 50%,
-            #28507eff 75%,
-            #5a77a3ff 100%);
-          position: relative;
-          overflow: hidden;
+        .quizzes-bg {
+          background: linear-gradient(180deg, #080e18ff 0%, #122138ff 25%, #1e3652ff 50%, #28507eff 75%, #5a77a3ff 100%);
         }
-.btn-gradient {
-  position: relative;     
-  z-index: 5;              
-  cursor: pointer;       
-  background: linear-gradient(135deg, #0066ff, #00c6ff);
-  border: none;
-  color: white;
-  font-weight: 600;
-  transition: transform 0.3s, box-shadow 0.3s;
-}
-        .btn-gradient:hover {
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 12px 25px rgba(0,0,0,0.25);
-  background: linear-gradient(135deg, #005ce6, #00bfff);
-}
-         .quiz-item {
-          background: rgba(255,255,255,0.95);
-          transition: transform 0.3s, box-shadow 0.3s, background 0.3s;
+        .btn-gradient {
+          background: linear-gradient(135deg, #4f46e5, #6366f1);
+          border: none;
+          color: white;
         }
-         .quiz-item:hover {
+        .quiz-item {
+          background: linear-gradient(145deg, #ebf1f4ff, #bedaf3ff);
+          transition: all 0.3s ease;
+        }
+        .quiz-item:hover {
           transform: translateY(-4px);
-          box-shadow: 0 16px 35px rgba(0,0,0,0.2);
-          background: rgba(240, 248, 255, 0.9);
+          box-shadow: 0 12px 25px rgba(0,0,0,0.2);
         }
-        .quiz-list .badge {
-          min-width: 80px;
-          text-align: center;
-        }
-           .alert-info {
-          background: rgba(255,255,255,0.85);
-          color: #333;
-        }
-
         .custom-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1050;
-}
-
-.custom-modal .modal-content {
-background: #ffffff;
-  color: #212529;
-  z-index: 1051;
-  pointer-events: auto;
-}
-/* Mobile Responsive - QuizzesList */
-@media (max-width: 768px) {
-  .quizzes-bg .container {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  
-  .d-flex.justify-content-between {
-    flex-direction: column;
-    gap: 12px;
-    text-align: center;
-  }
-  
-  .quiz-item {
-    flex-direction: column;
-    text-align: center;
-    gap: 12px;
-    padding: 16px !important;
-  }
-  
-  .quiz-item .d-flex {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .badge {
-    font-size: 0.8rem;
-    padding: 4px 10px;
-  }
-  
-  .btn-danger {
-    padding: 4px 12px;
-    font-size: 12px;
-  }
-  
-  .custom-modal .modal-dialog {
-    margin: 16px;
-  }
-  
-  .modal-footer {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .modal-footer button {
-    width: 100%;
-  }
-}
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,0.55);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1050;
+        }
+        .custom-modal .modal-content { background: white; width: 400px; max-width: 90%; }
+        @media (max-width: 768px) {
+          .quiz-item { flex-direction: column; text-align: center; gap: 12px; }
+          .d-flex.align-items-center { justify-content: center; }
+        }
       `}</style>
     </div>
   );

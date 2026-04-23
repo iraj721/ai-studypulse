@@ -19,6 +19,7 @@ import {
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import ActivityInsightsModal from "../../components/ActivityInsightsModal";
+import Toast from "../../components/Toast";
 
 ChartJS.register(
   CategoryScale,
@@ -54,6 +55,7 @@ export default function Dashboard() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -251,6 +253,11 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-page min-vh-100">
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: "", type: "success" })}
+      />
       {/* HERO */}
       <section className="hero-section">
         <div className="container">
@@ -274,7 +281,6 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
-
       {/* ADD ACTIVITY CARD */}
       <div className="container mb-4">
         <div className="card add-activity-card shadow-sm p-4 hover-card bg-white text-center">
@@ -287,7 +293,6 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
-
       {/* CONTENT */}
       <div className="container mt-4">
         {/* Summary Cards */}
@@ -510,13 +515,11 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-
       <ActivityInsightsModal
         show={showModal}
         onClose={() => setShowModal(false)}
         activity={selectedActivity}
       />
-
       <style>{`
       .dashboard-page {
   background-color: #5a77a3ff;

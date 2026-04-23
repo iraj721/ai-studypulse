@@ -1,8 +1,10 @@
-// src/pages/CreateNote.jsx
 import React, { useState } from "react";
 import api from "../../../services/api";
 import { useNavigate } from "react-router-dom";
 import Stars from "../../../components/Stars";
+import BackButton from "../../../components/BackButton";
+import Toast from "../../../components/Toast";
+import { FaFileUpload, FaSpinner, FaPlus } from "react-icons/fa";
 
 export default function CreateNote() {
   const navigate = useNavigate();
@@ -10,26 +12,74 @@ export default function CreateNote() {
     subject: "",
     topic: "",
     instructions: "",
+    noteType: "detailed",
+    content: "",
   });
+  const [file, setFile] = useState(null);
+  const [filePreview, setFilePreview] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
+  const handleFileChange = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+      const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'text/plain', 'image/jpeg', 'image/png', 'image/jpg'];
+      if (!allowedTypes.includes(selectedFile.type)) {
+        setToast({ message: "Invalid file type. Allowed: PDF, DOCX, PPTX, TXT, JPG, PNG", type: "error" });
+        return;
+      }
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        setToast({ message: "File too large. Max 10MB", type: "error" });
+        return;
+      }
+      setFile(selectedFile);
+      setFilePreview(selectedFile.name);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.subject || !form.topic)
-      return alert("Subject and topic are required.");
+    
+    if (!form.subject || !form.topic) {
+      setToast({ message: "Subject and topic are required!", type: "error" });
+      return;
+    }
+    
+    if (!file && !form.content) {
+      setToast({ message: "Please provide either a file or text content!", type: "error" });
+      return;
+    }
+    
     try {
       setGenerating(true);
-      await api.post("/notes", {
-        subject: form.subject,
-        topic: form.topic,
-        instructions: form.instructions,
-      });
-      navigate("/notes");
+      
+      let response;
+      if (file) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("subject", form.subject);
+        formData.append("topic", form.topic);
+        formData.append("instructions", form.instructions);
+        formData.append("noteType", form.noteType);
+        response = await api.post("/notes", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        response = await api.post("/notes", {
+          subject: form.subject,
+          topic: form.topic,
+          instructions: form.instructions,
+          noteType: form.noteType,
+          content: form.content,
+        });
+      }
+      
+      setToast({ message: "Note created successfully! 🎉", type: "success" });
+      setTimeout(() => navigate("/notes"), 1500);
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "Failed to create note");
+      setToast({ message: err.response?.data?.message || "Failed to create note", type: "error" });
     } finally {
       setGenerating(false);
     }
@@ -38,156 +88,85 @@ export default function CreateNote() {
   return (
     <div className="create-note-bg min-vh-100 d-flex align-items-center justify-content-center py-5 position-relative">
       <Stars />
-      <div className="container">
-        <div className="text-center mb-4">
-          <h2 className="fw-bold text-light">📝 Create AI Note</h2>
-          <p className="text-light-opacity">
-            Generate structured study notes with AI assistance
-          </p>
-        </div>
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
+
+      <div className="container" style={{ maxWidth: "700px" }}>
+        <BackButton to="/notes" label="← Back to Notes" />
 
         <div className="card shadow-lg p-4 mx-auto create-note-card">
+          <h3 className="text-center mb-2 fw-bold">📝 Create AI Note</h3>
+          <p className="text-center text-muted mb-4">Upload a file or write text → AI generates notes</p>
+
           <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label className="form-label fw-semibold">Subject</label>
-              <input
-                name="subject"
-                className="form-control input-field"
-                placeholder="Physics, Math, Chemistry..."
-                value={form.subject}
-                onChange={onChange}
-                required
-              />
+            <div className="row g-3">
+              <div className="col-md-6">
+                <label className="form-label fw-semibold">Subject *</label>
+                <input name="subject" className="form-control input-field" placeholder="e.g., Computer Science" value={form.subject} onChange={onChange} required />
+              </div>
+              <div className="col-md-6">
+                <label className="form-label fw-semibold">Topic *</label>
+                <input name="topic" className="form-control input-field" placeholder="e.g., Neural Networks" value={form.topic} onChange={onChange} required />
+              </div>
             </div>
 
-            <div className="mb-3">
-              <label className="form-label fw-semibold">Topic</label>
-              <input
-                name="topic"
-                className="form-control input-field"
-                placeholder="Newton's Laws, Quadratic Equations..."
-                value={form.topic}
-                onChange={onChange}
-                required
-              />
+            <div className="mt-3">
+              <label className="form-label fw-semibold">Note Type</label>
+              <div className="d-flex gap-3">
+                <label className="radio-label">
+                  <input type="radio" name="noteType" value="detailed" checked={form.noteType === "detailed"} onChange={onChange} />
+                  <span>📚 Detailed Notes</span>
+                </label>
+                <label className="radio-label">
+                  <input type="radio" name="noteType" value="summary" checked={form.noteType === "summary"} onChange={onChange} />
+                  <span>📋 Quick Summary</span>
+                </label>
+              </div>
             </div>
 
-            <div className="mb-3">
-              <label className="form-label fw-semibold">
-                Optional Instructions
-              </label>
-              <textarea
-                name="instructions"
-                className="form-control input-field"
-                placeholder="Formatting, depth, examples..."
-                rows={4}
-                value={form.instructions}
-                onChange={onChange}
-              />
+            <div className="mt-3">
+              <label className="form-label fw-semibold">Upload File (PDF, DOCX, PPTX, TXT, Image)</label>
+              <div className="file-upload-area" onClick={() => document.getElementById("fileInput").click()}>
+                <input type="file" id="fileInput" onChange={handleFileChange} accept=".pdf,.docx,.pptx,.txt,.jpg,.jpeg,.png" style={{ display: "none" }} />
+                <FaFileUpload className="upload-icon" />
+                <p>{filePreview ? filePreview : "Click or drag file here"}</p>
+                <small>Max 10MB | AI will extract text from your file</small>
+              </div>
             </div>
 
-            <div className="d-flex gap-2 justify-content-end">
-              <button
-                className="btn btn-gradient btn-lg"
-                type="submit"
-                disabled={generating}
-              >
-                {generating ? "Generating..." : "Generate & Save Note"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-outline-light btn-lg"
-                onClick={() => navigate("/notes")}
-              >
-                Cancel
-              </button>
+            <div className="mt-3">
+              <label className="form-label fw-semibold">OR Write Text Content</label>
+              <textarea name="content" className="form-control input-field" rows="4" placeholder="Paste your study material here..." value={form.content} onChange={onChange} />
             </div>
+
+            <div className="mt-3">
+              <label className="form-label fw-semibold">Additional Instructions (Optional)</label>
+              <textarea name="instructions" className="form-control input-field" rows="2" placeholder="Focus on examples, include diagrams explanation, etc." value={form.instructions} onChange={onChange} />
+            </div>
+
+            <button className="btn btn-gradient w-100 mt-4" type="submit" disabled={generating}>
+              {generating ? <><FaSpinner className="spinner" /> Generating Notes...</> : "✨ Generate Notes"}
+            </button>
           </form>
         </div>
       </div>
 
-      {/* STYLES */}
       <style>{`
-        .create-note-bg {
-          background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #5a77a3 100%);
-          position: relative;
-          overflow: hidden;
-        }
-        .text-light-opacity { color: rgba(255,255,255,0.7); }
-        .create-note-card {
-          max-width: 600px;
-          border-radius: 20px;
-          background: linear-gradient(145deg, #ffffff, #f8f9fa); /* Login card color */
-          color: #000;
-          transition: transform 0.3s, box-shadow 0.3s;
-        }
-        .create-note-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 15px 40px rgba(0,0,0,0.25);
-        }
-        .input-field {
-          border-radius: 12px;
-          padding: 12px 14px;
-          border: 1px solid #ddd;
-          color: #000;
-          transition: border-color 0.3s, box-shadow 0.3s;
-        }
-        .input-field::placeholder { color: #888; }
-        .input-field:focus {
-          border-color: #6366f1;
-          box-shadow: 0 0 12px rgba(99,102,241,0.3);
-          outline: none;
-        }
-        .btn-gradient {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-          font-weight: 600;
-          transition: transform 0.3s, box-shadow 0.3s;
-        }
-        .btn-gradient:hover {
-          transform: translateY(-2px) scale(1.03);
-          box-shadow: 0 12px 25px rgba(0,0,0,0.25);
-          background: linear-gradient(135deg, #5b4be8, #7b66f3);
-        }
-        .btn-outline-light {
-          border-radius: 12px;
-          color: #fff;
-          border: 1px solid rgba(255,255,255,0.7);
-          transition: background 0.3s, transform 0.3s;
-        }
-        .btn-outline-light:hover {
-          background: rgba(255,255,255,0.1);
-          transform: translateY(-1px);
-        }
-          /* Mobile Responsive - CreateNote */
-@media (max-width: 768px) {
-  .create-note-bg .container {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  
-  .create-note-card {
-    margin: 0 8px;
-    padding: 20px 16px !important;
-  }
-  
-  .create-note-card h2 {
-    font-size: 1.5rem;
-  }
-  
-  .d-flex.gap-2 {
-    flex-direction: column;
-  }
-  
-  .d-flex.gap-2 button {
-    width: 100%;
-  }
-  
-  .input-field {
-    font-size: 14px;
-    padding: 10px 12px;
-  }
-}
+        .create-note-bg { background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #5a77a3 100%); }
+        .create-note-card { border-radius: 20px; background: linear-gradient(145deg, #ebf1f4ff, #bedaf3ff); transition: transform 0.3s, box-shadow 0.3s; }
+        .create-note-card:hover { transform: translateY(-6px); box-shadow: 0 25px 50px rgba(0,0,0,0.25); }
+        .input-field { border-radius: 12px; padding: 12px 14px; border: 1px solid #ddd; transition: all 0.3s; }
+        .input-field:focus { border-color: #6366f1; box-shadow: 0 0 12px rgba(99,102,241,0.3); outline: none; }
+        .radio-label { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 8px 16px; background: #f0f0f0; border-radius: 30px; transition: all 0.3s; }
+        .radio-label input { margin: 0; cursor: pointer; }
+        .radio-label:hover { background: #e0e0e0; }
+        .file-upload-area { border: 2px dashed #6366f1; border-radius: 16px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; background: rgba(99,102,241,0.05); }
+        .file-upload-area:hover { background: rgba(99,102,241,0.1); border-color: #4f46e5; }
+        .upload-icon { font-size: 40px; color: #6366f1; margin-bottom: 10px; }
+        .btn-gradient { background: linear-gradient(135deg, #4f46e5, #6366f1); border: none; color: white; font-weight: 600; padding: 12px; border-radius: 12px; transition: all 0.3s; }
+        .btn-gradient:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(79,70,229,0.35); }
+        .spinner { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @media (max-width: 768px) { .row.g-3 { flex-direction: column; } .radio-label { flex: 1; justify-content: center; } }
       `}</style>
     </div>
   );

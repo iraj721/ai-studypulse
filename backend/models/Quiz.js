@@ -11,6 +11,7 @@ const QuizSchema = new mongoose.Schema({
     }
   ],
   score: { type: Number, default: null }, // user score
+  sourceFile: { type: String, default: null },
   createdAt: { type: Date, default: Date.now }
 });
 

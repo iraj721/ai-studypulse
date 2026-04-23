@@ -1,16 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../middleware/authMiddleware");
-const chatController = require("../controllers/chatController");
+const chatSessionController = require("../controllers/chatSessionController");
 
-if (!chatController.getMessages || !chatController.sendMessage) {
-  throw new Error("ChatController functions missing!");
-}
-
-// GET /api/chat - fetch all messages
-router.get("/", authMiddleware, chatController.getMessages);
-
-// POST /api/chat - send a message to AI
-router.post("/", authMiddleware, chatController.sendMessage);
+// Session routes
+router.get("/sessions", authMiddleware, chatSessionController.getChatSessions);
+router.get("/sessions/:id", authMiddleware, chatSessionController.getChatSession);
+router.post("/sessions", authMiddleware, chatSessionController.createChatSession);
+router.delete("/sessions/:id", authMiddleware, chatSessionController.deleteChatSession);
+router.put("/sessions/:id/title", authMiddleware, chatSessionController.updateChatTitle);
+router.post("/sessions/:id/message", authMiddleware, chatSessionController.sendMessageInSession);
 
 module.exports = router;

@@ -44,7 +44,21 @@ const uploadMaterialConfig = {
   fileFilter: fileFilter,
 };
 
+const notesStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => ({
+    folder: "study_materials",
+    resource_type: "auto",
+    public_id: `${Date.now()}-${file.originalname}`,
+  }),
+});
+
 module.exports = {
   assignments: multer(uploadConfig),
   materials: multer(uploadMaterialConfig),
+    uploadStudyMaterial: multer({ 
+    storage: notesStorage, 
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: fileFilter 
+  })
 };

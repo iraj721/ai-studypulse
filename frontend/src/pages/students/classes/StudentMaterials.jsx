@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import Stars from "../../../components/Stars";
+import BackButton from "../../../components/BackButton";
+import Toast from "../../../components/Toast";
 
 const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/$/, "");
 
@@ -11,6 +13,7 @@ export default function StudentMaterials() {
 
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   useEffect(() => {
     fetchMaterials();
@@ -21,8 +24,7 @@ export default function StudentMaterials() {
       const res = await api.get(`/student/classes/${classId}/materials`);
       setMaterials(res.data);
     } catch (err) {
-      console.error(err);
-      alert("Failed to load materials");
+      setToast({ message: "Failed to load materials", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -31,22 +33,20 @@ export default function StudentMaterials() {
   const openFile = (fileUrl) => {
     if (!fileUrl) return;
     const url = fileUrl.startsWith("http") ? fileUrl : `${BASE_URL}${fileUrl}`;
-    const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(
-      url,
-    )}&embedded=true`;
+    const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
     window.open(viewer, "_blank");
   };
 
-  if (loading)
-    return <div className="text-center mt-5 text-white">Loading...</div>;
+  if (loading) return <div className="text-center mt-5 text-white">Loading...</div>;
 
   return (
     <div className="materials-bg min-vh-100 position-relative py-5">
       <Stars />
-      <div className="container mt-4">
-        <button onClick={() => navigate(-1)} className="btn btn-secondary mb-3">
-          ⬅ Back
-        </button>
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
+
+      <div className="container">
+        <BackButton to={`/student/class/${classId}`} label="← Back to Class" />
+
         <h3 className="mb-4 text-white">📂 Class Materials</h3>
 
         {materials.length === 0 ? (
@@ -55,24 +55,14 @@ export default function StudentMaterials() {
           materials.map((m) => (
             <div key={m._id} className="material-card mb-3 shadow-sm p-4">
               <h5>{m.title}</h5>
-              {m.content && (
-                <p className="text-light-opacity mb-2">{m.content}</p>
-              )}
-
+              {m.content && <p className="text-light-opacity mb-2">{m.content}</p>}
               {m.fileUrl && (
-                <div className="mb-2">
-                  <button
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={() => openFile(m.fileUrl)}
-                  >
-                    📎 View File
-                  </button>
-                </div>
+                <button className="btn btn-sm btn-outline-primary" onClick={() => openFile(m.fileUrl)}>
+                  📎 View File
+                </button>
               )}
-
-              <small className="text-light-opacity d-block">
-                Posted by {m.teacher?.name} on{" "}
-                {new Date(m.createdAt).toLocaleString()}
+              <small className="text-light-opacity d-block mt-2">
+                Posted by {m.teacher?.name} on {new Date(m.createdAt).toLocaleString()}
               </small>
             </div>
           ))
@@ -82,59 +72,19 @@ export default function StudentMaterials() {
       <style>{`
         .materials-bg {
           background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #5a77a3 100%);
-          position: relative;
-          overflow: hidden;
         }
-        .text-light-opacity { color: rgba(255,255,255,0.7); }
+        .text-light-opacity { color: rgba(255,255,255,0.8); }
         .material-card {
           border-radius: 16px;
           background: linear-gradient(145deg, #ebf1f4ff, #bedaf3ff);
           color: black;
-          padding: 20px;
-          transition: transform 0.2s, box-shadow 0.2s;
+          transition: all 0.3s;
         }
-        .material-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        .material-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        @media (max-width: 768px) {
+          .material-card { padding: 16px; }
+          .btn-outline-primary { width: 100%; }
         }
-        .material-card p,
-        .material-card small {
-          color: #000000ff;
-        }
-        h3, h5 {
-          color: #180101ff; 
-        }
-        .btn-outline-primary {
-          color: #043e0cff;
-          border-color: #043901ff;
-        }
-        .btn-outline-primary:hover {
-          background-color: #003243ff;
-          color: #fff;
-        }
-          /* Mobile Responsive - StudentMaterials */
-@media (max-width: 768px) {
-  .materials-bg .container {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  
-  .material-card {
-    padding: 14px;
-  }
-  
-  .material-card h5 {
-    font-size: 1rem;
-  }
-  
-  .material-card p {
-    font-size: 0.85rem;
-  }
-  
-  .btn-outline-primary {
-    width: 100%;
-  }
-}
       `}</style>
     </div>
   );

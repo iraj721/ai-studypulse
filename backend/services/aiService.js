@@ -5,37 +5,50 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+const { getCachedResponse, setCachedResponse } = require("./cacheService");
+
+// ✅ FASTER MODELS
 const MODELS = {
   groqFast: "llama-3.1-8b-instant",
-  groqBalanced: "llama-3.3-70b-versatile",
-  groqBest: "llama-4-maverick-17b-128e-instruct",
+  groqBalanced: "llama-3.1-8b-instant",
+  groqBest: "llama-3.3-70b-versatile",
   hfDefault: process.env.HF_MODEL || "meta-llama/Llama-3.2-1B-Instruct",
 };
 
-// ✅ Timeout promise (30 seconds)
-const withTimeout = (promise, timeoutMs = 30000) => {
+// ✅ 8 second timeout - user wait nahi karega
+const withTimeout = (promise, timeoutMs = 8000) => {
   const timeout = new Promise((_, reject) =>
     setTimeout(() => reject(new Error("AI request timeout")), timeoutMs)
   );
   return Promise.race([promise, timeout]);
 };
 
-async function askGroq(prompt, model = MODELS.groqBalanced) {
+// ✅ GPT-LEVEL SYSTEM PROMPT
+const SYSTEM_PROMPT = `You are StudyPulse AI, a world-class study assistant. Follow these rules STRICTLY:
+1. Give ACCURATE, FACTUAL information only. If unsure, say "I'm not sure"
+2. Keep responses CLEAR and STRUCTURED with bullet points when helpful
+3. For math/equations, use clear notation (like x² = y)
+4. For code, use proper formatting
+5. Be CONCISE but COMPLETE - no fluff or repetition
+6. Always be helpful and encouraging to students
+7. Break complex topics into simple, easy-to-understand parts
+8. Use emojis occasionally to make learning engaging 📚✨
+9. NEVER say "as an AI" or "I don't have personal opinions"
+10. Give EXAMPLES when explaining concepts`;
+
+async function askGroq(prompt, model = MODELS.groqFast) {
   try {
     const response = await withTimeout(
       groq.chat.completions.create({
         messages: [
-          {
-            role: "system",
-            content: "You are a helpful study assistant. Provide clear, accurate responses. Use markdown for formatting.",
-          },
+          { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: prompt },
         ],
         model: model,
-        temperature: 0.7,
-        max_tokens: 1500,
+        temperature: 0.5,
+        max_tokens: 1500, // ✅ Increased for better responses
       }),
-      30000
+      8000
     );
     return response.choices[0]?.message?.content || "";
   } catch (err) {
@@ -51,9 +64,12 @@ async function askHuggingFace(prompt) {
         "https://router.huggingface.co/v1/chat/completions",
         {
           model: MODELS.hfDefault,
-          messages: [{ role: "user", content: prompt }],
-          max_tokens: 2000,
-          temperature: 0.7,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: prompt },
+          ],
+          max_tokens: 1000,
+          temperature: 0.5,
         },
         {
           headers: {
@@ -62,7 +78,7 @@ async function askHuggingFace(prompt) {
           },
         }
       ),
-      30000
+      8000
     );
     return response.data?.choices?.[0]?.message?.content || "";
   } catch (err) {
@@ -72,31 +88,38 @@ async function askHuggingFace(prompt) {
 }
 
 async function askAI(prompt, mode = "fast") {
+  // Check cache first
+  const cachedResponse = getCachedResponse(prompt);
+  if (cachedResponse) {
+    console.log("⚡ Returning cached response");
+    return cachedResponse;
+  }
+
   let result = null;
 
   try {
-    if (mode === "complex") {
-      console.log("🧠 Using Hugging Face (quality mode)...");
+    console.log("⚡ Using Groq...");
+    result = await askGroq(prompt, MODELS.groqFast);
+
+    if (!result && process.env.HF_API_KEY) {
+      console.log("⚠️ Groq failed, falling back to HF...");
       result = await askHuggingFace(prompt);
-      if (!result) {
-        console.log("⚠️ HF failed, falling back to Groq...");
-        result = await askGroq(prompt);
-      }
-    } else {
-      console.log("⚡ Using Groq (fast mode)...");
-      result = await askGroq(prompt);
-      
-      if (!result && process.env.HF_API_KEY) {
-        console.log("⚠️ Groq failed, falling back to HF...");
-        result = await askHuggingFace(prompt);
-      }
     }
   } catch (err) {
     console.error("AI Service Error:", err.message);
-    return "I'm having trouble generating a response. Please try again in a few seconds.";
+    return "I'm having trouble generating a response. Please try again in a moment. 🙏";
   }
 
-  return result || "Unable to generate response. Please try again.";
+  if (!result) {
+    return "I'm here to help! Could you please rephrase your question? I'll do my best to assist you. 📚";
+  }
+
+  // Cache the response
+  if (result) {
+    setCachedResponse(prompt, result);
+  }
+
+  return result;
 }
 
 module.exports = askAI;

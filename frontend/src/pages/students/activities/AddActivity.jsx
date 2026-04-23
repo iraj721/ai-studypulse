@@ -1,8 +1,9 @@
-// src/pages/AddActivity.jsx
 import React, { useState } from "react";
 import api from "../../../services/api";
 import { useNavigate, Link } from "react-router-dom";
 import Stars from "../../../components/Stars";
+import Toast from "../../../components/Toast";
+import BackButton from "../../../components/BackButton";
 
 export default function AddActivity() {
   const navigate = useNavigate();
@@ -13,40 +14,61 @@ export default function AddActivity() {
     notes: "",
   });
   const [loading, setLoading] = useState(false);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   const onChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!form.subject || !form.topic) {
+      setToast({ message: "Subject and Topic are required!", type: "error" });
+      return;
+    }
+    
     setLoading(true);
     try {
-      await api.post("/activities", form);
-      alert("Activity added successfully!");
-      navigate("/activities");
+      const payload = {
+        ...form,
+        durationMinutes: parseFloat(form.durationMinutes) || 0,
+      };
+      await api.post("/activities", payload);
+      setToast({ message: "Activity added successfully! 🎉", type: "success" });
+      setForm({ subject: "", topic: "", durationMinutes: "", notes: "" });
+      
+      setTimeout(() => {
+        navigate("/activities");
+      }, 1500);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Failed to add activity.");
+      setToast({ 
+        message: err.response?.data?.message || "Failed to add activity", 
+        type: "error" 
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-vh-100 add-activity-bg d-flex align-items-center justify-content-center p-3">
+    <div className="min-vh-100 add-activity-bg d-flex align-items-center justify-content-center p-3 position-relative">
       <Stars />
+      <Toast 
+        message={toast.message} 
+        type={toast.type} 
+        onClose={() => setToast({ message: "", type: "success" })} 
+      />
 
-      <div className="page-top-bar">
-        <h3 className="page-title">Add New Activity</h3>
-        <Link to="/dashboard" className="btn btn-outline-light">
-          Back to Dashboard
-        </Link>
-      </div>
-
-      <div className="activity-page">
+      <div className="activity-page" style={{ width: "100%", maxWidth: "560px" }}>
+        {/* Back Button */}
+        <BackButton to="/dashboard" label="← Back to Dashboard" />
+        
         <div className="card activity-card shadow-lg p-4 animate-card">
+          <h3 className="text-center mb-4 fw-bold text-success">📚 Add New Activity</h3>
+          
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
-              <label className="form-label">Subject</label>
+              <label className="form-label fw-semibold">Subject *</label>
               <input
                 type="text"
                 name="subject"
@@ -54,12 +76,12 @@ export default function AddActivity() {
                 value={form.subject}
                 onChange={onChange}
                 required
-                placeholder="e.g., Math"
+                placeholder="e.g., Mathematics"
               />
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Topic</label>
+              <label className="form-label fw-semibold">Topic *</label>
               <input
                 type="text"
                 name="topic"
@@ -72,7 +94,7 @@ export default function AddActivity() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Duration (minutes)</label>
+              <label className="form-label fw-semibold">Duration (minutes)</label>
               <input
                 type="number"
                 name="durationMinutes"
@@ -84,7 +106,7 @@ export default function AddActivity() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Notes (optional)</label>
+              <label className="form-label fw-semibold">Notes (optional)</label>
               <textarea
                 name="notes"
                 className="form-control form-input"
@@ -100,7 +122,14 @@ export default function AddActivity() {
               className="btn btn-primary w-100 btn-add"
               disabled={loading}
             >
-              {loading ? "Adding..." : "Add Activity"}
+              {loading ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                  Adding...
+                </>
+              ) : (
+                "➕ Add Activity"
+              )}
             </button>
           </form>
         </div>
@@ -117,37 +146,8 @@ export default function AddActivity() {
           );
         }
 
-        .page-top-bar {
-        backdrop-filter: blur(6px);
-  position: absolute;
-  top: 24px;
-  left: 0;
-  width: 100%;
-  padding: 0 32px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  z-index: 2;
-}
-
-        .activity-page {
-          margin-top: 100px;
-          width: 100%;
-          max-width: 560px;
-          position: relative;
-          z-index: 1;
-        }
-
-
-       .page-title {
-  color: #ffffff;
-  font-weight: 700;
-  margin: 0;
-}
-
-        /* ===== CARD ===== */
         .activity-card {
-          border-radius: 16px;
+          border-radius: 20px;
           background: linear-gradient(145deg, #ebf1f4ff, #bedaf3ff);
           transition: transform 0.4s, box-shadow 0.4s;
         }
@@ -158,14 +158,15 @@ export default function AddActivity() {
         }
 
         .form-label {
-  font-weight: 600;
-  color: #2c3e50;
-}
-        /* ===== INPUTS ===== */
+          font-weight: 600;
+          color: #2c3e50;
+        }
+
         .form-input {
-          border-radius: 10px;
+          border-radius: 12px;
           padding: 12px 14px;
           transition: border-color 0.3s, box-shadow 0.3s;
+          border: 1px solid #ddd;
         }
 
         .form-input:focus {
@@ -174,17 +175,18 @@ export default function AddActivity() {
           outline: none;
         }
 
-        /* ===== BUTTON ===== */
         .btn-add {
           background: linear-gradient(135deg, #0066ff, #00c6ff);
           border: none;
           font-weight: 600;
-          transition: transform 0.3s, box-shadow: 0 8px 20px rgba(0,102,255,0.35);
+          padding: 12px;
+          border-radius: 12px;
+          transition: transform 0.3s, box-shadow 0.3s;
         }
 
-        .btn-add:hover {
-          transform: translateY(-3px) scale(1.03);
-          box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+        .btn-add:hover:not(:disabled) {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 20px rgba(0,102,255,0.35);
           background: linear-gradient(135deg, #005ce6, #00bfff);
         }
 
@@ -193,7 +195,6 @@ export default function AddActivity() {
           cursor: not-allowed;
         }
 
-        /* ===== ANIMATION ===== */
         .animate-card {
           animation: fadeInUp 0.8s ease forwards;
         }
@@ -202,47 +203,21 @@ export default function AddActivity() {
           from { opacity: 0; transform: translateY(20px); }
           to { opacity: 1; transform: translateY(0); }
         }
-          /* Mobile Responsive - AddActivity */
-@media (max-width: 768px) {
-  .add-activity-bg {
-    padding: 80px 16px 40px !important;
-  }
-  
-  .page-top-bar {
-    flex-direction: column;
-    gap: 12px;
-    text-align: center;
-    padding: 0 16px;
-    top: 16px;
-  }
-  
-  .page-title {
-    font-size: 1.4rem;
-  }
-  
-  .activity-page {
-    margin-top: 120px;
-    padding: 0 8px;
-  }
-  
-  .activity-card {
-    padding: 20px 16px !important;
-  }
-  
-  .activity-card .form-input {
-    font-size: 14px;
-    padding: 10px 12px;
-  }
-  
-  .btn-add, .btn-outline-light {
-    width: 100%;
-    margin-top: 8px;
-  }
-  
-  .d-flex.gap-2 {
-    flex-direction: column;
-  }
-}
+
+        @media (max-width: 768px) {
+          .activity-page {
+            padding: 0 16px;
+          }
+          
+          .activity-card {
+            padding: 20px 16px !important;
+          }
+          
+          .form-input {
+            font-size: 14px;
+            padding: 10px 12px;
+          }
+        }
       `}</style>
     </div>
   );

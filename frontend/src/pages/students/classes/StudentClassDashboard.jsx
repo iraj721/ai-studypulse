@@ -1,8 +1,9 @@
-// src/pages/StudentClassDashboard.jsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../../services/api";
 import Stars from "../../../components/Stars";
+import BackButton from "../../../components/BackButton";
+import Toast from "../../../components/Toast";
 
 export default function StudentClassDashboard() {
   const { classId } = useParams();
@@ -15,6 +16,7 @@ export default function StudentClassDashboard() {
   const [answers, setAnswers] = useState({});
   const [replyTexts, setReplyTexts] = useState({});
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   useEffect(() => {
     fetchDashboard();
@@ -22,13 +24,12 @@ export default function StudentClassDashboard() {
 
   const fetchDashboard = async () => {
     try {
-      const [classRes, assignmentsRes, announcementsRes, materialsRes] =
-        await Promise.all([
-          api.get(`/student/classes/${classId}`),
-          api.get(`/student/classes/${classId}/assignments`),
-          api.get(`/student/classes/${classId}/announcements`),
-          api.get(`/student/classes/${classId}/materials`),
-        ]);
+      const [classRes, assignmentsRes, announcementsRes, materialsRes] = await Promise.all([
+        api.get(`/student/classes/${classId}`),
+        api.get(`/student/classes/${classId}/assignments`),
+        api.get(`/student/classes/${classId}/announcements`),
+        api.get(`/student/classes/${classId}/materials`),
+      ]);
 
       setClassInfo(classRes.data);
       setAssignments(assignmentsRes.data);
@@ -36,7 +37,7 @@ export default function StudentClassDashboard() {
       setMaterials(materialsRes.data);
     } catch (err) {
       console.error(err);
-      alert("Failed to load dashboard");
+      setToast({ message: "Failed to load dashboard", type: "error" });
     } finally {
       setLoading(false);
     }
@@ -48,103 +49,78 @@ export default function StudentClassDashboard() {
     if (answers[id]?.file) data.append("file", answers[id].file);
 
     try {
-      await api.post(
-        `/student/classes/${classId}/assignments/${id}/submit`,
-        data,
-      );
+      await api.post(`/student/classes/${classId}/assignments/${id}/submit`, data);
+      setToast({ message: "Assignment submitted successfully!", type: "success" });
       fetchDashboard();
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "Error submitting assignment");
+      setToast({ message: err.response?.data?.message || "Error submitting assignment", type: "error" });
     }
   };
 
   const unsendAssignment = async (id) => {
-    if (!window.confirm("Are you sure you want to unsend your submission?"))
-      return;
+    if (!window.confirm("Are you sure you want to unsend your submission?")) return;
     try {
       await api.delete(`/student/classes/${classId}/assignments/${id}/unsend`);
+      setToast({ message: "Submission unsent successfully!", type: "success" });
       fetchDashboard();
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "Error unsending submission");
+      setToast({ message: "Error unsending submission", type: "error" });
     }
   };
 
   const submitReply = async (announcementId) => {
     const text = replyTexts[announcementId]?.trim();
-    if (!text) return;
+    if (!text) {
+      setToast({ message: "Reply cannot be empty", type: "error" });
+      return;
+    }
 
     try {
-      await api.post(
-        `/student/classes/${classId}/announcements/${announcementId}/reply`,
-        { text },
-      );
+      await api.post(`/student/classes/${classId}/announcements/${announcementId}/reply`, { text });
       setReplyTexts({ ...replyTexts, [announcementId]: "" });
+      setToast({ message: "Reply sent successfully!", type: "success" });
       fetchDashboard();
     } catch (err) {
-      console.error(err);
-      alert(err.response?.data?.message || "Error submitting reply");
+      setToast({ message: err.response?.data?.message || "Error submitting reply", type: "error" });
     }
   };
 
   const openFile = (fileUrl) => {
     if (!fileUrl) return;
-    const url = fileUrl.startsWith("http")
-      ? fileUrl
-      : `${import.meta.env.VITE_API_URL}${fileUrl}`;
-    const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(
-      url,
-    )}&embedded=true`;
+    const url = fileUrl.startsWith("http") ? fileUrl : `${import.meta.env.VITE_API_URL}${fileUrl}`;
+    const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
     window.open(viewer, "_blank");
   };
 
-  if (loading)
-    return <div className="text-center mt-5 text-white">Loading...</div>;
+  if (loading) return <div className="text-center mt-5 text-white">Loading...</div>;
 
   return (
     <div className="dashboard-bg min-vh-100 py-5 position-relative">
       <Stars />
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
+
       <div className="container">
-        <button
-          onClick={() => navigate(-1)}
-          className="btn btn-outline-light mb-3"
-        >
-          ⬅ Back
-        </button>
+        <BackButton to="/classes" label="← Back to My Classes" />
 
         <h2 className="text-white fw-bold">{classInfo?.name}</h2>
-        <p className="text-light-opacity">
-          Teacher: {classInfo?.teacher?.name}
-        </p>
+        <p className="text-light-opacity">Teacher: {classInfo?.teacher?.name}</p>
 
         {/* TOP 3 CARDS */}
         <div className="row g-3 my-4">
           <div className="col-md-4">
-            <div
-              className="top-cards p-4 shadow-lg text-center"
-              onClick={() => navigate(`/student/class/${classId}/assignments`)}
-            >
+            <div className="top-cards p-4 shadow-lg text-center" onClick={() => navigate(`/student/class/${classId}/assignments`)}>
               <h4>📝 Assignments</h4>
               <p>{assignments.length} total</p>
             </div>
           </div>
           <div className="col-md-4">
-            <div
-              className="top-cards p-4 shadow-lg text-center"
-              onClick={() =>
-                navigate(`/student/class/${classId}/announcements`)
-              }
-            >
+            <div className="top-cards p-4 shadow-lg text-center" onClick={() => navigate(`/student/class/${classId}/announcements`)}>
               <h4>📢 Announcements</h4>
               <p>{announcements.length} total</p>
             </div>
           </div>
           <div className="col-md-4">
-            <div
-              className="top-cards p-4 shadow-lg text-center"
-              onClick={() => navigate(`/student/class/${classId}/materials`)}
-            >
+            <div className="top-cards p-4 shadow-lg text-center" onClick={() => navigate(`/student/class/${classId}/materials`)}>
               <h4>📂 Materials</h4>
               <p>{materials.length} total</p>
             </div>
@@ -159,25 +135,13 @@ export default function StudentClassDashboard() {
           materials.map((m) => (
             <div key={m._id} className="dashboard-card mb-3 p-4 shadow-sm">
               <h5>{m.title}</h5>
-              {m.content && (
-                <p className="text-light-opacity mb-2">{m.content}</p>
-              )}
-
+              {m.content && <p className="text-light-opacity mb-2">{m.content}</p>}
               {m.fileUrl && (
-                <div className="mb-2">
-                  <button
-                    className="btn btn-sm btn-outline-gradient"
-                    onClick={() => openFile(m.fileUrl)}
-                  >
-                    📎 View File
-                  </button>
-                </div>
+                <button className="btn btn-sm btn-outline-gradient" onClick={() => openFile(m.fileUrl)}>
+                  📎 View File
+                </button>
               )}
-
-              <small className="text-light-opacity d-block">
-                Posted by {m.teacher?.name} on{" "}
-                {new Date(m.createdAt).toLocaleString()}
-              </small>
+              <small className="text-light-opacity d-block mt-2">Posted by {m.teacher?.name} on {new Date(m.createdAt).toLocaleString()}</small>
             </div>
           ))
         )}
@@ -191,16 +155,11 @@ export default function StudentClassDashboard() {
             <div key={a._id} className="dashboard-card mb-3 p-3">
               <p>{a.text}</p>
               {a.attachment && (
-                <button
-                  className="btn btn-sm btn-outline-gradient mb-2"
-                  onClick={() => openFile(a.attachment)}
-                >
+                <button className="btn btn-sm btn-outline-gradient mb-2" onClick={() => openFile(a.attachment)}>
                   📎 View Attachment
                 </button>
               )}
-              <small className="text-light-opacity">
-                Posted on {new Date(a.createdAt).toLocaleString()}
-              </small>
+              <small className="text-light-opacity">Posted on {new Date(a.createdAt).toLocaleString()}</small>
 
               {/* Replies */}
               <div className="mt-2 ps-3 border-start border-light">
@@ -209,29 +168,16 @@ export default function StudentClassDashboard() {
                     <strong className="text-white">Replies:</strong>
                     {a.replies.map((r, i) => (
                       <div key={i} className="mb-1">
-                        <small className="text-primary">{r.studentName}:</small>{" "}
-                        <span className="text-white">{r.text}</span>
+                        <small className="text-primary">{r.studentName}:</small> <span className="text-white">{r.text}</span>
                       </div>
                     ))}
                   </div>
                 )}
-
                 <div className="d-flex gap-2">
-                  <input
-                    type="text"
-                    className="form-control form-control-sm bg-dark text-white"
-                    placeholder="Reply..."
-                    value={replyTexts[a._id] || ""}
-                    onChange={(e) =>
-                      setReplyTexts({ ...replyTexts, [a._id]: e.target.value })
-                    }
-                  />
-                  <button
-                    className="btn btn-sm btn-success"
-                    onClick={() => submitReply(a._id)}
-                  >
-                    Reply
-                  </button>
+                  <input type="text" className="form-control form-control-sm bg-dark text-white"
+                    placeholder="Reply..." value={replyTexts[a._id] || ""}
+                    onChange={(e) => setReplyTexts({ ...replyTexts, [a._id]: e.target.value })} />
+                  <button className="btn btn-sm btn-success" onClick={() => submitReply(a._id)}>Reply</button>
                 </div>
               </div>
             </div>
@@ -252,18 +198,9 @@ export default function StudentClassDashboard() {
               <div key={a._id} className="dashboard-card mb-3 p-3">
                 <h5>{a.title}</h5>
                 <p className="text-light-opacity">{a.instructions}</p>
-
-                {a.marks != null && (
-                  <p className="fw-semibold text-light-opacity mb-1">
-                    Total Marks: {a.marks}
-                  </p>
-                )}
-
+                {a.marks != null && <p className="fw-semibold text-light-opacity mb-1">Total Marks: {a.marks}</p>}
                 {a.attachment && (
-                  <button
-                    className="btn btn-sm btn-outline-gradient mb-1"
-                    onClick={() => openFile(a.attachment)}
-                  >
+                  <button className="btn btn-sm btn-outline-gradient mb-1" onClick={() => openFile(a.attachment)}>
                     📎 View Assignment File
                   </button>
                 )}
@@ -272,76 +209,32 @@ export default function StudentClassDashboard() {
                   <>
                     <p className="text-success">✅ Submitted</p>
                     {a.submission?.marks != null ? (
-                      <p className="fw-semibold text-success">
-                        Marks Obtained: {a.submission.marks} / {a.marks}
-                      </p>
+                      <p className="fw-semibold text-success">Marks Obtained: {a.submission.marks} / {a.marks}</p>
                     ) : (
-                      <p className="text-light-opacity">
-                        Marks not uploaded yet
-                      </p>
+                      <p className="text-light-opacity">Marks not uploaded yet</p>
                     )}
                     {a.submission?.file && (
-                      <button
-                        className="btn btn-sm btn-success mb-1"
-                        onClick={() => openFile(a.submission.file)}
-                      >
+                      <button className="btn btn-sm btn-success mb-1" onClick={() => openFile(a.submission.file)}>
                         View My Submission
                       </button>
                     )}
-                    {a.submission?.answerText && (
-                      <p>{a.submission.answerText}</p>
-                    )}
+                    {a.submission?.answerText && <p>{a.submission.answerText}</p>}
                     {isBeforeDue && (
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => unsendAssignment(a._id)}
-                      >
-                        Unsend
-                      </button>
-                    )}
-                    {!isBeforeDue && (
-                      <p className="text-light-opacity">Submission closed.</p>
+                      <button className="btn btn-sm btn-danger" onClick={() => unsendAssignment(a._id)}>Unsend</button>
                     )}
                   </>
                 ) : (
                   <>
                     {isBeforeDue ? (
                       <>
-                        <textarea
-                          className="form-control mb-1 bg-dark text-white"
-                          placeholder="Your answer"
-                          onChange={(e) =>
-                            setAnswers({
-                              ...answers,
-                              [a._id]: {
-                                ...answers[a._id],
-                                text: e.target.value,
-                              },
-                            })
-                          }
-                        />
-                        <input
-                          type="file"
-                          className="form-control mb-1 bg-dark text-white"
-                          onChange={(e) =>
-                            setAnswers({
-                              ...answers,
-                              [a._id]: {
-                                ...answers[a._id],
-                                file: e.target.files[0],
-                              },
-                            })
-                          }
-                        />
-                        <button
-                          className="btn btn-gradient btn-sm"
-                          onClick={() => submitAssignment(a._id)}
-                        >
-                          Submit
-                        </button>
+                        <textarea className="form-control mb-1 bg-dark text-white" placeholder="Your answer"
+                          onChange={(e) => setAnswers({ ...answers, [a._id]: { ...answers[a._id], text: e.target.value } })} />
+                        <input type="file" className="form-control mb-1 bg-dark text-white"
+                          onChange={(e) => setAnswers({ ...answers, [a._id]: { ...answers[a._id], file: e.target.files[0] } })} />
+                        <button className="btn btn-gradient btn-sm" onClick={() => submitAssignment(a._id)}>Submit</button>
                       </>
                     ) : (
-                      <p className="text-danger">❌ Submission closed.</p>
+                      <p className="text-danger">❌ Submission closed</p>
                     )}
                   </>
                 )}
@@ -354,100 +247,34 @@ export default function StudentClassDashboard() {
       <style>{`
         .dashboard-bg {
           background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #1a2a3d 100%);
-          min-height: 100vh;
-          position: relative;
-          overflow: hidden;
-          color: #fff;
         }
-          .top-cards{
+        .top-cards {
           background: linear-gradient(145deg, #ebf1f4ff, #bedaf3ff);
           color: black;
           border-radius: 16px;
           cursor: pointer;
-          transition: transform 0.3s, box-shadow 0.3s;
-          }
+          transition: all 0.3s;
+        }
+        .top-cards:hover { transform: translateY(-5px); box-shadow: 0 12px 25px rgba(0,0,0,0.2); }
         .dashboard-card {
           background: rgba(24, 34, 52, 0.85);
+          backdrop-filter: blur(10px);
           color: #fff;
           border-radius: 16px;
-          cursor: pointer;
-          transition: transform 0.3s, box-shadow 0.3s;
+          transition: all 0.3s;
         }
-        .dashboard-card:hover {
-          transform: translateY(-5px);
-          box-shadow: 0 12px 25px rgba(0,0,0,0.3);
+        .dashboard-card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,0,0,0.2); }
+        .text-light-opacity { color: rgba(255,255,255,0.8); }
+        .btn-gradient { background: linear-gradient(135deg, #4f46e5, #6366f1); border: none; color: white; }
+        .btn-outline-gradient { color: #fff; border-color: rgba(255,255,255,0.5); background: transparent; }
+        .btn-outline-gradient:hover { background: rgba(255,255,255,0.1); border-color: #fff; }
+        @media (max-width: 768px) {
+          .row.g-3 { flex-direction: column; }
+          .col-md-4 { width: 100%; margin-bottom: 12px; }
+          .d-flex.gap-2 { flex-direction: column; }
+          .d-flex.gap-2 input, .d-flex.gap-2 button { width: 100%; }
+          .border-start { padding-left: 12px; }
         }
-        .text-light-opacity { color: rgba(255,255,255,0.7); }
-        .border-light { border-color: rgba(255,255,255,0.3) !important; }
-        .btn-outline-light { color: #fff; border-color: rgba(255,255,255,0.5); }
-        .btn-outline-light:hover { color: #fff; border-color: #fff; background: rgba(255,255,255,0.1); }
-        .btn-gradient {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          border: none;
-          color: white;
-          font-weight: 600;
-          transition: transform 0.3s, box-shadow 0.3s;
-        }
-        .btn-gradient:hover {
-          transform: translateY(-2px) scale(1.03);
-          box-shadow: 0 12px 25px rgba(0,0,0,0.25);
-          background: linear-gradient(135deg, #5b4be8, #7b66f3);
-        }
-        .btn-outline-gradient {
-          color: #fff;
-          border-color: rgba(255,255,255,0.5);
-        }
-        .btn-outline-gradient:hover {
-          background: rgba(255,255,255,0.1);
-          border-color: #fff;
-          color: #fff;
-        }
-          /* Mobile Responsive - StudentClassDashboard */
-@media (max-width: 768px) {
-  .dashboard-bg .container {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  
-  .row.g-3.my-4 {
-    flex-direction: column;
-  }
-  
-  .row.g-3.my-4 .col-md-4 {
-    width: 100%;
-    margin-bottom: 12px;
-  }
-  
-  .top-cards, .dashboard-card {
-    padding: 16px !important;
-  }
-  
-  .top-cards h4, .dashboard-card h4, .dashboard-card h5 {
-    font-size: 1rem;
-  }
-  
-  .d-flex.gap-2 {
-    flex-direction: column;
-  }
-  
-  .d-flex.gap-2 input,
-  .d-flex.gap-2 button {
-    width: 100%;
-  }
-  
-  .btn-sm {
-    width: 100%;
-    margin-bottom: 6px;
-  }
-  
-  .border-start {
-    padding-left: 12px;
-  }
-  
-  textarea.form-control {
-    font-size: 13px;
-  }
-}
       `}</style>
     </div>
   );

@@ -83,6 +83,7 @@ export default function App() {
           <Route path="/classes/join" element={<JoinClass />} />
 
           <Route path="/chat" element={<AIChat />} />
+          <Route path="/chat/:sessionId?" element={<AIChat />} />
 
           <Route path="/notes" element={<Notes />} />
           <Route path="/notes/create" element={<CreateNote />} />
