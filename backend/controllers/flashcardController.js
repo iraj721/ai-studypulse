@@ -6,39 +6,83 @@ const askHF = require("../services/aiService");
 const generateFlashcards = async (req, res) => {
   try {
     const { noteId, numCards = 10 } = req.body;
+    
+    if (!noteId) {
+      return res.status(400).json({ message: "Note ID is required" });
+    }
+    
     const note = await Note.findOne({ _id: noteId, user: req.user._id });
     
     if (!note) {
       return res.status(404).json({ message: "Note not found" });
     }
     
-    const prompt = `Generate ${numCards} high-quality flashcards from this study material:
+    // ✅ FIX: Check if note has content
+    if (!note.content || note.content.length < 50) {
+      return res.status(400).json({ 
+        message: "Note content is too short. Please add more content to generate flashcards." 
+      });
+    }
     
-${note.content.substring(0, 5000)}
+    // ✅ STRONGER PROMPT for flashcards
+    const prompt = `Generate ${Math.min(numCards, 15)} high-quality flashcards from this study note:
+
+NOTE CONTENT:
+${note.content.substring(0, 6000)}
 
 Each flashcard should have:
-- Front: A clear question about a key concept
-- Back: Concise, accurate answer
+- Front: A clear, specific question about a key concept from the note
+- Back: A concise, accurate answer based ONLY on the note
 
 Return EXACT JSON format:
 {
   "flashcards": [
     {"front": "What is X?", "back": "X is defined as..."}
   ]
-}`;
+}
+
+IMPORTANT: Base ALL flashcards on the note content above. DO NOT create generic questions.`;
 
     const aiResponse = await askHF(prompt);
-    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+    console.log("AI Response for flashcards:", aiResponse?.substring(0, 200));
+    
     let flashcards = [];
     
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      flashcards = parsed.flashcards || [];
+    try {
+      const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        flashcards = parsed.flashcards || [];
+      }
+    } catch (parseErr) {
+      console.error("JSON Parse error:", parseErr);
     }
     
-    // Save flashcards
+    // ✅ FALLBACK: Create basic flashcards from note
+    if (flashcards.length === 0) {
+      // Extract key sentences from note
+      const sentences = note.content.split(/[.!?]+/).filter(s => s.trim().length > 30);
+      for (let i = 0; i < Math.min(numCards, sentences.length); i++) {
+        flashcards.push({
+          front: `What is explained in: "${sentences[i].substring(0, 60)}..."?`,
+          back: sentences[i].trim()
+        });
+      }
+    }
+    
+    if (flashcards.length === 0) {
+      flashcards.push({
+        front: `What is the main topic of "${note.topic}"?`,
+        back: `The note covers ${note.subject} - ${note.topic}. Please review the note content.`
+      });
+    }
+    
+    // Delete existing flashcards
+    await Flashcard.deleteMany({ user: req.user._id, noteId });
+    
+    // Save new flashcards
     const savedFlashcards = await Flashcard.insertMany(
-      flashcards.map(card => ({
+      flashcards.slice(0, numCards).map(card => ({
         user: req.user._id,
         noteId: note._id,
         front: card.front,
@@ -51,7 +95,7 @@ Return EXACT JSON format:
     
     res.status(201).json(savedFlashcards);
   } catch (err) {
-    console.error(err);
+    console.error("Generate flashcards error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

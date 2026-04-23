@@ -14,7 +14,13 @@ const createNote = async (req, res) => {
     if (req.file) {
       uploadedFileUrl = req.file.path;
       // Process the uploaded file
-      fileContent = await processFile(req.file.path, req.file.mimetype);
+      try {
+        fileContent = await processFile(req.file.path, req.file.mimetype);
+        console.log("Extracted file content length:", fileContent?.length);
+      } catch (fileErr) {
+        console.error("File processing error:", fileErr);
+        fileContent = "";
+      }
       
       // Delete local file after processing (if not using Cloudinary)
       if (fs.existsSync(req.file.path)) {
@@ -25,25 +31,33 @@ const createNote = async (req, res) => {
     // If user provided direct content/text
     const userContent = directContent || '';
     
-    // Determine what to use for note generation
-    let sourceContent = '';
-    if (fileContent) {
-      sourceContent = `Based on the uploaded document content:\n\n${fileContent}\n\n`;
-    } else if (userContent) {
-      sourceContent = `Based on the user's provided text:\n\n${userContent}\n\n`;
-    } else {
-      sourceContent = `Topic: ${topic}\n`;
+    // ✅ CRITICAL FIX: Agar file/content nahi hai toh error do
+    if (!fileContent && !userContent && !topic) {
+      return res.status(400).json({ 
+        message: "Please provide a file OR text content OR topic" 
+      });
     }
     
     if (!subject || !topic) {
       return res.status(400).json({ message: "Subject and topic are required" });
     }
     
-    // STRONG PROMPT for note generation
-    const prompt = `
-You are an expert educator and study guide creator. Generate ${noteType === 'summary' ? 'CONCISE SUMMARY' : 'DETAILED STUDY NOTES'}.
+    // Determine source content
+    let sourceContent = '';
+    if (fileContent && fileContent.length > 50) {
+      sourceContent = `Based STRICTLY on the uploaded document content:\n\n${fileContent}\n\n`;
+    } else if (userContent) {
+      sourceContent = `Based on the user's provided text:\n\n${userContent}\n\n`;
+    } else {
+      sourceContent = `Create study notes for topic: ${topic}\n`;
+    }
+    
+    // ✅ STRONGER PROMPT - Force AI to use provided content
+    const prompt = `You are an expert educator. Generate ${noteType === 'summary' ? 'CONCISE SUMMARY' : 'DETAILED STUDY NOTES'}.
 
 ${sourceContent}
+
+${fileContent ? 'CRITICAL: Use ONLY the information from the document above. DO NOT make up any information.' : ''}
 
 REQUIREMENTS FOR ${noteType === 'summary' ? 'SUMMARY' : 'DETAILED NOTES'}:
 
@@ -55,39 +69,33 @@ ${noteType === 'summary' ? `
 - 5-7 bullet points for key concepts
 - 1-2 sentence conclusion
 - Use 📌 emoji for key takeaways
-- PERFECT for quick revision
 ` : `
 **DETAILED NOTES REQUIREMENTS:**
-- Comprehensive coverage of all concepts
-- Start with # Main Title
-- ## Section Headings (3-6 sections)
-- **Bold** for key terms
-- Bullet points for lists
-- Include 2-3 real-world EXAMPLES
-- Add 💡 TIPS and ⚠️ IMPORTANT notes
-- End with 📝 Quick Summary
-- Use emojis for visual appeal
+- Start with "# ${subject}" as main title
+- Add "## Overview" section (3-4 sentences)
+- Create 4-6 main sections with ## headings
+- Use bullet points for key concepts
+- Add examples where available
+- End with "## Quick Summary"
 `}
 
-CRITICAL RULES:
-1. Use ONLY information from the provided content
-2. If content is insufficient, say "Based on available information..."
-3. NO hallucinations or made-up facts
-4. Keep language CLEAR and STUDENT-FRIENDLY
-5. Focus on what's IMPORTANT for exams
-6. NEVER say "as an AI" or "I don't have personal opinions"
+IMPORTANT: ${fileContent ? 'BASE YOUR NOTES ENTIRELY ON THE DOCUMENT CONTENT.' : 'Create informative notes based on the topic.'}
 
-Format in clean Markdown.
-`;
+Format in clean Markdown.`;
 
     const aiContent = await askHF(prompt);
+    
+    // ✅ FALLBACK: Agar AI empty response de toh
+    const finalContent = aiContent && aiContent.length > 100 
+      ? aiContent 
+      : `# ${subject}\n\n## Overview\n\nNotes could not be generated. Please try again with more specific content.\n\n## Topic\n\n${topic}\n\nPlease ensure your file has readable text.`;
     
     const note = await Note.create({
       user: req.user._id,
       subject,
       topic,
       instructions: instructions || '',
-      content: aiContent || "Content generation failed. Please try again.",
+      content: finalContent,
       sourceFile: uploadedFileUrl,
       noteType: noteType || 'detailed'
     });
