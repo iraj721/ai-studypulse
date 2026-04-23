@@ -57,14 +57,15 @@ export default function BookmarksPage() {
   };
 
   const deleteBookmark = async (id) => {
-    try {
-      await api.delete(`/student/bookmarks/${id}`);
-      fetchBookmarks();
-      setToast({ message: "Bookmark deleted", type: "success" });
-    } catch (err) {
-      setToast({ message: "Failed to delete", type: "error" });
-    }
-  };
+  if (!window.confirm("Delete this bookmark?")) return;
+  try {
+    await api.delete(`/student/bookmarks/${id}`);
+    fetchBookmarks();
+    setToast({ message: "Bookmark deleted", type: "success" });
+  } catch (err) {
+    setToast({ message: "Failed to delete", type: "error" });
+  }
+};
 
   const getItemLink = (bookmark) => {
     if (bookmark.type === 'note') return `/notes`;

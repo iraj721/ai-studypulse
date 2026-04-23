@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Stars from "../../components/Stars";
 import BackButton from "../../components/BackButton";
 import Toast from "../../components/Toast";
-import { FaSync, FaArrowLeft, FaArrowRight, FaSpinner } from "react-icons/fa";
+import { FaSync, FaArrowLeft, FaArrowRight, FaSpinner, FaTrash, FaList } from "react-icons/fa";
 
 export default function FlashcardsPage() {
   const navigate = useNavigate();
@@ -15,6 +15,7 @@ export default function FlashcardsPage() {
   const [notes, setNotes] = useState([]);
   const [selectedNoteId, setSelectedNoteId] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const [toast, setToast] = useState({ message: "", type: "success" });
 
   useEffect(() => {
@@ -28,9 +29,8 @@ export default function FlashcardsPage() {
       const res = await api.get("/student/flashcards");
       setFlashcards(res.data);
       setCurrentIndex(0);
-      setIsFlipped(false);
     } catch (err) {
-      setToast({ message: "Failed to load flashcards", type: "error" });
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -53,24 +53,25 @@ export default function FlashcardsPage() {
     setGenerating(true);
     try {
       await api.post("/student/flashcards/generate", { noteId: selectedNoteId, numCards: 10 });
-      setToast({ message: "Flashcards generated successfully!", type: "success" });
-      await fetchFlashcards();
-      setSelectedNoteId("");
+      setToast({ message: "Flashcards generated!", type: "success" });
+      fetchFlashcards();
     } catch (err) {
-      setToast({ message: "Failed to generate flashcards", type: "error" });
+      setToast({ message: "Failed to generate", type: "error" });
     } finally {
       setGenerating(false);
     }
   };
 
-  const reviewCard = async (quality) => {
-    if (flashcards.length === 0) return;
-    const card = flashcards[currentIndex];
+  const deleteAllFlashcards = async () => {
+    if (!window.confirm("Delete ALL flashcards? This cannot be undone.")) return;
     try {
-      await api.put(`/student/flashcards/${card._id}/review`, { quality });
-      await fetchFlashcards();
+      for (const card of flashcards) {
+        await api.delete(`/student/flashcards/${card._id}`);
+      }
+      setToast({ message: "All flashcards deleted!", type: "success" });
+      fetchFlashcards();
     } catch (err) {
-      console.error(err);
+      setToast({ message: "Failed to delete", type: "error" });
     }
   };
 
@@ -88,11 +89,6 @@ export default function FlashcardsPage() {
     }
   };
 
-  const deleteFlashcard = async (id) => {
-    // Note: Add delete endpoint if needed
-    setToast({ message: "Flashcard deleted", type: "success" });
-  };
-
   const currentCard = flashcards[currentIndex];
 
   return (
@@ -105,6 +101,11 @@ export default function FlashcardsPage() {
 
         <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
           <h2 className="text-white fw-bold">🃏 Smart Flashcards</h2>
+          {flashcards.length > 0 && (
+            <button onClick={deleteAllFlashcards} className="btn btn-danger">
+              <FaTrash /> Delete All
+            </button>
+          )}
         </div>
 
         {/* Generate Section */}
@@ -124,28 +125,38 @@ export default function FlashcardsPage() {
               </select>
             </div>
             <div className="col-md-4">
-              <button 
-                className="btn btn-gradient w-100"
-                onClick={generateFromNote} 
-                disabled={generating || !selectedNoteId}
-              >
-                {generating ? <><FaSpinner className="spinner" /> Generating...</> : <><FaSync /> Generate Flashcards</>}
+              <button className="btn btn-gradient w-100" onClick={generateFromNote} disabled={generating}>
+                {generating ? <><FaSpinner className="spinner" /> Generating...</> : <><FaSync /> Generate</>}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Flashcards Display */}
-        {loading ? (
-          <div className="text-center py-5">
-            <FaSpinner className="spinner" style={{ fontSize: '40px', color: 'white' }} />
-            <p className="text-white mt-2">Loading your flashcards...</p>
+        {/* View Toggle */}
+        {flashcards.length > 0 && (
+          <div className="text-end mb-3">
+            <button onClick={() => setShowAll(!showAll)} className="btn btn-sm btn-outline-light">
+              <FaList /> {showAll ? "Show Single" : "View All Flashcards"}
+            </button>
           </div>
+        )}
+
+        {loading ? (
+          <div className="text-center py-5 text-white">Loading...</div>
         ) : flashcards.length === 0 ? (
           <div className="empty-state-card text-center py-5">
             <div className="empty-icon">🃏</div>
             <h4>No Flashcards Yet</h4>
             <p>Select a note above to generate AI-powered flashcards!</p>
+          </div>
+        ) : showAll ? (
+          <div className="all-flashcards">
+            {flashcards.map((card, idx) => (
+              <div key={idx} className="flashcard-list-item">
+                <div className="flashcard-front-small">{card.front}</div>
+                <div className="flashcard-back-small">{card.back}</div>
+              </div>
+            ))}
           </div>
         ) : (
           <>
@@ -158,16 +169,10 @@ export default function FlashcardsPage() {
                   </div>
                   <div className="flashcard-back">
                     <p>{currentCard?.back}</p>
-                    <div className="rating-buttons">
-                      <button onClick={(e) => { e.stopPropagation(); reviewCard(1); }} className="rating hard">Hard</button>
-                      <button onClick={(e) => { e.stopPropagation(); reviewCard(3); }} className="rating medium">Medium</button>
-                      <button onClick={(e) => { e.stopPropagation(); reviewCard(5); }} className="rating easy">Easy</button>
-                    </div>
                   </div>
                 </div>
               </div>
             </div>
-
             <div className="flashcard-controls">
               <button onClick={prevCard} disabled={currentIndex === 0} className="nav-btn">
                 <FaArrowLeft /> Previous
@@ -177,120 +182,33 @@ export default function FlashcardsPage() {
                 Next <FaArrowRight />
               </button>
             </div>
-
-            {/* History Section */}
-            <div className="history-card mt-4 p-4">
-              <h5>📋 Your Flashcards ({flashcards.length} total)</h5>
-              <div className="flashcards-list">
-                {flashcards.map((card, idx) => (
-                  <div key={card._id} className="flashcard-history-item">
-                    <div className="history-front">{card.front.substring(0, 60)}...</div>
-                    <div className="history-meta">
-                      <span className="badge">Due: {new Date(card.nextReview).toLocaleDateString()}</span>
-                      <button onClick={() => deleteFlashcard(card._id)} className="delete-history">🗑</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </>
         )}
       </div>
 
       <style>{`
-        .flashcards-page {
-          background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #1a2a3d 100%);
-        }
-        .generate-card {
-          background: linear-gradient(145deg, #ebf1f4ff, #bedaf3ff);
-          border-radius: 20px;
-        }
-        .form-input {
-          border-radius: 12px;
-          padding: 12px;
-          border: 1px solid #ddd;
-        }
-        .btn-gradient {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          border: none;
-          color: white;
-          font-weight: 600;
-          padding: 12px;
-          border-radius: 12px;
-        }
-        .empty-state-card {
-          background: rgba(255,255,255,0.1);
-          backdrop-filter: blur(10px);
-          border-radius: 20px;
-          color: white;
-        }
+        .flashcards-page { background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #1a2a3d 100%); }
+        .generate-card { background: linear-gradient(145deg, #ebf1f4ff, #bedaf3ff); border-radius: 20px; }
+        .form-input { border-radius: 12px; padding: 12px; border: 1px solid #ddd; }
+        .btn-gradient { background: linear-gradient(135deg, #4f46e5, #6366f1); border: none; color: white; font-weight: 600; padding: 12px; border-radius: 12px; }
+        .empty-state-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; color: white; }
         .empty-icon { font-size: 64px; margin-bottom: 20px; opacity: 0.7; }
-        .flashcard-wrapper {
-          display: flex;
-          justify-content: center;
-          margin: 30px 0;
-        }
-        .flashcard {
-          width: 500px;
-          height: 300px;
-          perspective: 1000px;
-          cursor: pointer;
-        }
-        .flashcard-inner {
-          position: relative;
-          width: 100%;
-          height: 100%;
-          transition: transform 0.6s;
-          transform-style: preserve-3d;
-        }
+        .flashcard-wrapper { display: flex; justify-content: center; margin: 30px 0; }
+        .flashcard { width: 500px; height: 300px; perspective: 1000px; cursor: pointer; }
+        .flashcard-inner { position: relative; width: 100%; height: 100%; transition: transform 0.6s; transform-style: preserve-3d; }
         .flashcard-inner.flipped { transform: rotateY(180deg); }
-        .flashcard-front, .flashcard-back {
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          backface-visibility: hidden;
-          border-radius: 20px;
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          align-items: center;
-          padding: 30px;
-          text-align: center;
-          background: white;
-          box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        }
-        .flashcard-back {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-          transform: rotateY(180deg);
-        }
-        .flashcard-front p { font-size: 18px; font-weight: 500; }
-        .flashcard-front small { margin-top: 20px; color: #9ca3af; font-size: 12px; }
-        .rating-buttons { display: flex; gap: 15px; margin-top: 25px; }
-        .rating { padding: 8px 20px; border: none; border-radius: 30px; cursor: pointer; font-weight: 600; }
-        .rating.hard { background: #ef4444; color: white; }
-        .rating.medium { background: #f59e0b; color: white; }
-        .rating.easy { background: #22c55e; color: white; }
+        .flashcard-front, .flashcard-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 30px; text-align: center; background: white; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .flashcard-back { background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; transform: rotateY(180deg); }
         .flashcard-controls { display: flex; justify-content: center; align-items: center; gap: 30px; margin: 20px 0; }
-        .nav-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 20px; border-radius: 30px; cursor: pointer; transition: all 0.3s; }
-        .nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.4); transform: scale(1.05); }
-        .nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .nav-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 10px 20px; border-radius: 30px; cursor: pointer; }
         .counter { color: white; font-weight: 600; }
-        .history-card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; color: white; max-height: 300px; overflow-y: auto; }
-        .flashcards-list { margin-top: 15px; }
-        .flashcard-history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 8px; }
-        .history-front { font-size: 13px; flex: 1; }
-        .history-meta { display: flex; gap: 10px; align-items: center; }
-        .history-meta .badge { background: #4f46e5; padding: 4px 10px; border-radius: 20px; font-size: 11px; }
-        .delete-history { background: none; border: none; color: #ef4444; cursor: pointer; }
+        .all-flashcards { max-height: 500px; overflow-y: auto; }
+        .flashcard-list-item { background: white; border-radius: 12px; padding: 15px; margin-bottom: 10px; }
+        .flashcard-front-small { font-weight: 600; margin-bottom: 8px; color: #1e293b; }
+        .flashcard-back-small { color: #4f46e5; }
         .spinner { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @media (max-width: 768px) {
-          .flashcard { width: 100%; height: 280px; }
-          .flashcard-front p, .flashcard-back p { font-size: 14px; }
-          .rating-buttons { gap: 8px; }
-          .rating { padding: 6px 12px; font-size: 12px; }
-        }
+        @media (max-width: 768px) { .flashcard { width: 100%; height: 280px; } }
       `}</style>
     </div>
   );
