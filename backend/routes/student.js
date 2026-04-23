@@ -28,11 +28,11 @@ const bookmarkController = require("../controllers/bookmarkController");
 // ==================== EXISTING ROUTES ====================
 router.get("/classes", auth, getStudentClasses);
 router.post("/classes/join", auth, joinClass);
-router.get("/classes/:classId", auth, getStudentClassDetails);
 router.get("/classes/:classId/dashboard", auth, getClassDashboard);
 router.get("/classes/:classId/assignments", auth, getAssignmentsForClass);
 router.get("/classes/:classId/announcements", auth, getAnnouncementsForClass);
 router.get("/classes/count", auth, getStudentClassesCount);
+router.get("/classes/:classId", auth, getStudentClassDetails);
 router.get("/classes/:classId/materials", auth, getMaterialsForClass);
 router.post("/classes/:classId/announcements/:announcementId/reply", auth, replyToAnnouncement);
 router.delete("/classes/:classId/leave", auth, leaveClass);

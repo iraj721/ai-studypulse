@@ -1,3 +1,4 @@
+const axios = require("axios");
 const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
@@ -60,7 +61,32 @@ async function extractFromImage(filePath) {
 }
 
 // Main function to process any file
+// Main function to process any file
 async function processFile(filePath, mimetype) {
+  let extractedText = '';
+  
+  // ✅ Check if it's a Cloudinary URL
+  if (filePath.startsWith('http')) {
+    // For Cloudinary URLs, we need to download the file first
+    const response = await axios.get(filePath, { responseType: 'arraybuffer' });
+    const tempPath = path.join(__dirname, '../uploads/temp_' + Date.now());
+    fs.writeFileSync(tempPath, Buffer.from(response.data));
+    
+    // Process the downloaded file
+    extractedText = await extractFromFile(tempPath, mimetype);
+    
+    // Clean up temp file
+    fs.unlinkSync(tempPath);
+    
+    return extractedText;
+  }
+  
+  // Local file processing
+  extractedText = await extractFromFile(filePath, mimetype);
+  return extractedText;
+}
+
+async function extractFromFile(filePath, mimetype) {
   let extractedText = '';
   
   if (mimetype === 'application/pdf') {
@@ -82,13 +108,15 @@ async function processFile(filePath, mimetype) {
     throw new Error('Unsupported file type');
   }
   
-  // Clean and truncate text (max 10000 chars for AI context)
-  extractedText = extractedText.replace(/\s+/g, ' ').trim();
-  if (extractedText.length > 10000) {
-    extractedText = extractedText.substring(0, 10000);
+  // Clean and truncate text
+  if (extractedText) {
+    extractedText = extractedText.replace(/\s+/g, ' ').trim();
+    if (extractedText.length > 10000) {
+      extractedText = extractedText.substring(0, 10000);
+    }
   }
   
-  return extractedText;
+  return extractedText || "No readable text extracted from file.";
 }
 
 module.exports = { processFile };

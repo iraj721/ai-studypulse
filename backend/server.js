@@ -28,8 +28,8 @@ requiredEnv.forEach(key => {
     process.exit(1);
   }
 });
-
 const app = express();
+app.set('trust proxy', 1); 
 const server = http.createServer(app);
 
 /* =========================
@@ -62,7 +62,6 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   exposedHeaders: ['Authorization']
 };
-
 // Apply CORS middleware - this automatically handles OPTIONS preflight
 app.use(cors(corsOptions));
 

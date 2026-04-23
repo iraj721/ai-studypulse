@@ -41,7 +41,14 @@ exports.joinClass = async (req, res) => {
 /* Get single class details for student */
 exports.getStudentClassDetails = async (req, res) => {
   try {
-    const cls = await Class.findById(req.params.classId).populate(
+    const { classId } = req.params;
+    
+    // ✅ Validate ObjectId format first
+    if (!classId || !classId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ message: "Invalid class ID format" });
+    }
+    
+    const cls = await Class.findById(classId).populate(
       "teacher",
       "name email",
     );
@@ -51,7 +58,7 @@ exports.getStudentClassDetails = async (req, res) => {
 
     res.json(cls);
   } catch (err) {
-    console.error(err);
+    console.error("Get student class details error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
