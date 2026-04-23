@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
 
+// ==================== IMPORT CONTROLLERS ====================
 const {
   getStudentClasses,
   joinClass,
@@ -18,6 +19,13 @@ const {
 const { getAnnouncementsForClass } = require("../controllers/announcementController");
 const { getMaterialsForClass } = require("../controllers/materialController");
 
+// ✅ Import new controllers
+const flashcardController = require("../controllers/flashcardController");
+const studyGroupController = require("../controllers/studyGroupController");
+const videoSummaryController = require("../controllers/videoSummaryController");
+const bookmarkController = require("../controllers/bookmarkController");
+
+// ==================== EXISTING ROUTES ====================
 router.get("/classes", auth, getStudentClasses);
 router.post("/classes/join", auth, joinClass);
 router.get("/classes/:classId", auth, getStudentClassDetails);
@@ -26,12 +34,34 @@ router.get("/classes/:classId/assignments", auth, getAssignmentsForClass);
 router.get("/classes/:classId/announcements", auth, getAnnouncementsForClass);
 router.get("/classes/count", auth, getStudentClassesCount);
 router.get("/classes/:classId/materials", auth, getMaterialsForClass);
-router.post(
-  "/classes/:classId/announcements/:announcementId/reply",
-  auth,
-  replyToAnnouncement
-);
+router.post("/classes/:classId/announcements/:announcementId/reply", auth, replyToAnnouncement);
 router.delete("/classes/:classId/leave", auth, leaveClass);
+router.post("/classes/:classId/assignments/:assignmentId/submit", auth, submitAssignment);
+router.delete("/classes/:classId/assignments/:assignmentId/unsend", auth, unsendSubmission);
 
+// ==================== FLASHCARD ROUTES ====================
+router.post("/flashcards/generate", auth, flashcardController.generateFlashcards);
+router.get("/flashcards", auth, flashcardController.getUserFlashcards);
+router.put("/flashcards/:id/review", auth, flashcardController.reviewFlashcard);
+
+// ==================== STUDY GROUP ROUTES ====================
+router.post("/groups/create", auth, studyGroupController.createGroup);
+router.post("/groups/join", auth, studyGroupController.joinGroup);
+router.get("/groups", auth, studyGroupController.getUserGroups);
+router.get("/groups/:id", auth, studyGroupController.getGroupDetails);
+router.post("/groups/:id/notes", auth, studyGroupController.shareNote);
+router.post("/groups/:id/messages", auth, studyGroupController.sendMessage);
+
+// ==================== VIDEO SUMMARY ROUTES ====================
+router.post("/video/summarize", auth, videoSummaryController.summarizeVideo);
+router.get("/video/summaries", auth, videoSummaryController.getUserSummaries);
+router.delete("/video/summaries/:id", auth, videoSummaryController.deleteSummary);
+
+// ==================== BOOKMARK ROUTES ====================
+router.post("/bookmarks", auth, bookmarkController.createBookmark);
+router.get("/bookmarks", auth, bookmarkController.getUserBookmarks);
+router.get("/bookmarks/collections", auth, bookmarkController.getCollections);
+router.put("/bookmarks/:id", auth, bookmarkController.updateBookmark);
+router.delete("/bookmarks/:id", auth, bookmarkController.deleteBookmark);
 
 module.exports = router;

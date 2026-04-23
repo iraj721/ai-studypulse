@@ -18,7 +18,7 @@ const MODELS = {
 // ✅ 8 second timeout - user wait nahi karega
 const withTimeout = (promise, timeoutMs = 8000) => {
   const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("AI request timeout")), timeoutMs)
+    setTimeout(() => reject(new Error("AI request timeout")), timeoutMs),
   );
   return Promise.race([promise, timeout]);
 };
@@ -48,12 +48,28 @@ async function askGroq(prompt, model = MODELS.groqFast) {
         temperature: 0.5,
         max_tokens: 1500, // ✅ Increased for better responses
       }),
-      8000
+      8000,
     );
     return response.choices[0]?.message?.content || "";
   } catch (err) {
     console.error("Groq API Error:", err.message);
     return null;
+  }
+}
+
+// Retry logic for rate limits
+async function askGroqWithRetry(prompt, model, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await askGroq(prompt, model);
+    } catch (err) {
+      if (err.message?.includes("rate limit") && i < retries - 1) {
+        console.log(`Rate limit hit, retrying in ${(i + 1) * 2} seconds...`);
+        await new Promise((resolve) => setTimeout(resolve, (i + 1) * 2000));
+        continue;
+      }
+      throw err;
+    }
   }
 }
 
@@ -76,9 +92,9 @@ async function askHuggingFace(prompt) {
             Authorization: `Bearer ${process.env.HF_API_KEY}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       ),
-      8000
+      8000,
     );
     return response.data?.choices?.[0]?.message?.content || "";
   } catch (err) {

@@ -7,7 +7,10 @@ const Class = require("../models/Class");
 /* 📖 Get Student Joined Classes */
 exports.getStudentClasses = async (req, res) => {
   try {
-    const classes = await Class.find({ students: req.user._id }).populate("teacher", "name email");
+    const classes = await Class.find({ students: req.user._id }).populate(
+      "teacher",
+      "name email",
+    );
     res.json(classes);
   } catch (err) {
     console.error(err);
@@ -38,7 +41,10 @@ exports.joinClass = async (req, res) => {
 /* Get single class details for student */
 exports.getStudentClassDetails = async (req, res) => {
   try {
-    const cls = await Class.findById(req.params.classId).populate("teacher", "name email");
+    const cls = await Class.findById(req.params.classId).populate(
+      "teacher",
+      "name email",
+    );
     if (!cls) return res.status(404).json({ message: "Class not found" });
     if (!cls.students.includes(req.user._id))
       return res.status(403).json({ message: "Access denied" });
@@ -50,19 +56,22 @@ exports.getStudentClassDetails = async (req, res) => {
   }
 };
 
+// Get student classes count
 exports.getStudentClassesCount = async (req, res) => {
   try {
-    const classes = await Class.find({ students: req.user._id }).populate("teacher", "name");
+    const classes = await Class.find({ students: req.user._id }).populate(
+      "teacher",
+      "name",
+    );
     res.json({
       count: classes.length,
-      lastClass: classes[classes.length - 1] || null, // teacher populated
+      lastClass: classes[classes.length - 1] || null,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Get classes count error:", err);
+    res.json({ count: 0, lastClass: null }); // Return default instead of error
   }
 };
-
 
 // GET Student Class Dashboard
 exports.getClassDashboard = async (req, res) => {
@@ -83,20 +92,33 @@ exports.getClassDashboard = async (req, res) => {
     ]);
 
     // Map student submissions
-    const submissions = await Submission.find({ student: req.user._id, assignment: { $in: assignments.map(a => a._id) } });
-
-    const assignmentsWithSubmission = assignments.map(a => {
-      const submission = submissions.find(s => s.assignment.toString() === a._id.toString());
-      return { ...a.toObject(), submitted: !!submission, submission: submission ? submission.toObject() : null };
+    const submissions = await Submission.find({
+      student: req.user._id,
+      assignment: { $in: assignments.map((a) => a._id) },
     });
 
-    res.json({ class: cls, assignments: assignmentsWithSubmission, announcements, materials });
+    const assignmentsWithSubmission = assignments.map((a) => {
+      const submission = submissions.find(
+        (s) => s.assignment.toString() === a._id.toString(),
+      );
+      return {
+        ...a.toObject(),
+        submitted: !!submission,
+        submission: submission ? submission.toObject() : null,
+      };
+    });
+
+    res.json({
+      class: cls,
+      assignments: assignmentsWithSubmission,
+      announcements,
+      materials,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 /* Get assignments for a class along with submission status */
 exports.getAssignmentsForClass = async (req, res) => {
@@ -106,17 +128,22 @@ exports.getAssignmentsForClass = async (req, res) => {
     if (!cls.students.includes(req.user._id))
       return res.status(403).json({ message: "Access denied" });
 
-    const assignments = await Assignment.find({ class: cls._id }).sort({ createdAt: -1 });
+    const assignments = await Assignment.find({ class: cls._id }).sort({
+      createdAt: -1,
+    });
 
     const assignmentsWithSubmission = await Promise.all(
       assignments.map(async (a) => {
-        const submission = await Submission.findOne({ assignment: a._id, student: req.user._id });
+        const submission = await Submission.findOne({
+          assignment: a._id,
+          student: req.user._id,
+        });
         return {
           ...a.toObject(),
           submitted: !!submission,
-          submission: submission ? submission.toObject() : null
+          submission: submission ? submission.toObject() : null,
         };
-      })
+      }),
     );
 
     res.json(assignmentsWithSubmission);
@@ -133,19 +160,25 @@ exports.submitAssignment = async (req, res) => {
 
     const cls = await Class.findById(classId);
     if (!cls) return res.status(404).json({ message: "Class not found" });
-    if (!cls.students.includes(req.user._id)) return res.status(403).json({ message: "Access denied" });
+    if (!cls.students.includes(req.user._id))
+      return res.status(403).json({ message: "Access denied" });
 
     const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+    if (!assignment)
+      return res.status(404).json({ message: "Assignment not found" });
 
     const now = new Date();
     if (assignment.dueDate && now > assignment.dueDate)
       return res.status(400).json({ message: "Cannot submit after due date" });
 
     // Remove existing submission if any
-    const existing = await Submission.findOne({ assignment: assignmentId, student: req.user._id });
+    const existing = await Submission.findOne({
+      assignment: assignmentId,
+      student: req.user._id,
+    });
     if (existing) {
-      if (existing.file && fs.existsSync(existing.file)) fs.unlinkSync(existing.file);
+      if (existing.file && fs.existsSync(existing.file))
+        fs.unlinkSync(existing.file);
       await existing.deleteOne();
     }
 
@@ -159,7 +192,9 @@ exports.submitAssignment = async (req, res) => {
       answerText: answerText || "",
     });
 
-    res.status(201).json({ message: "Assignment submitted successfully", submission });
+    res
+      .status(201)
+      .json({ message: "Assignment submitted successfully", submission });
   } catch (err) {
     console.error("Submit assignment error:", err);
     res.status(500).json({ message: "Server error" });
@@ -179,7 +214,8 @@ exports.unsendSubmission = async (req, res) => {
 
     // Check assignment
     const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+    if (!assignment)
+      return res.status(404).json({ message: "Assignment not found" });
 
     // Check due date
     if (assignment.dueDate && new Date() > new Date(assignment.dueDate))
@@ -190,7 +226,8 @@ exports.unsendSubmission = async (req, res) => {
       assignment: assignmentId,
       student: req.user._id,
     });
-    if (!submission) return res.status(400).json({ message: "No submission found" });
+    if (!submission)
+      return res.status(400).json({ message: "No submission found" });
 
     // Delete uploaded file if exists
     if (submission.file) {
@@ -215,7 +252,8 @@ exports.replyToAnnouncement = async (req, res) => {
     const { classId, announcementId } = req.params;
     const { text } = req.body;
 
-    if (!text?.trim()) return res.status(400).json({ message: "Reply text required" });
+    if (!text?.trim())
+      return res.status(400).json({ message: "Reply text required" });
 
     const cls = await Class.findById(classId);
     if (!cls) return res.status(404).json({ message: "Class not found" });
@@ -226,7 +264,8 @@ exports.replyToAnnouncement = async (req, res) => {
     }
 
     const announcement = await Announcement.findById(announcementId);
-    if (!announcement) return res.status(404).json({ message: "Announcement not found" });
+    if (!announcement)
+      return res.status(404).json({ message: "Announcement not found" });
 
     // Add reply
     announcement.replies.push({
@@ -236,7 +275,10 @@ exports.replyToAnnouncement = async (req, res) => {
     });
 
     await announcement.save();
-    res.json({ message: "Reply added successfully", replies: announcement.replies });
+    res.json({
+      message: "Reply added successfully",
+      replies: announcement.replies,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -253,12 +295,14 @@ exports.leaveClass = async (req, res) => {
 
     // check student
     if (!cls.students.includes(req.user._id)) {
-      return res.status(400).json({ message: "You are not enrolled in this class" });
+      return res
+        .status(400)
+        .json({ message: "You are not enrolled in this class" });
     }
 
     // remove student
     cls.students = cls.students.filter(
-      (id) => id.toString() !== req.user._id.toString()
+      (id) => id.toString() !== req.user._id.toString(),
     );
 
     await cls.save();
