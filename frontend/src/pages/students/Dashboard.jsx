@@ -21,7 +21,6 @@ import { toast } from "react-toastify";
 import ActivityInsightsModal from "../../components/ActivityInsightsModal";
 import ToastComponent from "../../components/Toast";
 
-
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -203,7 +202,10 @@ export default function Dashboard() {
     labels: ["-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"],
     datasets: [
       {
-        data: stats?.weeklyGraph || [],
+        data:
+          stats?.weeklyGraph && Array.isArray(stats.weeklyGraph)
+            ? stats.weeklyGraph
+            : Array(7).fill(0),
         fill: true,
         backgroundColor: "rgba(13,110,253,0.15)",
         borderColor: "#0d6efd",
@@ -217,9 +219,9 @@ export default function Dashboard() {
     datasets: [
       {
         data: [
-          stats?.difficultyAnalysis.easy,
-          stats?.difficultyAnalysis.medium,
-          stats?.difficultyAnalysis.hard,
+          stats?.difficultyAnalysis?.easy || 0,
+          stats?.difficultyAnalysis?.medium || 0,
+          stats?.difficultyAnalysis?.hard || 0,
         ],
         backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
         borderRadius: 8,
