@@ -17,35 +17,23 @@ const generateFlashcards = async (req, res) => {
       return res.status(404).json({ message: "Note not found" });
     }
     
-    // ✅ FIX: Check if note has content
-    if (!note.content || note.content.length < 50) {
-      return res.status(400).json({ 
-        message: "Note content is too short. Please add more content to generate flashcards." 
-      });
-    }
+    // Delete old flashcards for this note
+    await Flashcard.deleteMany({ user: req.user._id, noteId });
     
-    // ✅ STRONGER PROMPT for flashcards
-    const prompt = `Generate ${Math.min(numCards, 15)} high-quality flashcards from this study note:
+    // Generate new flashcards
+    const prompt = `Generate ${Math.min(numCards, 15)} flashcards from this study note:
 
 NOTE CONTENT:
 ${note.content.substring(0, 6000)}
 
-Each flashcard should have:
-- Front: A clear, specific question about a key concept from the note
-- Back: A concise, accurate answer based ONLY on the note
-
 Return EXACT JSON format:
 {
   "flashcards": [
-    {"front": "What is X?", "back": "X is defined as..."}
+    {"front": "Question?", "back": "Answer"}
   ]
-}
-
-IMPORTANT: Base ALL flashcards on the note content above. DO NOT create generic questions.`;
+}`;
 
     const aiResponse = await askHF(prompt);
-    console.log("AI Response for flashcards:", aiResponse?.substring(0, 200));
-    
     let flashcards = [];
     
     try {
@@ -54,37 +42,24 @@ IMPORTANT: Base ALL flashcards on the note content above. DO NOT create generic 
         const parsed = JSON.parse(jsonMatch[0]);
         flashcards = parsed.flashcards || [];
       }
-    } catch (parseErr) {
-      console.error("JSON Parse error:", parseErr);
+    } catch (err) {
+      console.error("Parse error:", err);
     }
     
-    // ✅ FALLBACK: Create basic flashcards from note
+    // Fallback
     if (flashcards.length === 0) {
-      // Extract key sentences from note
-      const sentences = note.content.split(/[.!?]+/).filter(s => s.trim().length > 30);
-      for (let i = 0; i < Math.min(numCards, sentences.length); i++) {
-        flashcards.push({
-          front: `What is explained in: "${sentences[i].substring(0, 60)}..."?`,
-          back: sentences[i].trim()
-        });
-      }
-    }
-    
-    if (flashcards.length === 0) {
-      flashcards.push({
+      flashcards = [{
         front: `What is the main topic of "${note.topic}"?`,
-        back: `The note covers ${note.subject} - ${note.topic}. Please review the note content.`
-      });
+        back: `The note covers ${note.subject} - ${note.topic}. Review the content for details.`
+      }];
     }
     
-    // Delete existing flashcards
-    await Flashcard.deleteMany({ user: req.user._id, noteId });
-    
-    // Save new flashcards
     const savedFlashcards = await Flashcard.insertMany(
       flashcards.slice(0, numCards).map(card => ({
         user: req.user._id,
         noteId: note._id,
+        noteTopic: note.topic,
+        noteSubject: note.subject,
         front: card.front,
         back: card.back,
         interval: 1,
@@ -100,11 +75,40 @@ IMPORTANT: Base ALL flashcards on the note content above. DO NOT create generic 
   }
 };
 
-// Get user's flashcards
-const getUserFlashcards = async (req, res) => {
+// Get all flashcards grouped by note
+const getFlashcardGroups = async (req, res) => {
   try {
-    const flashcards = await Flashcard.find({ user: req.user._id })
-      .sort({ nextReview: 1 });
+    const flashcards = await Flashcard.find({ user: req.user._id }).sort({ createdAt: -1 });
+    
+    // Group by noteId
+    const groups = {};
+    flashcards.forEach(card => {
+      const key = card.noteId || card._id;
+      if (!groups[key]) {
+        groups[key] = {
+          noteId: card.noteId,
+          noteTopic: card.noteTopic,
+          noteSubject: card.noteSubject,
+          flashcards: [],
+          count: 0
+        };
+      }
+      groups[key].flashcards.push(card);
+      groups[key].count++;
+    });
+    
+    res.json(Object.values(groups));
+  } catch (err) {
+    console.error("Get flashcard groups error:", err);
+    res.json([]);
+  }
+};
+
+// Get single flashcard group by noteId
+const getFlashcardGroup = async (req, res) => {
+  try {
+    const { noteId } = req.params;
+    const flashcards = await Flashcard.find({ user: req.user._id, noteId });
     res.json(flashcards);
   } catch (err) {
     console.error(err);
@@ -112,27 +116,45 @@ const getUserFlashcards = async (req, res) => {
   }
 };
 
-// Update flashcard after review (spaced repetition)
+// Delete all flashcards for a note
+const deleteFlashcardGroup = async (req, res) => {
+  try {
+    const { noteId } = req.params;
+    await Flashcard.deleteMany({ user: req.user._id, noteId });
+    res.json({ message: "Flashcards deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Delete single flashcard
+const deleteFlashcard = async (req, res) => {
+  try {
+    await Flashcard.findOneAndDelete({ _id: req.params.id, user: req.user._id });
+    res.json({ message: "Flashcard deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Update flashcard after review
 const reviewFlashcard = async (req, res) => {
   try {
-    const { quality } = req.body; // 0-5 rating
+    const { quality } = req.body;
     const flashcard = await Flashcard.findOne({ _id: req.params.id, user: req.user._id });
     
     if (!flashcard) {
       return res.status(404).json({ message: "Flashcard not found" });
     }
     
-    // SM-2 algorithm
     let { interval, easeFactor } = flashcard;
     
     if (quality >= 3) {
-      if (interval === 1) {
-        interval = 6;
-      } else if (interval === 6) {
-        interval = 14;
-      } else {
-        interval = Math.round(interval * easeFactor);
-      }
+      if (interval === 1) interval = 6;
+      else if (interval === 6) interval = 14;
+      else interval = Math.round(interval * easeFactor);
       easeFactor = easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
     } else {
       interval = 1;
@@ -156,4 +178,11 @@ const reviewFlashcard = async (req, res) => {
   }
 };
 
-module.exports = { generateFlashcards, getUserFlashcards, reviewFlashcard };
+module.exports = { 
+  generateFlashcards, 
+  getFlashcardGroups, 
+  getFlashcardGroup,
+  deleteFlashcardGroup,
+  deleteFlashcard,
+  reviewFlashcard 
+};

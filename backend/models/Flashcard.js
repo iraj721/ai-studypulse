@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const FlashcardSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   noteId: { type: mongoose.Schema.Types.ObjectId, ref: 'Note' },
+  noteTopic: { type: String },
+  noteSubject: { type: String },
   front: { type: String, required: true },
   back: { type: String, required: true },
   interval: { type: Number, default: 1 },

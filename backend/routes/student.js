@@ -41,7 +41,10 @@ router.delete("/classes/:classId/assignments/:assignmentId/unsend", auth, unsend
 
 // ==================== FLASHCARD ROUTES ====================
 router.post("/flashcards/generate", auth, flashcardController.generateFlashcards);
-router.get("/flashcards", auth, flashcardController.getUserFlashcards);
+router.get("/flashcards/groups", auth, flashcardController.getFlashcardGroups);
+router.get("/flashcards/groups/:noteId", auth, flashcardController.getFlashcardGroup);
+router.delete("/flashcards/groups/:noteId", auth, flashcardController.deleteFlashcardGroup);
+router.delete("/flashcards/:id", auth, flashcardController.deleteFlashcard);
 router.put("/flashcards/:id/review", auth, flashcardController.reviewFlashcard);
 
 // ==================== STUDY GROUP ROUTES ====================
