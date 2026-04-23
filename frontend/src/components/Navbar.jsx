@@ -66,7 +66,7 @@ export default function Navbar({ user, onLogout }) {
         {/* Navbar Links - Collapsible */}
         <div className={`collapse navbar-collapse ${expanded ? "show" : ""}`}>
           <ul className="navbar-nav mx-auto gap-3">
-            {/* Notes Dropdown - USING LINK with data-bs-toggle */}
+            {/* Notes Dropdown */}
             <li className="nav-item dropdown">
               <Link
                 className="nav-link dropdown-toggle"
@@ -74,10 +74,7 @@ export default function Navbar({ user, onLogout }) {
                 role="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
-                onClick={(e) => {
-                  // Don't navigate, just toggle dropdown
-                  e.preventDefault();
-                }}
+                onClick={(e) => e.preventDefault()}
               >
                 Notes
               </Link>
@@ -173,9 +170,14 @@ export default function Navbar({ user, onLogout }) {
               </ul>
             </li>
 
-            {/* AI Assistant Link - No dropdown */}
+            {/* AI Assistant Link - Now with same styling */}
             <li className="nav-item">
-              <Link className="nav-link" to="/chat" onClick={closeNavbar}>
+              <Link 
+                className="nav-link" 
+                to="/chat" 
+                onClick={closeNavbar}
+                style={{ display: 'inline-block', textAlign: 'center' }}
+              >
                 AI Assistant
               </Link>
             </li>
@@ -216,17 +218,27 @@ export default function Navbar({ user, onLogout }) {
           
           .navbar-nav {
             gap: 8px !important;
+            align-items: center;
           }
           
           .nav-item {
             width: 100%;
+            text-align: center;
           }
           
-          .nav-link.dropdown-toggle {
-            display: block;
+          .nav-link.dropdown-toggle,
+          .nav-link {
+            display: block !important;
             width: 100%;
             text-align: center;
             padding: 10px;
+          }
+          
+          /* AI Assistant link - same as dropdowns */
+          .nav-item .nav-link {
+            display: block !important;
+            text-align: center !important;
+            width: 100%;
           }
           
           .dropdown-menu {
@@ -273,14 +285,25 @@ export default function Navbar({ user, onLogout }) {
             padding: 16px;
           }
           
-          .nav-link.dropdown-toggle {
+          .nav-link.dropdown-toggle,
+          .nav-link {
             font-size: 0.95rem;
             padding: 8px;
           }
         }
         
-        /* Desktop dropdown hover effect */
+        /* Desktop styles - all items centered */
         @media (min-width: 992px) {
+          .navbar-nav {
+            align-items: center;
+          }
+          
+          .nav-link,
+          .nav-link.dropdown-toggle {
+            text-align: center;
+            padding: 8px 16px;
+          }
+          
           .dropdown:hover .dropdown-menu {
             display: block;
             margin-top: 0;
