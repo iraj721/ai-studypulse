@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Navbar from "../components/Navbar";
 import Stars from "../components/Stars";
+import FloatingTimer from "../components/FloatingTimer";
 
 export default function AppLayout() {
   const navigate = useNavigate();
@@ -29,12 +30,15 @@ export default function AppLayout() {
     navigate("/login");
   };
 
-  if (loading) return null; // or Spinner
+  if (loading) return null;
 
   return (
     <div className="app-bg min-vh-100 position-relative">
       <Stars />
       <Navbar user={user} onLogout={handleLogout} />
+      
+      {/* ✅ Floating Timer - Shows on all pages */}
+      <FloatingTimer />
 
       {/* PAGE CONTENT */}
       <div className="pt-5">

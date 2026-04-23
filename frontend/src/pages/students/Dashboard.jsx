@@ -20,7 +20,7 @@ import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import ActivityInsightsModal from "../../components/ActivityInsightsModal";
 import ToastComponent from "../../components/Toast";
-import MiniTimer from "../../components/MiniTimer";
+
 
 ChartJS.register(
   CategoryScale,
@@ -412,9 +412,6 @@ export default function Dashboard() {
             >
               Open Timer
             </Link>
-          </div>
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <MiniTimer />
           </div>
 
           {/* Flashcards */}
