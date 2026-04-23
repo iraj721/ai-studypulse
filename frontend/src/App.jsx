@@ -29,6 +29,12 @@ import StudentClassDashboard from "./pages/students/classes/StudentClassDashboar
 import StudentAssignment from "./pages/students/classes/StudentAssignment";
 import StudentAnnouncements from "./pages/students/classes/StudentAnnouncements";
 import StudentMaterials from "./pages/students/classes/StudentMaterials";
+import FlashcardsPage from "./pages/students/FlashcardsPage";
+import VideoSummarizerPage from "./pages/students/VideoSummarizerPage";
+import StudyGroupsPage from "./pages/students/StudyGroupsPage";
+import BookmarksPage from "./pages/students/BookmarksPage";
+import TimerPage from "./pages/students/TimerPage";
+
 
 /* ================= ADMIN ================= */
 import AdminLogin from "./pages/admin/AdminLogin";
@@ -45,7 +51,6 @@ import AdminClassAssignments from "./pages/admin/AdminClassAssignments";
 import AdminStudentClassDetails from "./pages/admin/AdminClassStudents";
 import AdminClassAssignmentSubmissions from "./pages/admin/AdminClassAssignmentSubmissions";
 import AdminClassStudents from "./pages/admin/AdminClassStudents";
-
 
 /* ================= TEACHER ================= */
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
@@ -113,6 +118,11 @@ export default function App() {
             path="/student/class/:classId/materials"
             element={<StudentMaterials />}
           />
+          <Route path="/flashcards" element={<FlashcardsPage />} />
+          <Route path="/video-summarizer" element={<VideoSummarizerPage />} />
+          <Route path="/study-groups" element={<StudyGroupsPage />} />
+          <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/timer" element={<TimerPage />} />
         </Route>
 
         {/* ========= ADMIN ========= */}

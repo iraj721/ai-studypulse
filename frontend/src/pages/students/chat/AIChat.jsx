@@ -2,12 +2,21 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import api from "../../../services/api";
 import { useNavigate, useParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { FaMoon, FaSun, FaArrowDown, FaSpinner } from "react-icons/fa";
+import { FaMoon, FaSun, FaArrowDown, FaSpinner, FaMicrophone, FaStop } from "react-icons/fa";
 import dayjs from "dayjs";
 import calendar from "dayjs/plugin/calendar";
 import BackButton from "../../../components/BackButton";
 import Stars from "../../../components/Stars";
 import ChatSidebar from "../../../components/ChatSidebar";
+
+// Speech recognition setup
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+if (recognition) {
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+}
 
 dayjs.extend(calendar);
 
@@ -23,17 +32,58 @@ export default function AIChat() {
   const [loadingAI, setLoadingAI] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
 
   const messagesEndRef = useRef(null);
   const textAreaRef = useRef(null);
   const chatContainerRef = useRef(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
+  // Voice recognition handlers
+  const startListening = () => {
+    if (!recognition) {
+      alert("Speech recognition is not supported in your browser. Please use Chrome or Edge.");
+      return;
+    }
+    
+    recognition.start();
+    setIsListening(true);
+    
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setText(prev => prev + (prev ? ' ' : '') + transcript);
+      setIsListening(false);
+    };
+    
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error:", event.error);
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+  };
+
+  const stopListening = () => {
+    if (recognition) {
+      recognition.stop();
+      setIsListening(false);
+    }
+  };
+
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
   const adjustTextareaHeight = () => {
     if (textAreaRef.current) {
       textAreaRef.current.style.height = "auto";
-      textAreaRef.current.style.height =
-        textAreaRef.current.scrollHeight + "px";
+      textAreaRef.current.style.height = textAreaRef.current.scrollHeight + "px";
     }
   };
   useEffect(() => adjustTextareaHeight(), [text]);
@@ -51,7 +101,6 @@ export default function AIChat() {
     fetchUser();
   }, [navigate]);
 
-  // Fetch chat sessions
   const fetchSessions = async () => {
     try {
       const res = await api.get("/chat/sessions");
@@ -61,7 +110,6 @@ export default function AIChat() {
     }
   };
 
-  // Fetch specific session
   const fetchSession = async (sessionId) => {
     try {
       const res = await api.get(`/chat/sessions/${sessionId}`);
@@ -73,7 +121,6 @@ export default function AIChat() {
     }
   };
 
-  // Create new chat session
   const createNewChat = async () => {
     try {
       const res = await api.post("/chat/sessions", { title: "New Chat" });
@@ -87,7 +134,6 @@ export default function AIChat() {
     }
   };
 
-  // Delete chat session
   const deleteSession = async (sessionId) => {
     try {
       await api.delete(`/chat/sessions/${sessionId}`);
@@ -145,7 +191,6 @@ export default function AIChat() {
     setText("");
     adjustTextareaHeight();
 
-    // Add user message immediately
     const tempUserMessage = {
       _id: Date.now(),
       role: "user",
@@ -228,10 +273,7 @@ export default function AIChat() {
       setMessages((prev) =>
         prev.map((msg) =>
           msg._id === tempAiId
-            ? {
-                ...msg,
-                text: "Sorry, I'm having trouble responding. Please try again.",
-              }
+            ? { ...msg, text: "Sorry, I'm having trouble responding. Please try again." }
             : msg,
         ),
       );
@@ -256,9 +298,7 @@ export default function AIChat() {
   });
 
   return (
-    <div
-      className={`min-vh-100 ai-bg ${darkMode ? "dark" : ""} position-relative`}
-    >
+    <div className={`min-vh-100 ai-bg ${darkMode ? "dark" : ""} position-relative`}>
       <Stars />
 
       <ChatSidebar
@@ -283,10 +323,7 @@ export default function AIChat() {
 
       <div className="ai-header">
         <h5>🤖 AI Study Assistant</h5>
-        <button
-          className="btn btn-sm btn-outline-light"
-          onClick={toggleDarkMode}
-        >
+        <button className="btn btn-sm btn-outline-light" onClick={toggleDarkMode}>
           {darkMode ? <FaSun /> : <FaMoon />}
         </button>
       </div>
@@ -312,10 +349,7 @@ export default function AIChat() {
               className={`msg-row ${m.role === "user" ? "justify-content-end" : "justify-content-start"}`}
             >
               {m.role === "ai" && <div className="ai-avatar">🤖</div>}
-              <div
-                className={`msg-bubble ${m.role}`}
-                style={{ maxWidth: "70%" }}
-              >
+              <div className={`msg-bubble ${m.role}`} style={{ maxWidth: "70%" }}>
                 <ReactMarkdown>{m.text}</ReactMarkdown>
                 <div className="msg-time">
                   {dayjs(m.createdAt || new Date()).format("HH:mm")}
@@ -350,7 +384,7 @@ export default function AIChat() {
           ref={textAreaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Ask a study question..."
+          placeholder="Ask a study question... or click the mic to speak 🎤"
           rows={1}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -360,6 +394,14 @@ export default function AIChat() {
           }}
           disabled={loadingAI}
         />
+        <button
+          type="button"
+          onClick={toggleListening}
+          className={`voice-btn ${isListening ? "listening" : ""}`}
+          title={isListening ? "Stop listening" : "Start voice input"}
+        >
+          {isListening ? <FaStop /> : <FaMicrophone />}
+        </button>
         <button disabled={loadingAI}>
           {loadingAI ? <FaSpinner className="spinner" /> : "Send"}
         </button>
@@ -372,20 +414,41 @@ export default function AIChat() {
           min-height: 100vh;
         }
         .ai-header {
-  position: fixed;
-  top: 70px;
-  left: 0;
-  right: 0;
-  height: 56px;
-  padding: 0 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  backdrop-filter: blur(12px);
-  background: rgba(0,0,0,0.35);
-  color: #fff;
-  z-index: 3;
-}
+          position: fixed;
+          top: 70px;
+          left: 0;
+          right: 0;
+          height: 56px;
+          padding: 0 24px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          backdrop-filter: blur(12px);
+          background: rgba(0,0,0,0.35);
+          color: #fff;
+          z-index: 3;
+        }
+        .voice-btn {
+          width: 50px;
+          border-radius: 24px;
+          background: linear-gradient(135deg, #ef4444, #dc2626);
+          color: white;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s;
+        }
+        .voice-btn.listening {
+          background: linear-gradient(135deg, #22c55e, #16a34a);
+          animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.05); opacity: 0.8; }
+          100% { transform: scale(1); opacity: 1; }
+        }
         .chat-title-badge {
           text-align: center;
           padding: 8px 16px;
@@ -467,33 +530,14 @@ export default function AIChat() {
           .ai-avatar, .user-avatar { font-size: 22px; margin: 0 4px; }
           .ai-input textarea { font-size: 14px; }
           .scroll-btn { bottom: 80px; right: 16px; width: 36px; height: 36px; }
+          .voice-btn { width: 45px; }
         }
-          /* Desktop sidebar adjustment */
-@media (min-width: 769px) {
-  .ai-chat {
-    margin-left: 320px !important;
-    width: calc(100% - 320px) !important;
-  }
-  
-  .ai-input {
-    margin-left: 320px !important;
-    width: calc(100% - 320px) !important;
-  }
-  
-  .ai-header {
-    margin-left: 320px !important;
-    width: calc(100% - 320px) !important;
-  }
-  
-  .chat-header-wrapper {
-    margin-left: 320px !important;
-  }
-}
-  @media (min-width: 769px) {
-  .ai-header {
-    left: 320px;
-    width: calc(100% - 320px);
-  }
+        @media (min-width: 769px) {
+          .ai-chat { margin-left: 320px !important; width: calc(100% - 320px) !important; }
+          .ai-input { margin-left: 320px !important; width: calc(100% - 320px) !important; }
+          .ai-header { margin-left: 320px !important; width: calc(100% - 320px) !important; left: 320px; }
+          .chat-header-wrapper { margin-left: 320px !important; }
+        }
       `}</style>
     </div>
   );

@@ -19,7 +19,7 @@ import {
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import ActivityInsightsModal from "../../components/ActivityInsightsModal";
-import Toast from "../../components/Toast";
+import ToastComponent from "../../components/Toast";
 
 ChartJS.register(
   CategoryScale,
@@ -55,7 +55,10 @@ export default function Dashboard() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [generating, setGenerating] = useState(false);
   const [notifications, setNotifications] = useState([]);
-  const [toast, setToast] = useState({ message: "", type: "success" });
+  const [toastMsg, setToastMsg] = useState({ message: "", type: "success" });
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [studyHistory, setStudyHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -83,6 +86,7 @@ export default function Dashboard() {
     socket.on("newNotification", (data) => {
       setNotifications((prev) => [data, ...prev]);
       toast.info(data.message);
+      setToastMsg({ message: data.message, type: "info" });
     });
     return () => socket.disconnect();
   }, [user]);
@@ -158,9 +162,18 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    navigate("/login");
+  const fetchStudyHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await api.get("/activities");
+      setStudyHistory(res.data);
+      setShowHistoryModal(true);
+    } catch (err) {
+      console.error(err);
+      setToastMsg({ message: "Failed to load study history", type: "error" });
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   const generateQuiz = async (topic) => {
@@ -172,6 +185,7 @@ export default function Dashboard() {
     } catch (err) {
       console.error(err);
       toast.error("Failed to generate quiz");
+      setToastMsg({ message: "Failed to generate quiz", type: "error" });
     } finally {
       setGenerating(false);
     }
@@ -216,49 +230,31 @@ export default function Dashboard() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        display: false,
-      },
-      tooltip: {
-        mode: "index",
-        intersect: false,
-      },
+      legend: { display: false },
+      tooltip: { mode: "index", intersect: false },
     },
     scales: {
-      x: {
-        grid: { display: false },
-      },
-      y: {
-        beginAtZero: true,
-        grid: { color: "#e5e7eb" },
-      },
+      x: { grid: { display: false } },
+      y: { beginAtZero: true, grid: { color: "#e5e7eb" } },
     },
   };
 
   const barOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        grid: { color: "#e5e7eb" },
-      },
-    },
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, grid: { color: "#e5e7eb" } } },
   };
 
   return (
     <div className="dashboard-page min-vh-100">
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast({ message: "", type: "success" })}
+      <ToastComponent
+        message={toastMsg.message}
+        type={toastMsg.type}
+        onClose={() => setToastMsg({ message: "", type: "success" })}
       />
-      {/* HERO */}
+
+      {/* HERO SECTION */}
       <section className="hero-section">
         <div className="container">
           <div className="row align-items-center">
@@ -281,6 +277,7 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
       {/* ADD ACTIVITY CARD */}
       <div className="container mb-4">
         <div className="card add-activity-card shadow-sm p-4 hover-card bg-white text-center">
@@ -293,46 +290,47 @@ export default function Dashboard() {
           </Link>
         </div>
       </div>
-      {/* CONTENT */}
+
+      {/* MAIN CONTENT */}
       <div className="container mt-4">
-        {/* Summary Cards */}
+        {/* SUMMARY CARDS GRID */}
         <div className="summary-cards-grid mb-4">
+          {/* Total Study Hours */}
           <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
             <div className="fs-3 mb-2">⏰</div>
             <h6>Total Study Hours</h6>
-            {stats &&
-              (() => {
-                const hours = Math.floor(stats.totalStudyHours / 60);
-                const minutes = Math.round(stats.totalStudyHours % 60);
-                return (
-                  <h3>
-                    {hours}h {minutes}min
-                  </h3>
-                );
-              })()}
+            {(() => {
+              const hours = Math.floor(stats.totalStudyHours / 60);
+              const minutes = Math.round(stats.totalStudyHours % 60);
+              return (
+                <h3>
+                  {hours}h {minutes}min
+                </h3>
+              );
+            })()}
             <p className="text-muted small mt-2">
               You studied {stats?.totalStudyHours || 0} minutes this week
             </p>
           </div>
 
+          {/* AI Assistant */}
           <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
             <div className="fs-3 mb-2">🤖</div>
             <h6>AI Assistant</h6>
             <p className="text-muted small">
-              Chat with your AI assistant in real-time. Ask questions, get
-              explanations & study help.
+              Chat with your AI assistant in real-time.
             </p>
             <Link to="/chat" className="btn btn-outline-success w-100 mt-2">
-              Open AI Assistant Chat
+              Open AI Assistant
             </Link>
           </div>
 
+          {/* Quizzes */}
           <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
             <div className="fs-3 mb-2">📝</div>
-            <h6>Quizes</h6>
+            <h6>Quizzes</h6>
             <p className="text-muted small mb-2">
-              Create a quiz for any topic you want and View your previous
-              quizzes
+              Create and practice with AI-powered quizzes
             </p>
             <div className="d-grid gap-2 w-100">
               <Link
@@ -350,11 +348,12 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Notes */}
           <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
             <div className="fs-3 mb-2">📓</div>
             <h6>Notes</h6>
             <p className="text-muted small mb-2">
-              Create notes for any topic you want and View your previous notes
+              Create and manage AI-generated notes
             </p>
             <div className="d-grid gap-2 w-100">
               <Link to="/notes" className="btn btn-sm btn-success w-100">
@@ -368,13 +367,13 @@ export default function Dashboard() {
               </Link>
             </div>
           </div>
-          {/* My Classes Card */}
+
+          {/* My Classes */}
           <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
             <div className="fs-3 mb-2">🎓</div>
             <h6>My Classes</h6>
             <p className="text-muted small mb-2">
-              View all your classes here and stay up-to-date with announcements,
-              assignments, and materials.
+              View all your enrolled classes
             </p>
             <Link
               to="/classes"
@@ -384,13 +383,12 @@ export default function Dashboard() {
             </Link>
           </div>
 
-          {/* Join New Class Card */}
+          {/* Join Class */}
           <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
             <div className="fs-3 mb-2">➕</div>
-            <h6>Join New Class</h6>
+            <h6>Join Class</h6>
             <p className="text-muted small mb-2">
-              Enter a class code to join new courses and stay up-to-date with
-              lessons.
+              Enter a code to join a new class
             </p>
             <Link
               to="/classes/join"
@@ -399,18 +397,97 @@ export default function Dashboard() {
               Join Class
             </Link>
           </div>
+
+          {/* Study Timer */}
+          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
+            <div className="fs-3 mb-2">⏱️</div>
+            <h6>Study Timer</h6>
+            <p className="text-muted small mb-2">
+              Pomodoro timer to boost productivity
+            </p>
+            <Link
+              to="/timer"
+              className="btn btn-sm btn-outline-primary mt-2 w-100"
+            >
+              Open Timer
+            </Link>
+          </div>
+
+          {/* Flashcards */}
+          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
+            <div className="fs-3 mb-2">🃏</div>
+            <h6>Flashcards</h6>
+            <p className="text-muted small mb-2">
+              Generate AI flashcards from your notes
+            </p>
+            <Link
+              to="/flashcards"
+              className="btn btn-sm btn-outline-primary mt-2 w-100"
+            >
+              View Flashcards
+            </Link>
+          </div>
+
+          {/* Study Groups */}
+          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
+            <div className="fs-3 mb-2">👥</div>
+            <h6>Study Groups</h6>
+            <p className="text-muted small mb-2">
+              Create or join groups to collaborate
+            </p>
+            <Link
+              to="/study-groups"
+              className="btn btn-sm btn-outline-primary mt-2 w-100"
+            >
+              View Groups
+            </Link>
+          </div>
+
+          {/* YouTube Summarizer */}
+          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
+            <div className="fs-3 mb-2">🎥</div>
+            <h6>YouTube Summarizer</h6>
+            <p className="text-muted small mb-2">Get AI notes from any video</p>
+            <Link
+              to="/video-summarizer"
+              className="btn btn-sm btn-outline-primary mt-2 w-100"
+            >
+              Summarize Video
+            </Link>
+          </div>
+
+          {/* Bookmarks */}
+          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
+            <div className="fs-3 mb-2">🔖</div>
+            <h6>Bookmarks</h6>
+            <p className="text-muted small mb-2">
+              Save important notes and quizzes
+            </p>
+            <Link
+              to="/bookmarks"
+              className="btn btn-sm btn-outline-primary mt-2 w-100"
+            >
+              View Bookmarks
+            </Link>
+          </div>
         </div>
 
-        {/* Charts & Activities */}
+        {/* CHARTS & RECENT ACTIVITIES */}
         <div className="row g-3">
           <div className="col-md-8">
-            <div className="card shadow-sm mb-3 p-3 hover-card bg-white">
-              <h5>Weekly Study (Hours)</h5>
+            {/* Weekly Study Chart */}
+            <div
+              className="card shadow-sm mb-3 p-3 hover-card bg-white"
+              style={{ cursor: "pointer" }}
+              onClick={fetchStudyHistory}
+            >
+              <h5>Weekly Study (Hours) - Click to view all</h5>
               <div className="chart-wrapper">
                 <Line data={lineData} options={lineOptions} />
               </div>
             </div>
 
+            {/* Difficulty Analysis Chart */}
             <div className="card shadow-sm mb-3 p-3 hover-card bg-white">
               <h5>Difficulty Analysis</h5>
               <div className="chart-wrapper">
@@ -418,23 +495,24 @@ export default function Dashboard() {
               </div>
             </div>
 
+            {/* Recent Activities */}
             <div className="card shadow-sm mb-3 p-3 hover-card bg-white">
               <h5 className="section-title">Recent Activities</h5>
               <div className="table-responsive">
-                <table className="table table-hover align-middle">
-                  <thead>
-                    <tr>
-                      <th>Subject</th>
-                      <th>Topic</th>
-                      <th>Duration</th>
-                      <th>Difficulty</th>
-                      <th>Insights</th>
-                      <th>When</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activities.length ? (
-                      activities.map((a) => (
+                {activities.length > 0 ? (
+                  <table className="table table-hover align-middle">
+                    <thead>
+                      <tr>
+                        <th>Subject</th>
+                        <th>Topic</th>
+                        <th>Duration</th>
+                        <th>Difficulty</th>
+                        <th>Insights</th>
+                        <th>When</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activities.map((a) => (
                         <tr key={a._id}>
                           <td data-label="Subject">{a.subject}</td>
                           <td data-label="Topic">{a.topic}</td>
@@ -462,492 +540,281 @@ export default function Dashboard() {
                             {new Date(a.createdAt).toLocaleString()}
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="6" className="text-center text-muted">
-                          No recent activities
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-
-                <Link
-                  to="/activities"
-                  className="btn btn-sm btn-outline-primary mt-2"
-                >
-                  View All Activities
-                </Link>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="empty-activities">
+                    <div className="empty-icon">📭</div>
+                    <h6>No Recent Activities</h6>
+                    <p>
+                      Start your study journey by adding your first activity!
+                    </p>
+                    <Link
+                      to="/activities/add"
+                      className="btn btn-sm btn-primary"
+                    >
+                      + Add Activity
+                    </Link>
+                  </div>
+                )}
+                {activities.length > 0 && (
+                  <Link
+                    to="/activities"
+                    className="btn btn-sm btn-outline-primary mt-2"
+                  >
+                    View All Activities
+                  </Link>
+                )}
               </div>
             </div>
           </div>
 
-          {/* RIGHT SIDEBAR */}
+          {/* RIGHT SIDEBAR - Suggestions */}
           <div className="col-md-4">
             <div className="card summary-card shadow-sm hover-card bg-white p-3">
-              <h5 className="text-success mb-3">Suggestions</h5>
-              <ul className="list-unstyled">
-                {weakTopics.suggestions?.length ? (
-                  weakTopics.suggestions.map((s, i) => (
-                    <li
-                      key={i}
-                      className="d-flex justify-content-between align-items-center mb-2 p-2 border rounded"
-                    >
-                      <span>• {s}</span>
+              <h5 className="text-success mb-3">💡 Suggestions</h5>
+              {weakTopics.suggestions?.length > 0 ? (
+                <ul className="list-unstyled">
+                  {weakTopics.suggestions.map((s, i) => (
+                    <li key={i} className="suggestion-item">
+                      <span className="suggestion-text">• {s}</span>
                       <button
-                        className="btn btn-sm btn-outline-primary w-100 w-md-auto"
+                        className="btn btn-sm btn-outline-primary suggestion-btn"
                         onClick={() =>
-                          generateQuiz(weakTopics.weakTopics[i] || s, 5)
+                          generateQuiz(weakTopics.weakTopics[i] || s)
                         }
                       >
                         Generate Quiz
                       </button>
                     </li>
-                  ))
-                ) : (
-                  <li className="text-muted">No suggestions yet</li>
-                )}
-              </ul>
-
+                  ))}
+                </ul>
+              ) : (
+                <div className="empty-suggestions">
+                  <div className="empty-icon">🎯</div>
+                  <h6>No Suggestions Yet</h6>
+                  <p>Take some quizzes to get personalized recommendations!</p>
+                  <Link
+                    to="/quizzes/generate"
+                    className="btn btn-sm btn-primary"
+                  >
+                    Take a Quiz
+                  </Link>
+                </div>
+              )}
               <hr />
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modals */}
       <ActivityInsightsModal
         show={showModal}
         onClose={() => setShowModal(false)}
         activity={selectedActivity}
       />
+
+      {/* Study History Modal */}
+      {showHistoryModal && (
+        <div
+          className="history-modal-overlay"
+          onClick={() => setShowHistoryModal(false)}
+        >
+          <div
+            className="history-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="history-modal-header">
+              <h4>📊 Complete Study History</h4>
+              <button
+                onClick={() => setShowHistoryModal(false)}
+                className="history-modal-close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="history-modal-body">
+              {historyLoading ? (
+                <div className="text-center py-4">Loading...</div>
+              ) : studyHistory.length === 0 ? (
+                <div className="text-center py-4">
+                  No study activities yet. Start studying!
+                </div>
+              ) : (
+                <>
+                  <div className="table-responsive">
+                    <table className="table table-striped">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Subject</th>
+                          <th>Topic</th>
+                          <th>Duration</th>
+                          <th>Difficulty</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {studyHistory.map((activity, idx) => (
+                          <tr key={idx}>
+                            <td>
+                              {new Date(
+                                activity.createdAt,
+                              ).toLocaleDateString()}
+                            </td>
+                            <td>{activity.subject}</td>
+                            <td>{activity.topic}</td>
+                            <td>{activity.durationMinutes} min</td>
+                            <td>
+                              <span
+                                className={`badge ${activity.difficulty === "easy" ? "bg-success" : activity.difficulty === "medium" ? "bg-warning" : "bg-danger"}`}
+                              >
+                                {activity.difficulty}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="history-summary mt-3">
+                    <strong>Total Study Time: </strong>
+                    {Math.floor(
+                      studyHistory.reduce(
+                        (sum, a) => sum + (a.durationMinutes || 0),
+                        0,
+                      ) / 60,
+                    )}{" "}
+                    hours{" "}
+                    {studyHistory.reduce(
+                      (sum, a) => sum + (a.durationMinutes || 0),
+                      0,
+                    ) % 60}{" "}
+                    minutes
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STYLES */}
       <style>{`
-      .dashboard-page {
-  background-color: #5a77a3ff;
-}
-.text-muted {
-  color: #6b7280 !important;
-}
-  .hero-section {
-  background: linear-gradient(
-    180deg,
-    #080e18ff 0%,
-    #122138ff 25%,
-    #1e3652ff 50%,
-    #28507eff 75%,
-    #5a77a3ff 100%
-  );
-  min-height: 85vh;
-  display: flex;
-  align-items: center;
-  padding: 0 60px;
-  margin-bottom: 40px;
-}
-
-.hero-section .container {
-  width: 100%;
-}
-
-.hero-img {
-  max-height: 350px;
-}
-
-/* ============Actvity card============= */
-
-.add-activity-card {
-  transition: transform 0.25s ease, box-shadow 0.25s ease,
-    background-color 0.25s ease;
-  cursor: pointer;
-  background: linear-gradient(145deg, #ebf1f4ff, rgb(219, 234, 247));
-}
-
-.add-activity-card:hover {
-  transform: translateY(-5px) scale(1.02);
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
-  background-color: #e6f4ea;
-}
-
-/* ================= SUMMARY CARDS ================= */
-.summary-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.summary-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  align-items: stretch;
-  border-radius: 14px;
-  padding: 20px;
-  min-height: 250px;
-  transition: transform 0.2s ease;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
-  background: linear-gradient(145deg, #ebf1f4ff, rgb(219, 234, 247));
-}
-
-.summary-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
-}
-
-.summary-card h6 {
-  font-weight: 600;
-  margin-bottom: 5px;
-}
-
-.summary-card h3 {
-  font-weight: 700;
-  margin: 0;
-}
-
-.summary-card .btn {
-  font-size: 0.8rem;
-  margin-top: auto;
-}
-
-/* ================= SUGGESTIONS ================= */
-.col-md-4 .summary-card {
-  padding: 20px;
-  border-radius: 14px;
-  min-height: auto;
-}
-
-.summary-card ul {
-  padding-left: 0;
-  margin: 0;
-}
-
-.summary-card ul li {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  transition: 0.2s;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.summary-card ul li + li {
-  margin-top: 8px;
-}
-
-.summary-card ul li span {
-  width: 100%;
-  text-align: left;
-}
-
-.summary-card ul li button {
-  flex-shrink: 0;
-  min-width: 120px;
-}
-
-.summary-card ul li:hover {
-  background-color: #f8f9fa;
-  transform: translateY(-2px);
-}
-
-.section-title {
-  color: #1e3a8a;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-}
-
-/* ================= CHARTS ================= */
-.chart-wrapper {
-  width: 100%;
-  height: 350px;
-}
-
-.chart-wrapper canvas {
-  max-height: 100% !important;
-}
-
-/* ================= EXACT MEDIA QUERIES ================= */
-
-/* navbar mobile */
-@media (max-width: 991px) {
-  .custom-navbar .navbar-nav {
-    background: #080e18ff;
-    padding: 18px;
-    border-radius: 16px;
-    margin-top: 12px;
-  }
-}
-
-/* hero breakpoints */
-@media (max-width: 1200px) {
-  .hero-section {
-    min-height: 80vh;
-    padding: 0 40px;
-  }
-  .hero-img {
-    max-height: 300px;
-  }
-}
-
-@media (max-width: 992px) {
-  .hero-section {
-    min-height: 75vh;
-    padding: 0 30px;
-    text-align: center;
-  }
-  .hero-img {
-    max-height: 260px;
-    margin-top: 20px;
-  }
-  .hero-section h1 {
-    font-size: 2rem;
-  }
-  .hero-section p {
-    font-size: 1rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .hero-section {
-    min-height: 70vh;
-    padding: 0 20px;
-  }
-  .hero-section h1 {
-    font-size: 1.8rem;
-  }
-  .hero-section p {
-    font-size: 0.95rem;
-  }
-  .hero-img {
-    max-height: 220px;
-  }
-}
-
-@media (max-width: 576px) {
-  .hero-section {
-    min-height: 65vh;
-    padding: 0 15px;
-  }
-  .hero-section h1 {
-    font-size: 1.6rem;
-  }
-  .hero-section p {
-    font-size: 0.9rem;
-  }
-  .hero-img {
-    max-height: 180px;
-  }
-}
-
-/* summary grid */
-@media (max-width: 992px) {
-  .summary-cards-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 576px) {
-  .summary-cards-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* suggestions mobile */
-@media (max-width: 768px) {
-  .summary-card ul li {
-    flex-direction: column;
-    align-items: stretch;
-    text-align: left;
-    gap: 6px;
-  }
-
-  .summary-card ul li button {
-    width: 100%;
-    margin-top: 4px;
-  }
-}
-
-@media (max-width: 576px) {
-  .summary-card {
-    padding: 12px;
-    min-height: auto;
-  }
-
-  .summary-card ul li {
-    padding: 8px 10px;
-    gap: 4px;
-  }
-
-  .summary-card ul li button {
-    font-size: 0.85rem;
-  }
-}
-
-/* tables */
-@media (max-width: 768px) {
-  .table thead {
-    display: none;
-  }
-
-  .table tbody tr {
-    display: block;
-    margin-bottom: 1rem;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 10px;
-  }
-
-  .table tbody tr td {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 0;
-    flex-wrap: wrap;
-  }
-
-  .table tbody tr td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    width: 50%;
-  }
-}
-
-@media (max-width: 768px) {
-  .chart-wrapper {
-    height: 250px;
-  }
-}
-  /* Mobile Responsive - Dashboard */
-@media (max-width: 768px) {
-  .dashboard-page .hero-section {
-    padding: 40px 20px;
-    min-height: auto;
-    text-align: center;
-  }
-  
-  .hero-section .row {
-    flex-direction: column;
-  }
-  
-  .hero-section .col-md-6:first-child {
-    margin-bottom: 30px;
-  }
-  
-  .hero-section h1 {
-    font-size: 1.6rem;
-  }
-  
-  .hero-section p {
-    font-size: 0.9rem;
-  }
-  
-  .hero-img {
-    max-height: 200px;
-  }
-  
-  .add-activity-card {
-    margin: 0 16px;
-    padding: 20px 16px !important;
-  }
-  
-  .add-activity-card h4 {
-    font-size: 1.2rem;
-  }
-  
-  .summary-cards-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-    padding: 0 16px;
-  }
-  
-  .summary-card {
-    min-height: auto;
-    padding: 16px;
-  }
-  
-  .summary-card h6 {
-    font-size: 0.9rem;
-  }
-  
-  .summary-card h3 {
-    font-size: 1.4rem;
-  }
-  
-  .summary-card p {
-    font-size: 0.75rem;
-  }
-  
-  .row.g-3 {
-    flex-direction: column;
-    padding: 0 16px;
-  }
-  
-  .row.g-3 .col-md-8,
-  .row.g-3 .col-md-4 {
-    width: 100%;
-  }
-  
-  .chart-wrapper {
-    height: 250px;
-  }
-  
-  .table thead {
-    display: none;
-  }
-  
-  .table tbody tr {
-    display: block;
-    margin-bottom: 16px;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 12px;
-  }
-  
-  .table tbody tr td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    border: none;
-  }
-  
-  .table tbody tr td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    width: 40%;
-  }
-  
-  .col-md-4 .summary-card ul li {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .col-md-4 .summary-card ul li button {
-    width: 100%;
-  }
-}
-
-@media (max-width: 480px) {
-  .hero-section h1 {
-    font-size: 1.3rem;
-  }
-  
-  .hero-section .btn-light.btn-lg {
-    font-size: 0.9rem;
-    padding: 8px 20px;
-  }
-  
-  .summary-card {
-    padding: 12px;
-  }
-  
-  .summary-card h3 {
-    font-size: 1.2rem;
-  }
-  
-  .chart-wrapper {
-    height: 200px;
-  }
-}
+        .dashboard-page { background-color: #5a77a3ff; }
+        .hero-section {
+          background: linear-gradient(180deg, #080e18ff 0%, #122138ff 25%, #1e3652ff 50%, #28507eff 75%, #5a77a3ff 100%);
+          min-height: 85vh;
+          display: flex;
+          align-items: center;
+          padding: 0 60px;
+          margin-bottom: 40px;
+        }
+        .hero-img { max-height: 350px; }
+        .add-activity-card {
+          transition: transform 0.25s ease, box-shadow 0.25s ease;
+          cursor: pointer;
+          background: linear-gradient(145deg, #ebf1f4ff, rgb(219, 234, 247));
+        }
+        .add-activity-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 15px 35px rgba(0,0,0,0.15); }
+        
+        /* Summary Cards Grid - 3 columns default */
+        .summary-cards-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1rem;
+        }
+        .summary-card {
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          border-radius: 14px;
+          padding: 20px;
+          min-height: 200px;
+          transition: transform 0.2s ease;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+          background: linear-gradient(145deg, #ebf1f4ff, rgb(219, 234, 247));
+        }
+        .summary-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
+        .summary-card h6 { font-weight: 600; margin-bottom: 5px; }
+        .summary-card h3 { font-weight: 700; margin: 0; font-size: 1.5rem; }
+        .summary-card .btn { font-size: 0.75rem; margin-top: auto; }
+        
+        .chart-wrapper { width: 100%; height: 350px; }
+        .section-title { color: #1e3a8a; font-weight: 700; }
+        
+        /* Empty States */
+        .empty-activities, .empty-suggestions {
+          text-align: center;
+          padding: 40px 20px;
+          background: #f8f9fa;
+          border-radius: 16px;
+          margin: 10px 0;
+        }
+        .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+        
+        /* Suggestion Items */
+        .suggestion-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 12px;
+          margin-bottom: 8px;
+          background: #f8f9fa;
+          border-radius: 12px;
+          transition: all 0.2s;
+          flex-wrap: wrap;
+          gap: 10px;
+        }
+        .suggestion-item:hover { background: #e5e7eb; transform: translateX(4px); }
+        .suggestion-text { flex: 1; font-size: 0.85rem; }
+        .suggestion-btn { font-size: 0.7rem; padding: 4px 12px; }
+        
+        /* History Modal */
+        .history-modal-overlay {
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1100;
+        }
+        .history-modal-content {
+          background: white; border-radius: 20px; width: 90%; max-width: 800px; max-height: 80vh; overflow: hidden;
+          animation: modalFadeIn 0.3s ease;
+        }
+        @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .history-modal-header {
+          display: flex; justify-content: space-between; align-items: center; padding: 16px 20px;
+          background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;
+        }
+        .history-modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: white; }
+        .history-modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
+        .history-summary { padding: 12px; background: #f3f4f6; border-radius: 8px; text-align: center; }
+        
+        /* Responsive Breakpoints */
+        @media (max-width: 992px) {
+          .hero-section { min-height: 75vh; padding: 0 30px; text-align: center; }
+          .hero-img { max-height: 260px; margin-top: 20px; }
+          .summary-cards-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 768px) {
+          .hero-section { min-height: 70vh; padding: 0 20px; }
+          .hero-section h1 { font-size: 1.8rem; }
+          .summary-cards-grid { grid-template-columns: 1fr; }
+          .chart-wrapper { height: 250px; }
+          .suggestion-item { flex-direction: column; text-align: center; }
+          .suggestion-btn { width: 100%; }
+          .table thead { display: none; }
+          .table tbody tr { display: block; margin-bottom: 1rem; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+          .table tbody tr td { display: flex; justify-content: space-between; padding: 6px 0; }
+          .table tbody tr td::before { content: attr(data-label); font-weight: 600; width: 40%; }
+        }
+        @media (max-width: 576px) {
+          .hero-section { min-height: 65vh; padding: 0 15px; }
+          .hero-section h1 { font-size: 1.6rem; }
+          .hero-img { max-height: 180px; }
+          .summary-card { padding: 12px; min-height: auto; }
+          .summary-card h3 { font-size: 1.2rem; }
+          .chart-wrapper { height: 200px; }
+        }
       `}</style>
     </div>
   );

@@ -18,6 +18,7 @@
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.19",
     "html2canvas": "^1.4.1",
+    "html2pdf.js": "^0.14.0",
     "jspdf": "^3.0.4",
     "marked": "^17.0.1",
     "react-bootstrap": "^2.10.10",
