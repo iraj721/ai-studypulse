@@ -32,34 +32,82 @@ requiredEnv.forEach(key => {
 const app = express();
 const server = http.createServer(app);
 
-// ✅ Socket.IO with proper CORS
+/* =========================
+   CORS CONFIGURATION - FIXED FOR PRODUCTION
+========================= */
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'https://ai-studypulse.vercel.app',
+  'https://ai-studypulse.vercel.app/',
+  process.env.FRONTEND_URL
+].filter(Boolean); // Remove undefined values
+
+// CORS options for Express
+const corsOptions = {
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, postman)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log(`❌ CORS blocked origin: ${origin}`);
+      console.log(`✅ Allowed origins: ${allowedOrigins.join(', ')}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Authorization']
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly
+app.options('*', cors(corsOptions));
+
+// ✅ Socket.IO with same CORS configuration
 const io = new Server(server, { 
-  cors: { 
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    credentials: true 
-  } 
+  cors: {
+    origin: function(origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST']
+  }
 });
 
 /* =========================
-   MIDDLEWARE
+   OTHER MIDDLEWARE
 ========================= */
-// ✅ Security headers
-app.use(helmet());
-
-// ✅ CORS - restrict to frontend only
-app.use(cors({ 
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
-  credentials: true 
+// ✅ Security headers (but don't override CORS)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
 }));
 
 app.use(express.json());
 
+/* =========================
+   RATE LIMITING
+========================= */
 // ✅ Rate limiting - prevent abuse
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 200, // 200 requests per 15 minutes per IP
   message: { message: "Too many requests, please try again later." },
   skipSuccessfulRequests: false,
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use("/api/", globalLimiter);
 
@@ -68,22 +116,25 @@ const aiLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 10, // 10 AI requests per minute
   message: { message: "Too many AI requests. Please wait a moment." },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use("/api/chat", aiLimiter);
 app.use("/api/quizzes/generate", aiLimiter);
 
 /* =========================
-   UPLOADS
+   UPLOADS STATIC FILES
 ========================= */
 const uploadsPath = path.join(__dirname, "uploads");
-["assignments", "submissions", "materials"].forEach((dir) => {
+const uploadDirs = ["assignments", "submissions", "materials"];
+uploadDirs.forEach((dir) => {
   const full = path.join(uploadsPath, dir);
   if (!fs.existsSync(full)) fs.mkdirSync(full, { recursive: true });
 });
 app.use("/uploads", express.static(uploadsPath));
 
 /* =========================
-   DATABASE
+   DATABASE CONNECTION
 ========================= */
 mongoose
   .connect(process.env.MONGO_URI)
@@ -106,15 +157,45 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/teacher", teacherRoutes);
 app.use("/api/student", studentRoutes);
 
-app.get("/", (req, res) => res.send("API Running"));
+// Health check endpoint
+app.get("/", (req, res) => res.json({ message: "API Running", status: "ok" }));
 
-// ✅ Error handling middleware (catch all)
+// Debug endpoint to check CORS (remove in production if needed)
+app.get("/api/debug/cors", (req, res) => {
+  res.json({
+    message: "CORS is working!",
+    origin: req.headers.origin,
+    allowedOrigins: allowedOrigins
+  });
+});
+
+/* =========================
+   ERROR HANDLING
+========================= */
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found" });
+});
+
+// Global error handler
 app.use((err, req, res, next) => {
   console.error("Server error:", err);
+  
+  // CORS error
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ message: "CORS policy blocked this request" });
+  }
+  
   res.status(500).json({ message: err.message || "Internal server error" });
 });
 
 app.locals.io = io;
 
+/* =========================
+   START SERVER
+========================= */
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`✅ Allowed CORS origins: ${allowedOrigins.join(', ')}`);
+});
