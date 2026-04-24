@@ -79,6 +79,5 @@ module.exports = {
     limits: { fileSize: 10 * 1024 * 1024 }, 
     fileFilter: fileFilter 
   }),
-  // ✅ Export for student submissions
   studentSubmission: multer(studentSubmissionConfig),
 };

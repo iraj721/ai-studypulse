@@ -1,38 +1,57 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
+// Chat Message Schema
 const GroupMessageSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   userName: { type: String, required: true },
   message: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now }
+  type: {
+    type: String,
+    enum: ["text", "note", "quiz", "youtube", "insight", "flashcard", "file"],
+    default: "text",
+  },
+  sharedData: { type: mongoose.Schema.Types.Mixed },
+  deleted: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now },
 });
 
-const GroupQuizSchema = new mongoose.Schema({
+// Shared Content Schema
+const SharedContentSchema = new mongoose.Schema({
+  type: {
+    type: String,
+    enum: ["note", "quiz", "youtube", "insight", "flashcard", "file"],
+    required: true,
+  },
   title: { type: String, required: true },
-  questions: [{
-    question: String,
-    options: [String],
-    answer: String
-  }],
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  createdAt: { type: Date, default: Date.now }
+  content: { type: String },
+  link: { type: String },
+  sharedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  sharedByName: { type: String },
+  sharedAt: { type: Date, default: Date.now },
+  metadata: { type: mongoose.Schema.Types.Mixed },
 });
 
 const StudyGroupSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String },
   code: { type: String, required: true, unique: true },
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  notes: [{
-    title: String,
-    content: String,
-    createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    createdAt: { type: Date, default: Date.now }
-  }],
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   messages: [GroupMessageSchema],
-  quizzes: [GroupQuizSchema],
-  createdAt: { type: Date, default: Date.now }
+  sharedContent: [SharedContentSchema],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
 });
 
-module.exports = mongoose.model('StudyGroup', StudyGroupSchema);
+// Create indexes
+StudyGroupSchema.index({ code: 1 });
+StudyGroupSchema.index({ members: 1 });
+
+// Compile and export the model
+const StudyGroup = mongoose.model("StudyGroup", StudyGroupSchema);
+
+module.exports = StudyGroup;

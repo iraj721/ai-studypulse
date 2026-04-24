@@ -260,3 +260,102 @@ exports.getClassByIdTeacherAdmin = async (req, res) => {
   }
 };
 
+/* =====================================================
+   🎓 GET STUDENT'S FULL CLASS DETAILS (Assignments, Marks, Submissions)
+===================================================== */
+exports.getStudentClassFullDetails = async (req, res) => {
+  try {
+    const { studentId, classId } = req.params;
+
+    console.log("=== getStudentClassFullDetails ===");
+    console.log("StudentId:", studentId);
+    console.log("ClassId:", classId);
+
+    // Get class info
+    const classData = await Class.findById(classId)
+      .populate("teacher", "name email")
+      .populate("students", "name email");
+
+    if (!classData) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    // Get all assignments for this class
+    const assignments = await Assignment.find({ class: classId }).sort({ createdAt: -1 });
+
+    // Get student's submissions for each assignment
+    const submissions = await Submission.find({
+      assignment: { $in: assignments.map(a => a._id) },
+      student: studentId
+    }).sort({ submittedAt: -1 });
+
+    // Create a map of assignmentId -> submission
+    const submissionMap = {};
+    submissions.forEach(sub => {
+      submissionMap[sub.assignment.toString()] = sub;
+    });
+
+    // Get materials for this class
+    const materials = await Material.find({ class: classId }).sort({ createdAt: -1 });
+
+    // Get announcements for this class with replies
+    const announcements = await Announcement.find({ class: classId })
+      .sort({ createdAt: -1 })
+      .populate("teacher", "name email");
+
+    // Format assignments with submission details
+    const assignmentsWithDetails = assignments.map(assignment => {
+      const submission = submissionMap[assignment._id.toString()];
+      return {
+        _id: assignment._id,
+        title: assignment.title,
+        instructions: assignment.instructions,
+        dueDate: assignment.dueDate,
+        marks: assignment.marks,
+        attachment: assignment.attachment,
+        createdAt: assignment.createdAt,
+        submitted: !!submission,
+        submission: submission ? {
+          _id: submission._id,
+          answerText: submission.answerText,
+          file: submission.file,
+          obtainedMarks: submission.marks,
+          submittedAt: submission.submittedAt,
+          feedback: submission.feedback
+        } : null
+      };
+    });
+
+    // Calculate stats
+    const totalAssignments = assignments.length;
+    const submittedAssignments = submissions.length;
+    const pendingAssignments = totalAssignments - submittedAssignments;
+    const totalMarks = assignments.reduce((sum, a) => sum + (a.marks || 0), 0);
+    const obtainedMarks = submissions.reduce((sum, s) => sum + (s.marks || 0), 0);
+    const averageScore = totalMarks > 0 ? Math.round((obtainedMarks / totalMarks) * 100) : 0;
+
+    res.json({
+      class: {
+        _id: classData._id,
+        name: classData.name,
+        subject: classData.subject,
+        code: classData.code,
+        teacher: classData.teacher
+      },
+      assignments: assignmentsWithDetails,
+      materials: materials,
+      announcements: announcements,
+      statistics: {
+        totalAssignments,
+        submittedAssignments,
+        pendingAssignments,
+        totalMarks,
+        obtainedMarks,
+        averageScore
+      }
+    });
+  } catch (err) {
+    console.error("Get student class full details error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+};

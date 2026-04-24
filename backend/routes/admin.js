@@ -13,10 +13,11 @@ const {
   getAssignmentSubmissionsAdmin,
   getClassByIdAdmin,
   getTeacherClassesAdmin,
-  getClassByIdTeacherAdmin
+  getClassByIdTeacherAdmin,
+  getStudentClassFullDetails,
 } = require("../controllers/adminController");
 
-// ✅ NEW CONTROLLERS FOR STUDENT FULL DATA
+// Models for student data
 const Flashcard = require("../models/Flashcard");
 const Bookmark = require("../models/Bookmark");
 const VideoSummary = require("../models/VideoSummary");
@@ -24,16 +25,14 @@ const StudyGroup = require("../models/StudyGroup");
 const Message = require("../models/Message");
 const ChatSession = require("../models/ChatSession");
 const teacherApprovalController = require("../controllers/teacherApprovalController");
+const aiAnalyticsController = require("../controllers/aiAnalyticsController");
 
 /* ================= USERS ================= */
 router.get("/users", authMiddleware, roleMiddleware("admin"), getAllUsers);
 router.get("/users/:id", authMiddleware, roleMiddleware("admin"), getUserDetails);
 router.delete("/users/:id", authMiddleware, roleMiddleware("admin"), deleteUserByAdmin);
-const aiAnalyticsController = require("../controllers/aiAnalyticsController");
-
 
 /* ================= STUDENT - FULL DATA ================= */
-// Get student's flashcards
 router.get("/students/:id/flashcards", authMiddleware, roleMiddleware("admin"), async (req, res) => {
   try {
     const flashcards = await Flashcard.find({ user: req.params.id }).sort({ createdAt: -1 });
@@ -44,7 +43,6 @@ router.get("/students/:id/flashcards", authMiddleware, roleMiddleware("admin"), 
   }
 });
 
-// Get student's bookmarks
 router.get("/students/:id/bookmarks", authMiddleware, roleMiddleware("admin"), async (req, res) => {
   try {
     const bookmarks = await Bookmark.find({ user: req.params.id }).sort({ createdAt: -1 });
@@ -55,7 +53,6 @@ router.get("/students/:id/bookmarks", authMiddleware, roleMiddleware("admin"), a
   }
 });
 
-// Get student's video summaries
 router.get("/students/:id/videos", authMiddleware, roleMiddleware("admin"), async (req, res) => {
   try {
     const videos = await VideoSummary.find({ user: req.params.id }).sort({ savedAt: -1 });
@@ -66,7 +63,6 @@ router.get("/students/:id/videos", authMiddleware, roleMiddleware("admin"), asyn
   }
 });
 
-// Get student's study groups
 router.get("/students/:id/groups", authMiddleware, roleMiddleware("admin"), async (req, res) => {
   try {
     const groups = await StudyGroup.find({ members: req.params.id }).populate("createdBy", "name email");
@@ -77,7 +73,6 @@ router.get("/students/:id/groups", authMiddleware, roleMiddleware("admin"), asyn
   }
 });
 
-// Get student's chat messages
 router.get("/students/:id/chats", authMiddleware, roleMiddleware("admin"), async (req, res) => {
   try {
     const messages = await Message.find({ user: req.params.id, type: "chat" }).sort({ createdAt: -1 }).limit(100);
@@ -88,7 +83,6 @@ router.get("/students/:id/chats", authMiddleware, roleMiddleware("admin"), async
   }
 });
 
-// Get student's chat sessions
 router.get("/students/:id/chat-sessions", authMiddleware, roleMiddleware("admin"), async (req, res) => {
   try {
     const sessions = await ChatSession.find({ user: req.params.id }).sort({ updatedAt: -1 });
@@ -98,6 +92,9 @@ router.get("/students/:id/chat-sessions", authMiddleware, roleMiddleware("admin"
     res.status(500).json({ message: "Server error" });
   }
 });
+
+// ✅ CRITICAL: Add this missing route
+router.get("/students/:studentId/classes/:classId", authMiddleware, roleMiddleware("admin"), getStudentClassFullDetails);
 
 /* ================= EXISTING ROUTES ================= */
 router.get("/students/:id/classes", authMiddleware, roleMiddleware("admin"), getStudentClassesAdmin);

@@ -14,17 +14,17 @@ const transporter = nodemailer.createTransport({
 
 // Send email to all students in a class
 async function sendEmailToClass(students, className, title, content, type) {
-  const emails = students.map(s => s.email).filter(Boolean);
+  const emails = students.map((s) => s.email).filter(Boolean);
   if (emails.length === 0) return;
-  
+
   const typeColors = {
     announcement: { bg: "#e0e7ff", color: "#4f46e5", icon: "📢" },
     assignment: { bg: "#dcfce7", color: "#16a34a", icon: "📝" },
-    material: { bg: "#fef3c7", color: "#d97706", icon: "📂" }
+    material: { bg: "#fef3c7", color: "#d97706", icon: "📂" },
   };
-  
+
   const style = typeColors[type] || typeColors.announcement;
-  
+
   const htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -64,9 +64,9 @@ async function sendEmailToClass(students, className, title, content, type) {
     </body>
     </html>
   `;
-  
+
   const plainText = `${type.toUpperCase()}: ${title}\n\n${content}\n\nView on StudyPulse: ${process.env.FRONTEND_URL}/dashboard`;
-  
+
   for (const email of emails) {
     try {
       await transporter.sendMail({
@@ -108,17 +108,17 @@ async function sendEmailNotification(userEmail, userName, title, message) {
 
 // Create daily study reminder
 async function createDailyReminder(userId, studyTime = "19:00") {
-  const [hour, minute] = studyTime.split(':');
+  const [hour, minute] = studyTime.split(":");
   const scheduledFor = new Date();
   scheduledFor.setHours(parseInt(hour), parseInt(minute), 0, 0);
   if (scheduledFor < new Date()) {
     scheduledFor.setDate(scheduledFor.getDate() + 1);
   }
-  
+
   return await Notification.create({
     user: userId,
-    type: 'daily',
-    title: '📚 Time to Study!',
+    type: "daily",
+    title: "📚 Time to Study!",
     message: `Don't forget your daily study session. Open StudyPulse and continue learning!`,
     scheduledFor: scheduledFor,
   });
@@ -128,58 +128,127 @@ async function createDailyReminder(userId, studyTime = "19:00") {
 async function createAssignmentReminder(userId, assignmentTitle, dueDate) {
   const reminderDate = new Date(dueDate);
   reminderDate.setDate(reminderDate.getDate() - 1);
-  
+
   return await Notification.create({
     user: userId,
-    type: 'assignment',
-    title: '📝 Assignment Due Tomorrow!',
+    type: "assignment",
+    title: "📝 Assignment Due Tomorrow!",
     message: `Your assignment "${assignmentTitle}" is due tomorrow. Submit it on time!`,
     scheduledFor: reminderDate,
-    metadata: { assignmentTitle, dueDate }
+    metadata: { assignmentTitle, dueDate },
   });
 }
 
 // Create quiz recommendation
 async function createQuizRecommendation(userId, weakTopics) {
-  const topics = weakTopics.join(', ');
+  const topics = weakTopics.join(", ");
   return await Notification.create({
     user: userId,
-    type: 'quiz',
-    title: '🎯 Quiz Recommendation',
+    type: "quiz",
+    title: "🎯 Quiz Recommendation",
     message: `We noticed you need practice on: ${topics}. Generate a quiz now to improve!`,
     scheduledFor: new Date(),
-    metadata: { weakTopics }
+    metadata: { weakTopics },
   });
 }
 
+// Send group email notification
+async function sendGroupEmailNotification(
+  userEmail,
+  userName,
+  groupName,
+  message,
+  type,
+) {
+  try {
+    const typeLabels = {
+      new_message: "💬 New Message",
+      member_joined: "👋 New Member Joined",
+      shared_note: "📓 Note Shared",
+      shared_quiz: "📝 Quiz Shared",
+      shared_video: "🎥 Video Shared",
+      shared_insight: "💡 Insight Shared",
+      shared_flashcard: "🃏 Flashcard Shared",
+      shared_file: "📄 File Shared",
+    };
+
+    const title = typeLabels[type] || "Group Update";
+
+    await transporter.sendMail({
+      from: `"StudyPulse AI" <${process.env.EMAIL_USER}>`,
+      to: userEmail,
+      subject: `${title} - ${groupName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: 'Poppins', Arial, sans-serif; background: #f4f6fb; margin: 0; padding: 20px; }
+            .container { max-width: 550px; margin: 0 auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+            .header { background: linear-gradient(135deg, #4f46e5, #6366f1); padding: 30px; text-align: center; color: white; }
+            .header h1 { margin: 0; font-size: 24px; }
+            .content { padding: 30px; }
+            .message { background: #f8fafc; padding: 15px; border-radius: 12px; margin: 15px 0; }
+            .btn { display: inline-block; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 10px 24px; border-radius: 30px; text-decoration: none; margin-top: 15px; }
+            .footer { background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>📚 StudyPulse AI</h1>
+              <p style="margin: 5px 0 0;">${groupName}</p>
+            </div>
+            <div class="content">
+              <h3>${title}</h3>
+              <div class="message">
+                ${message}
+              </div>
+              <a href="${process.env.FRONTEND_URL}/study-groups" class="btn">View in Group →</a>
+            </div>
+            <div class="footer">
+              <p style="margin: 0;">StudyPulse AI - Learn Smarter with AI 🚀</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+    return true;
+  } catch (err) {
+    console.error("Group email send error:", err);
+    return false;
+  }
+}
+
 // Cron job to send notifications
-cron.schedule('* * * * *', async () => {
+cron.schedule("* * * * *", async () => {
   const now = new Date();
   const pendingNotifications = await Notification.find({
     scheduledFor: { $lte: now },
-    sent: false
-  }).populate('user', 'name email');
-  
+    sent: false,
+  }).populate("user", "name email");
+
   for (const notification of pendingNotifications) {
     if (notification.user?.email) {
       await sendEmailNotification(
         notification.user.email,
         notification.user.name,
         notification.title,
-        notification.message
+        notification.message,
       );
     }
-    
-    const io = require('../server').io;
+
+    const io = require("../server").io;
     if (io) {
-      io.to(notification.user._id.toString()).emit('newNotification', {
+      io.to(notification.user._id.toString()).emit("newNotification", {
         id: notification._id,
         title: notification.title,
         message: notification.message,
-        type: notification.type
+        type: notification.type,
       });
     }
-    
+
     notification.sent = true;
     notification.sentAt = now;
     await notification.save();
@@ -191,5 +260,6 @@ module.exports = {
   createAssignmentReminder,
   createQuizRecommendation,
   sendEmailNotification,
-  sendEmailToClass
+  sendEmailToClass,
+  sendGroupEmailNotification,
 };

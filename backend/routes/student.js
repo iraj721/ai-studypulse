@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
-const { studentSubmission } = require("../middleware/cloudinaryUpload"); // ✅ Use Cloudinary
+const { studentSubmission } = require("../middleware/cloudinaryUpload");
 
 // ==================== IMPORT CONTROLLERS ====================
 const {
@@ -20,9 +20,8 @@ const {
 const { getAnnouncementsForClass } = require("../controllers/announcementController");
 const { getMaterialsForClass } = require("../controllers/materialController");
 
-// Import new controllers
+// Import controllers
 const flashcardController = require("../controllers/flashcardController");
-const studyGroupController = require("../controllers/studyGroupController");
 const videoSummaryController = require("../controllers/videoSummaryController");
 const bookmarkController = require("../controllers/bookmarkController");
 
@@ -38,7 +37,7 @@ router.get("/classes/:classId/materials", auth, getMaterialsForClass);
 router.post("/classes/:classId/announcements/:announcementId/reply", auth, replyToAnnouncement);
 router.delete("/classes/:classId/leave", auth, leaveClass);
 
-// ==================== ASSIGNMENT SUBMIT ROUTES - USE CLOUDINARY ====================
+// ==================== ASSIGNMENT SUBMIT ROUTES ====================
 router.post("/classes/:classId/assignments/:assignmentId/submit", auth, studentSubmission.single("file"), submitAssignment);
 router.delete("/classes/:classId/assignments/:assignmentId/unsend", auth, unsendSubmission);
 
@@ -50,13 +49,35 @@ router.delete("/flashcards/groups/:noteId", auth, flashcardController.deleteFlas
 router.delete("/flashcards/:id", auth, flashcardController.deleteFlashcard);
 router.put("/flashcards/:id/review", auth, flashcardController.reviewFlashcard);
 
-// ==================== STUDY GROUP ROUTES ====================
-router.post("/groups/create", auth, studyGroupController.createGroup);
-router.post("/groups/join", auth, studyGroupController.joinGroup);
-router.get("/groups", auth, studyGroupController.getUserGroups);
-router.get("/groups/:id", auth, studyGroupController.getGroupDetails);
-router.post("/groups/:id/notes", auth, studyGroupController.shareNote);
-router.post("/groups/:id/messages", auth, studyGroupController.sendMessage);
+router.get("/flashcards", auth, async (req, res) => {
+  try {
+    const Flashcard = require("../models/Flashcard");
+    const flashcards = await Flashcard.find({ user: req.user._id }).sort({ createdAt: -1 });
+    
+    // Group by noteId
+    const groups = {};
+    flashcards.forEach(card => {
+      const key = card.noteId || card._id;
+      if (!groups[key]) {
+        groups[key] = {
+          noteId: card.noteId,
+          noteTopic: card.noteTopic,
+          noteSubject: card.noteSubject,
+          flashcards: [],
+          count: 0
+        };
+      }
+      groups[key].flashcards.push(card);
+      groups[key].count++;
+    });
+    
+    res.json(Object.values(groups));
+  } catch (err) {
+    console.error(err);
+    res.json([]);
+  }
+});
+
 
 // ==================== VIDEO SUMMARY ROUTES ====================
 router.post("/video/summarize", auth, videoSummaryController.summarizeVideo);

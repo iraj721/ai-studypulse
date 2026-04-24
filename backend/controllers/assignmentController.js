@@ -181,11 +181,18 @@ const assignMarksToSubmission = async (req, res) => {
 };
 
 /* Student: Submit assignment */
+/* Student: Submit assignment - FIXED for Cloudinary */
 const submitAssignment = async (req, res) => {
   try {
     const { classId, assignmentId } = req.params;
     const { answerText } = req.body;
+    
+    // ✅ Get Cloudinary URL from req.file.path
     const fileUrl = req.file ? req.file.path : null;
+
+    console.log("=== SUBMIT ASSIGNMENT DEBUG ===");
+    console.log("Cloudinary file URL:", fileUrl);
+    console.log("=================================");
 
     const cls = await Class.findById(classId).populate("teacher", "name email");
     if (!cls) return res.status(404).json({ message: "Class not found" });
@@ -204,12 +211,13 @@ const submitAssignment = async (req, res) => {
     const submission = await Submission.create({
       assignment: assignmentId,
       student: req.user._id,
-      file: fileUrl,
+      file: fileUrl,  // ✅ This will be Cloudinary URL
       answerText: answerText || "",
     });
 
     // Send email notification to teacher
     if (cls.teacher?.email) {
+      const { sendEmailNotification } = require("../services/notificationService");
       await sendEmailNotification(
         cls.teacher.email,
         cls.teacher.name,
@@ -218,10 +226,17 @@ const submitAssignment = async (req, res) => {
       );
     }
 
-    res.status(201).json({ message: "Assignment submitted successfully", submission });
+    res.status(201).json({ 
+      success: true, 
+      message: "Assignment submitted successfully",
+      submission: {
+        ...submission.toObject(),
+        fileUrl: fileUrl  // Return the Cloudinary URL
+      }
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Submit assignment error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 };
 

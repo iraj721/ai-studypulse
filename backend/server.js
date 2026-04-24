@@ -19,6 +19,7 @@ const adminAuthRoutes = require("./routes/adminAuth");
 const adminRoutes = require("./routes/admin");
 const teacherRoutes = require("./routes/teacher");
 const studentRoutes = require("./routes/student");
+const studyGroupRoutes = require("./routes/studyGroupRoutes");
 
 // ✅ Validate required environment variables
 const requiredEnv = [
@@ -123,13 +124,10 @@ app.use("/api/chat", aiLimiter);
 app.use("/api/quizzes/generate", aiLimiter);
 
 /* =========================
-   UPLOADS STATIC FILES
-========================= */
-/* =========================
    UPLOADS STATIC FILES WITH CORS FOR GOOGLE DOCS
 ========================= */
 const uploadsPath = path.join(__dirname, "uploads");
-const uploadDirs = ["assignments", "submissions", "materials"];
+const uploadDirs = ["assignments", "submissions", "materials", "shared"];
 uploadDirs.forEach((dir) => {
   const full = path.join(uploadsPath, dir);
   if (!fs.existsSync(full)) fs.mkdirSync(full, { recursive: true });
@@ -181,6 +179,7 @@ app.use("/api/admin", adminAuthRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/teacher", teacherRoutes);
 app.use("/api/student", studentRoutes);
+app.use("/api/student", studyGroupRoutes);
 
 // Health check endpoint
 app.get("/", (req, res) => res.json({ message: "API Running", status: "ok" }));
