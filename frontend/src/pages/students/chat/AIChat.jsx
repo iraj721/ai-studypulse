@@ -41,6 +41,8 @@ export default function AIChat() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState(null);
 
   const messagesEndRef = useRef(null);
   const textAreaRef = useRef(null);
@@ -82,24 +84,15 @@ export default function AIChat() {
   };
   useEffect(() => adjustTextareaHeight(), [text]);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await api.get("/auth/me");
-        setUser(res.data);
-      } catch {
-        localStorage.removeItem("token");
-        navigate("/login");
-      }
-    };
-    fetchUser();
-  }, [navigate]);
-
   // Fetch chat sessions
   const fetchSessions = async () => {
     try {
       const res = await api.get("/chat/sessions");
       setSessions(res.data);
+      // ✅ If there are sessions, load the first one
+      if (res.data.length > 0 && !currentSessionId) {
+        fetchSession(res.data[0]._id);
+      }
     } catch (err) {
       console.error("Failed to fetch sessions:", err);
     }
@@ -117,6 +110,20 @@ export default function AIChat() {
     }
   };
 
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await api.get("/auth/me");
+        setUser(res.data);
+        await fetchSessions();
+      } catch {
+        localStorage.removeItem("token");
+        navigate("/login");
+      }
+    };
+    fetchUser();
+  }, [navigate]);
+
   // Create new chat session
   const createNewChat = async () => {
     try {
@@ -131,23 +138,34 @@ export default function AIChat() {
     }
   };
 
-  // Delete chat session
-  const deleteSession = async (sessionId, e) => {
+  // Open delete confirmation modal
+  const openDeleteModal = (sessionId, e) => {
     e.stopPropagation();
-    if (!window.confirm("Delete this chat permanently?")) return;
+    setSessionToDelete(sessionId);
+    setShowDeleteModal(true);
+  };
+
+  // Confirm delete session
+  const confirmDeleteSession = async () => {
+    if (!sessionToDelete) return;
 
     try {
-      await api.delete(`/chat/sessions/${sessionId}`);
-      setSessions((prev) => prev.filter((s) => s._id !== sessionId));
+      await api.delete(`/chat/sessions/${sessionToDelete}`);
+      setSessions((prev) => prev.filter((s) => s._id !== sessionToDelete));
 
-      if (currentSessionId === sessionId) {
-        const remainingSessions = sessions.filter((s) => s._id !== sessionId);
+      if (currentSessionId === sessionToDelete) {
+        const remainingSessions = sessions.filter(
+          (s) => s._id !== sessionToDelete,
+        );
         if (remainingSessions.length > 0) {
           fetchSession(remainingSessions[0]._id);
         } else {
-          createNewChat();
+          setCurrentSessionId(null);
+          setMessages([]);
         }
       }
+      setShowDeleteModal(false);
+      setSessionToDelete(null);
     } catch (err) {
       console.error("Failed to delete session:", err);
     }
@@ -345,7 +363,7 @@ export default function AIChat() {
                 </div>
                 <button
                   className="delete-session-new"
-                  onClick={(e) => deleteSession(session._id, e)}
+                  onClick={(e) => openDeleteModal(session._id, e)}
                   title="Delete chat"
                 >
                   <FaTrash />
@@ -547,10 +565,74 @@ export default function AIChat() {
         </form>
       </div>
 
+      {/* Beautiful Delete Modal */}
+      {showDeleteModal && (
+        <div
+          className="delete-modal-overlay"
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div
+            className="delete-modal-container"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="delete-modal-icon">
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3>Delete Conversation?</h3>
+            <p>
+              This action cannot be undone. All messages in this conversation
+              will be permanently removed.
+            </p>
+            <div className="delete-modal-actions">
+              <button
+                className="delete-cancel-btn"
+                onClick={() => setShowDeleteModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="delete-confirm-btn"
+                onClick={confirmDeleteSession}
+              >
+                Delete Permanently
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         /* Container */
+        .ai-chat-container {
+          display: flex;
+          position: fixed;
+          top: 70px;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          width: 100%;
+          height: calc(100vh - 70px);
+          background: #f9fafb;
+          overflow: hidden;
+        }
         .ai-chat-container.dark {
           background: #0f172a;
+        }
+
+        @media (max-width: 768px) {
+          .ai-chat-container {
+            top: 60px;
+            height: calc(100vh - 60px);
+          }
         }
 
         /* Sidebar */
@@ -1052,6 +1134,242 @@ export default function AIChat() {
           to { transform: rotate(360deg); }
         }
 
+        /* Beautiful Delete Modal */
+        .delete-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          animation: fadeIn 0.2s ease;
+        }
+
+        .delete-modal-container {
+          background: white;
+          border-radius: 24px;
+          padding: 32px;
+          width: 90%;
+          max-width: 400px;
+          text-align: center;
+          animation: slideUp 0.3s ease;
+          box-shadow: 0 20px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .dark .delete-modal-container {
+          background: #1e293b;
+          color: #f1f5f9;
+        }
+
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+
+        .delete-modal-icon {
+          width: 64px;
+          height: 64px;
+          background: #fee2e2;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 20px;
+          color: #ef4444;
+        }
+
+        .dark .delete-modal-icon {
+          background: #7f1d1d;
+        }
+
+        .delete-modal-container h3 {
+          font-size: 1.3rem;
+          font-weight: 600;
+          margin-bottom: 10px;
+        }
+
+        .delete-modal-container p {
+          font-size: 0.9rem;
+          opacity: 0.7;
+          margin-bottom: 24px;
+          line-height: 1.5;
+        }
+
+        .delete-modal-actions {
+          display: flex;
+          gap: 12px;
+          justify-content: center;
+        }
+
+        .delete-cancel-btn {
+          padding: 10px 24px;
+          background: #f1f5f9;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          font-weight: 500;
+          transition: all 0.2s;
+        }
+
+        .delete-cancel-btn:hover {
+          background: #e2e8f0;
+        }
+
+        .dark .delete-cancel-btn {
+          background: #334155;
+          color: white;
+        }
+
+        .dark .delete-cancel-btn:hover {
+          background: #475569;
+        }
+
+        .delete-confirm-btn {
+          padding: 10px 24px;
+          background: #ef4444;
+          border: none;
+          border-radius: 12px;
+          color: white;
+          cursor: pointer;
+          font-weight: 500;
+          transition: all 0.2s;
+        }
+
+        .delete-confirm-btn:hover {
+          background: #dc2626;
+          transform: scale(1.02);
+        }
+
+        /* Dark Mode Text Fixes */
+        .ai-chat-container.dark .message-bubble-new {
+          background: #1e293b;
+          color: #f1f5f9;
+        }
+
+        .ai-chat-container.dark .message-row-new.user .message-bubble-new {
+          background: linear-gradient(135deg, #4f46e5, #6366f1);
+          color: white;
+        }
+
+        .ai-chat-container.dark .message-header-new .message-sender,
+        .ai-chat-container.dark .message-header-new .message-time-new {
+          color: #cbd5e1;
+        }
+
+        .ai-chat-container.dark .welcome-screen-new h2,
+        .ai-chat-container.dark .welcome-screen-new p {
+          color: #f1f5f9;
+        }
+
+        .ai-chat-container.dark .suggestions-grid button {
+          background: #1e293b;
+          border-color: #475569;
+          color: #e2e8f0;
+        }
+
+        .ai-chat-container.dark .suggestions-grid button:hover {
+          background: #4f46e5;
+          color: white;
+        }
+
+        .ai-chat-container.dark .date-divider-new span {
+          background: #334155;
+          color: #94a3b8;
+        }
+
+        .ai-chat-container.dark .action-btn.copy {
+          color: #94a3b8;
+        }
+
+        .ai-chat-container.dark .action-btn.copy:hover {
+          background: #334155;
+          color: white;
+        }
+
+        /* Chat input dark mode */
+        .ai-chat-container.dark .chat-header-new,
+        .ai-chat-container.dark .chat-input-form-new {
+          background: #1e293b;
+          border-color: #334155;
+        }
+
+        .ai-chat-container.dark .chat-header-info h2 {
+          color: #f1f5f9;
+        }
+
+        .ai-chat-container.dark .input-container textarea {
+          background: #0f172a;
+          border-color: #334155;
+          color: #f1f5f9;
+        }
+
+        .ai-chat-container.dark .input-container textarea::placeholder {
+          color: #64748b;
+        }
+
+        .ai-chat-container.dark .input-hint {
+          color: #64748b;
+        }
+
+        /* Sidebar dark mode */
+        .ai-chat-container.dark .chat-sidebar-new {
+          background: #1e293b;
+        }
+
+        .ai-chat-container.dark .sidebar-header-new {
+          border-bottom-color: #334155;
+        }
+
+        .ai-chat-container.dark .logo span {
+          color: #f1f5f9;
+        }
+
+        .ai-chat-container.dark .session-item-new {
+          color: #cbd5e1;
+        }
+
+        .ai-chat-container.dark .session-item-new:hover {
+          background: #334155;
+        }
+
+        .ai-chat-container.dark .session-item-new.active {
+          background: linear-gradient(135deg, #4f46e5, #6366f1);
+          color: white;
+        }
+
+        .ai-chat-container.dark .sidebar-footer {
+          border-top-color: #334155;
+        }
+
+        .ai-chat-container.dark .user-info span {
+          color: #f1f5f9;
+        }
+
+        /* Code block dark mode */
+        .ai-chat-container.dark .message-bubble-new pre {
+          background: #0f172a;
+        }
+
+        .ai-chat-container.dark .message-bubble-new code {
+          color: #e2e8f0;
+        }
+
         /* Mobile Responsive */
         @media (max-width: 768px) {
           .sidebar-toggle-btn-new {
@@ -1090,6 +1408,13 @@ export default function AIChat() {
           .chat-input-form-new {
             padding: 12px 16px;
           }
+          .delete-modal-container {
+            padding: 24px;
+            width: 85%;
+          }
+          .delete-modal-container h3 {
+            font-size: 1.1rem;
+          }
         }
 
         @media (min-width: 769px) {
@@ -1100,151 +1425,6 @@ export default function AIChat() {
             margin-left: 0;
           }
         }
-          /* Fix for navbar space issue */
-          /* Container - Fixed for fullscreen chat */
-.ai-chat-container {
-  display: flex;
-  position: fixed;
-  top: 70px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: calc(100vh - 70px);
-  background: #f9fafb;
-  overflow: hidden;
-}
-
-@media (max-width: 768px) {
-  .ai-chat-container {
-    top: 60px;
-    height: calc(100vh - 60px);
-  }
-}
-
-.ai-chat-container.dark {
-  background: #0f172a;
-}
-
-@media (max-width: 768px) {
-  .ai-chat-container {
-    top: 60px;
-    height: calc(100vh - 60px);
-  }
-}
-  /* Dark Mode Text Fixes */
-.ai-chat-container.dark .message-bubble-new {
-  background: #1e293b;
-  color: #f1f5f9; /* ✅ Light text for dark background */
-}
-
-.ai-chat-container.dark .message-row-new.user .message-bubble-new {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  color: white;
-}
-
-.ai-chat-container.dark .message-header-new .message-sender,
-.ai-chat-container.dark .message-header-new .message-time-new {
-  color: #cbd5e1; /* ✅ Light gray for meta text */
-}
-
-.ai-chat-container.dark .welcome-screen-new h2,
-.ai-chat-container.dark .welcome-screen-new p {
-  color: #f1f5f9;
-}
-
-.ai-chat-container.dark .suggestions-grid button {
-  background: #1e293b;
-  border-color: #475569;
-  color: #e2e8f0;
-}
-
-.ai-chat-container.dark .suggestions-grid button:hover {
-  background: #4f46e5;
-  color: white;
-}
-
-.ai-chat-container.dark .date-divider-new span {
-  background: #334155;
-  color: #94a3b8;
-}
-
-.ai-chat-container.dark .action-btn.copy {
-  color: #94a3b8;
-}
-
-.ai-chat-container.dark .action-btn.copy:hover {
-  background: #334155;
-  color: white;
-}
-
-/* Chat input dark mode */
-.ai-chat-container.dark .chat-header-new,
-.ai-chat-container.dark .chat-input-form-new {
-  background: #1e293b;
-  border-color: #334155;
-}
-
-.ai-chat-container.dark .chat-header-info h2 {
-  color: #f1f5f9;
-}
-
-.ai-chat-container.dark .input-container textarea {
-  background: #0f172a;
-  border-color: #334155;
-  color: #f1f5f9;
-}
-
-.ai-chat-container.dark .input-container textarea::placeholder {
-  color: #64748b;
-}
-
-.ai-chat-container.dark .input-hint {
-  color: #64748b;
-}
-
-/* Sidebar dark mode */
-.ai-chat-container.dark .chat-sidebar-new {
-  background: #1e293b;
-}
-
-.ai-chat-container.dark .sidebar-header-new {
-  border-bottom-color: #334155;
-}
-
-.ai-chat-container.dark .logo span {
-  color: #f1f5f9;
-}
-
-.ai-chat-container.dark .session-item-new {
-  color: #cbd5e1;
-}
-
-.ai-chat-container.dark .session-item-new:hover {
-  background: #334155;
-}
-
-.ai-chat-container.dark .session-item-new.active {
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  color: white;
-}
-
-.ai-chat-container.dark .sidebar-footer {
-  border-top-color: #334155;
-}
-
-.ai-chat-container.dark .user-info span {
-  color: #f1f5f9;
-}
-
-/* Code block dark mode */
-.ai-chat-container.dark .message-bubble-new pre {
-  background: #0f172a;
-}
-
-.ai-chat-container.dark .message-bubble-new code {
-  color: #e2e8f0;
-}
       `}</style>
     </div>
   );
