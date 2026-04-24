@@ -10,7 +10,8 @@ const { sendEmailToClass } = require("../services/notificationService");
 exports.createClass = async (req, res) => {
   try {
     const { name, subject } = req.body;
-    if (!name || !subject) return res.status(400).json({ message: "Name & subject are required" });
+    if (!name || !subject)
+      return res.status(400).json({ message: "Name & subject are required" });
 
     let code;
     let exists = true;
@@ -20,26 +21,35 @@ exports.createClass = async (req, res) => {
       if (!check) exists = false;
     }
 
-    const newClass = await Class.create({ name, subject, code, teacher: req.user._id });
-    
-    res.status(201).json({ 
+    const newClass = await Class.create({
+      name,
+      subject,
+      code,
+      teacher: req.user._id,
+    });
+
+    res.status(201).json({
       success: true,
       message: "Class created successfully!",
       code: code,
-      class: newClass 
+      class: newClass,
     });
-  } catch (err) { 
-    console.error(err); 
-    res.status(500).json({ message: "Server error" }); 
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
 /* 📚 Teacher Classes */
 exports.getTeacherClasses = async (req, res) => {
   try {
-    const classes = await Class.find({ teacher: req.user._id }).sort({ createdAt: -1 });
+    const classes = await Class.find({ teacher: req.user._id }).sort({
+      createdAt: -1,
+    });
     res.json(classes);
-  } catch (err) { res.status(500).json({ message: "Server error" }); }
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 /* 🎓 Student Join Class */
@@ -48,20 +58,28 @@ exports.joinClass = async (req, res) => {
     const { code } = req.body;
     const cls = await Class.findOne({ code });
     if (!cls) return res.status(404).json({ message: "Invalid class code" });
-    if (cls.students.includes(req.user._id)) return res.status(400).json({ message: "Already joined" });
+    if (cls.students.includes(req.user._id))
+      return res.status(400).json({ message: "Already joined" });
 
     cls.students.push(req.user._id);
     await cls.save();
     res.json({ message: "Joined successfully" });
-  } catch (err) { res.status(500).json({ message: "Server error" }); }
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 /* 📖 Student Joined Classes */
 exports.getStudentClasses = async (req, res) => {
   try {
-    const classes = await Class.find({ students: req.user._id }).populate("teacher", "name email");
+    const classes = await Class.find({ students: req.user._id }).populate(
+      "teacher",
+      "name email",
+    );
     res.json(classes);
-  } catch (err) { res.status(500).json({ message: "Server error" }); }
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 /* Get class by ID with all related data */
@@ -103,12 +121,18 @@ exports.createAnnouncement = async (req, res) => {
     const { text } = req.body;
     const classId = req.params.id;
 
-    if (!text?.trim()) return res.status(400).json({ message: "Announcement text required" });
+    if (!text?.trim())
+      return res.status(400).json({ message: "Announcement text required" });
 
-    const cls = await Class.findById(classId).populate("students", "email name");
+    const cls = await Class.findById(classId).populate(
+      "students",
+      "email name",
+    );
     if (!cls) return res.status(404).json({ message: "Class not found" });
     if (cls.teacher.toString() !== req.user._id.toString())
-      return res.status(403).json({ message: "Only teacher can post announcements" });
+      return res
+        .status(403)
+        .json({ message: "Only teacher can post announcements" });
 
     const announcement = await Announcement.create({
       class: classId,
@@ -120,12 +144,18 @@ exports.createAnnouncement = async (req, res) => {
     await cls.save();
 
     // Send email notifications
-    await sendEmailToClass(cls.students, cls.name, "New Announcement", text, "announcement");
+    await sendEmailToClass(
+      cls.students,
+      cls.name,
+      "New Announcement",
+      text,
+      "announcement",
+    );
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
       message: "Announcement posted and emails sent to all students!",
-      announcement 
+      announcement,
     });
   } catch (err) {
     console.error(err);
@@ -157,10 +187,12 @@ exports.editAnnouncement = async (req, res) => {
     const { id, announcementId } = req.params;
     const { text } = req.body;
 
-    if (!text) return res.status(400).json({ message: "Announcement text is required" });
+    if (!text)
+      return res.status(400).json({ message: "Announcement text is required" });
 
     const announcement = await Announcement.findById(announcementId);
-    if (!announcement) return res.status(404).json({ message: "Announcement not found" });
+    if (!announcement)
+      return res.status(404).json({ message: "Announcement not found" });
 
     const cls = await Class.findById(id);
     if (!cls) return res.status(404).json({ message: "Class not found" });
@@ -184,7 +216,8 @@ exports.deleteAnnouncement = async (req, res) => {
     const { id, announcementId } = req.params;
 
     const announcement = await Announcement.findById(announcementId);
-    if (!announcement) return res.status(404).json({ message: "Announcement not found" });
+    if (!announcement)
+      return res.status(404).json({ message: "Announcement not found" });
 
     const cls = await Class.findById(id);
     if (!cls) return res.status(404).json({ message: "Class not found" });
@@ -207,7 +240,10 @@ exports.createAssignment = async (req, res) => {
 
     const fileUrl = req.file ? req.file.path : null;
 
-    const cls = await Class.findById(req.params.classId).populate("students", "email name");
+    const cls = await Class.findById(req.params.classId).populate(
+      "students",
+      "email name",
+    );
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
     const assignment = await Assignment.create({
@@ -224,13 +260,21 @@ exports.createAssignment = async (req, res) => {
     await cls.save();
 
     // Send email notifications
-    const dueDateText = dueDate ? `\n\nDue Date: ${new Date(dueDate).toLocaleString()}` : "";
-    await sendEmailToClass(cls.students, cls.name, title, (instructions || description) + dueDateText, "assignment");
+    const dueDateText = dueDate
+      ? `\n\nDue Date: ${new Date(dueDate).toLocaleString()}`
+      : "";
+    await sendEmailToClass(
+      cls.students,
+      cls.name,
+      title,
+      (instructions || description) + dueDateText,
+      "assignment",
+    );
 
-    res.status(201).json({ 
+    res.status(201).json({
       success: true,
       message: "Assignment created and email notifications sent!",
-      assignment 
+      assignment,
     });
   } catch (err) {
     console.error(err);
@@ -263,10 +307,11 @@ exports.removeStudentFromClass = async (req, res) => {
     const updatedClass = await Class.findByIdAndUpdate(
       classId,
       { $pull: { students: studentId } },
-      { new: true }
+      { new: true },
     );
 
-    if (!updatedClass) return res.status(404).json({ message: "Class not found" });
+    if (!updatedClass)
+      return res.status(404).json({ message: "Class not found" });
 
     await User.findByIdAndUpdate(studentId, { $pull: { classes: classId } });
 
@@ -298,6 +343,48 @@ exports.deleteClass = async (req, res) => {
     res.json({ message: "Class deleted successfully" });
   } catch (err) {
     console.error("Delete class error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+/* Remove student from class - FIXED */
+exports.removeStudentFromClass = async (req, res) => {
+  try {
+    const { classId, studentId } = req.params;
+
+    // Check if class exists
+    const cls = await Class.findById(classId);
+    if (!cls) return res.status(404).json({ message: "Class not found" });
+
+    // Verify teacher owns the class
+    if (cls.teacher.toString() !== req.user._id.toString()) {
+      return res
+        .status(403)
+        .json({
+          message: "You are not authorized to remove students from this class",
+        });
+    }
+
+    // Check if student is enrolled
+    if (!cls.students.includes(studentId)) {
+      return res
+        .status(400)
+        .json({ message: "Student is not enrolled in this class" });
+    }
+
+    // Remove student from class
+    cls.students = cls.students.filter((id) => id.toString() !== studentId);
+    await cls.save();
+
+    // Remove class from student's classes array
+    await User.findByIdAndUpdate(studentId, { $pull: { classes: classId } });
+
+    res.json({
+      success: true,
+      message: "Student removed from class successfully",
+    });
+  } catch (err) {
+    console.error("Remove student error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
