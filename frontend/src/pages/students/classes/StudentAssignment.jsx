@@ -22,14 +22,31 @@ export default function StudentAssignments() {
     fetchAssignments();
   }, []);
 
+  // When fetching assignments, ensure file URLs are correct
   const fetchAssignments = async () => {
     try {
       const res = await api.get(`/student/classes/${classId}/assignments`);
-      setAssignments(Array.isArray(res.data) ? res.data : []);
+      const assignmentsData = res.data;
+
+      // ✅ Fix file URLs in submissions
+      const fixedAssignments = assignmentsData.map((assignment) => {
+        if (assignment.submission && assignment.submission.file) {
+          let fileUrl = assignment.submission.file;
+          if (fileUrl && !fileUrl.startsWith("http")) {
+            const BASE_URL = (
+              import.meta.env.VITE_API_URL || "http://localhost:5000"
+            ).replace("/api", "");
+            assignment.submission.fileUrl = `${BASE_URL}/${fileUrl}`;
+          } else {
+            assignment.submission.fileUrl = fileUrl;
+          }
+        }
+        return assignment;
+      });
+
+      setAssignments(fixedAssignments);
     } catch (err) {
       setToast({ message: "Failed to load assignments", type: "error" });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -97,23 +114,23 @@ export default function StudentAssignments() {
       return;
     }
 
-    // ✅ Handle both absolute and relative URLs
-    let url = fileUrl;
-    if (!fileUrl.startsWith("http")) {
-      const BASE_URL = (
-        import.meta.env.VITE_API_URL || "http://localhost:5000"
-      ).replace("/api", "");
-      url = `${BASE_URL}${fileUrl}`;
+    // ✅ Get base URL
+    const BASE_URL = (
+      import.meta.env.VITE_API_URL || "http://localhost:5000"
+    ).replace("/api", "");
+
+    // ✅ Build correct URL
+    let fullUrl = fileUrl;
+    if (fileUrl.startsWith("uploads/")) {
+      fullUrl = `${BASE_URL}/${fileUrl}`;
+    } else if (!fileUrl.startsWith("http")) {
+      fullUrl = `${BASE_URL}/uploads/submissions/${fileUrl.split("/").pop()}`;
     }
 
-    // ✅ For PDF and images, open directly
-    if (fileUrl.endsWith(".pdf") || fileUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
-      window.open(url, "_blank");
-    } else {
-      // ✅ For other files, use Google Docs viewer
-      const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-      window.open(viewer, "_blank");
-    }
+    console.log("Opening file:", fullUrl);
+
+    // ✅ Open in new tab
+    window.open(fullUrl, "_blank");
   };
 
   if (loading)
