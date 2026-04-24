@@ -102,7 +102,7 @@ export default function Navbar({ user, onLogout }) {
           AI StudyPulse
         </Link>
 
-        {/* Hamburger Toggle Button */}
+        {/* Hamburger Toggle Button - Fixed Color */}
         <button
           className="navbar-toggler border-0"
           type="button"
@@ -169,13 +169,20 @@ export default function Navbar({ user, onLogout }) {
           color: white !important;
         }
 
+        /* ✅ FIX: Hamburger Icon Color - White */
         .navbar-toggler {
-          outline: none;
-          box-shadow: none;
+          border: 1px solid rgba(255,255,255,0.3) !important;
+          outline: none !important;
+          box-shadow: none !important;
         }
-
+        
         .navbar-toggler-icon {
-          filter: invert(1);
+          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255,255,255,0.9)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+        }
+        
+        .navbar-toggler:focus {
+          outline: none;
+          box-shadow: 0 0 0 2px rgba(255,255,255,0.3) !important;
         }
 
         /* Desktop Styles */
