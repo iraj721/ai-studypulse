@@ -1,6 +1,7 @@
 const Assignment = require("../models/Assignment");
 const Submission = require("../models/Submission");
 const Class = require("../models/Class");
+const { sendEmailToClass } = require("../services/notificationService");
 
 /* Teacher: Get assignments for a class */
 const getAssignmentsByClass = async (req, res) => {
@@ -18,7 +19,7 @@ const getAssignmentsByClass = async (req, res) => {
   }
 };
 
-/* ✅ FIXED: Teacher: Get submissions for an assignment */
+/* Teacher: Get submissions for an assignment */
 const getSubmissionsByAssignment = async (req, res) => {
   try {
     const assignment = await Assignment.findById(req.params.assignmentId);
@@ -31,7 +32,6 @@ const getSubmissionsByAssignment = async (req, res) => {
       assignment: req.params.assignmentId,
     }).populate("student", "name email");
 
-    // ✅ VERY IMPORTANT RESPONSE STRUCTURE
     res.json({
       assignment,
       submissions,
@@ -42,10 +42,10 @@ const getSubmissionsByAssignment = async (req, res) => {
   }
 };
 
-/* Teacher: Create assignment */
+/* Teacher: Create assignment with email */
 const createAssignment = async (req, res) => {
   try {
-    const cls = await Class.findById(req.params.classId);
+    const cls = await Class.findById(req.params.classId).populate("students", "email name");
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
     const assignment = await Assignment.create({
@@ -58,7 +58,15 @@ const createAssignment = async (req, res) => {
       attachment: req.file ? req.file.path : null,
     });
 
-    res.status(201).json(assignment);
+    // Send email notifications
+    const dueDateText = req.body.dueDate ? `\n\nDue Date: ${new Date(req.body.dueDate).toLocaleString()}` : "";
+    await sendEmailToClass(cls.students, cls.name, req.body.title, req.body.instructions + dueDateText, "assignment");
+
+    res.status(201).json({ 
+      success: true,
+      message: "Assignment created and email notifications sent!",
+      assignment 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -129,7 +137,7 @@ const deleteAssignment = async (req, res) => {
   }
 };
 
-/* Teacher: Assign marks to a submission */
+/* Teacher: Assign marks */
 const assignMarksToSubmission = async (req, res) => {
   try {
     const { classId, assignmentId, submissionId } = req.params;

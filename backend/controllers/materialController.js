@@ -1,7 +1,8 @@
 const Material = require("../models/Material");
 const Class = require("../models/Class");
+const { sendEmailToClass } = require("../services/notificationService");
 
-/* Teacher upload */
+/* Teacher upload with email */
 exports.uploadMaterial = async (req, res) => {
   try {
     const { title, content } = req.body;
@@ -10,7 +11,7 @@ exports.uploadMaterial = async (req, res) => {
     if (!title?.trim())
       return res.status(400).json({ message: "Title required" });
 
-    const cls = await Class.findById(classId);
+    const cls = await Class.findById(classId).populate("students", "email name");
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
     if (cls.teacher.toString() !== req.user._id.toString())
@@ -27,7 +28,14 @@ exports.uploadMaterial = async (req, res) => {
     cls.materials.push(material._id);
     await cls.save();
 
-    res.status(201).json(material);
+    // Send email notifications
+    await sendEmailToClass(cls.students, cls.name, title, content || "New study material available", "material");
+
+    res.status(201).json({ 
+      success: true,
+      message: "Material uploaded and email notifications sent!",
+      material 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -64,7 +72,7 @@ exports.updateMaterial = async (req, res) => {
     if (content !== undefined) material.content = content;
 
     if (req.file) {
-      material.fileUrl = req.file.path; // cloudinary OR uploads
+      material.fileUrl = req.file.path;
     }
 
     await material.save();

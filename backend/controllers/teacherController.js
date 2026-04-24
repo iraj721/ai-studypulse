@@ -4,8 +4,9 @@ const crypto = require("crypto");
 const Assignment = require("../models/Assignment");
 const Material = require("../models/Material");
 const Announcement = require("../models/Announcement");
+const { sendEmailToClass } = require("../services/notificationService");
 
-/* 🏫 Create Class (Teacher) */
+/* 🏫 Create Class (Teacher) - With Beautiful Response */
 exports.createClass = async (req, res) => {
   try {
     const { name, subject } = req.body;
@@ -20,8 +21,17 @@ exports.createClass = async (req, res) => {
     }
 
     const newClass = await Class.create({ name, subject, code, teacher: req.user._id });
-    res.status(201).json(newClass);
-  } catch (err) { console.error(err); res.status(500).json({ message: "Server error" }); }
+    
+    res.status(201).json({ 
+      success: true,
+      message: "Class created successfully!",
+      code: code,
+      class: newClass 
+    });
+  } catch (err) { 
+    console.error(err); 
+    res.status(500).json({ message: "Server error" }); 
+  }
 };
 
 /* 📚 Teacher Classes */
@@ -54,7 +64,6 @@ exports.getStudentClasses = async (req, res) => {
   } catch (err) { res.status(500).json({ message: "Server error" }); }
 };
 
-
 /* Get class by ID with all related data */
 exports.getClassById = async (req, res) => {
   try {
@@ -62,7 +71,7 @@ exports.getClassById = async (req, res) => {
 
     const cls = await Class.findById(id)
       .populate("teacher", "name email")
-      .populate("students", "name email") // ✅ IMPORTANT FIX
+      .populate("students", "name email")
       .lean();
 
     if (!cls) return res.status(404).json({ message: "Class not found" });
@@ -88,8 +97,7 @@ exports.getClassById = async (req, res) => {
   }
 };
 
-
-/* Create announcement */
+/* Create announcement with email notification */
 exports.createAnnouncement = async (req, res) => {
   try {
     const { text } = req.body;
@@ -97,7 +105,7 @@ exports.createAnnouncement = async (req, res) => {
 
     if (!text?.trim()) return res.status(400).json({ message: "Announcement text required" });
 
-    const cls = await Class.findById(classId);
+    const cls = await Class.findById(classId).populate("students", "email name");
     if (!cls) return res.status(404).json({ message: "Class not found" });
     if (cls.teacher.toString() !== req.user._id.toString())
       return res.status(403).json({ message: "Only teacher can post announcements" });
@@ -111,14 +119,21 @@ exports.createAnnouncement = async (req, res) => {
     cls.announcements.push(announcement._id);
     await cls.save();
 
-    res.status(201).json({ message: "Announcement posted successfully", announcement });
+    // Send email notifications
+    await sendEmailToClass(cls.students, cls.name, "New Announcement", text, "announcement");
+
+    res.status(201).json({ 
+      success: true,
+      message: "Announcement posted and emails sent to all students!",
+      announcement 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-/* Get announcements for class (teacher view) */
+/* Get announcements for class */
 exports.getAnnouncementsForClass = async (req, res) => {
   try {
     const classId = req.params.id;
@@ -185,40 +200,49 @@ exports.deleteAnnouncement = async (req, res) => {
   }
 };
 
-
+/* Create assignment with email notification */
 exports.createAssignment = async (req, res) => {
   try {
-    const { title, description, dueDate } = req.body;
+    const { title, description, dueDate, instructions, marks } = req.body;
 
-    const fileUrl = req.file ? req.file.path : null; // ✅ Cloudinary URL
+    const fileUrl = req.file ? req.file.path : null;
 
-    const cls = await Class.findById(req.params.classId);
+    const cls = await Class.findById(req.params.classId).populate("students", "email name");
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
     const assignment = await Assignment.create({
       class: cls._id,
-      title,
-      description,
-      dueDate,
-      fileUrl,
+      teacher: req.user._id,
+      title: title,
+      instructions: instructions || description,
+      dueDate: dueDate || null,
+      marks: marks ?? 0,
+      attachment: fileUrl,
     });
 
     cls.assignments.push(assignment._id);
     await cls.save();
 
-    res.status(201).json({ message: "Assignment created", assignment });
+    // Send email notifications
+    const dueDateText = dueDate ? `\n\nDue Date: ${new Date(dueDate).toLocaleString()}` : "";
+    await sendEmailToClass(cls.students, cls.name, title, (instructions || description) + dueDateText, "assignment");
+
+    res.status(201).json({ 
+      success: true,
+      message: "Assignment created and email notifications sent!",
+      assignment 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-
-const Submission = require("../models/Submission");
-
+/* Get assignment submissions */
 exports.getAssignmentSubmissions = async (req, res) => {
   try {
     const { assignmentId } = req.params;
+    const Submission = require("../models/Submission");
 
     const submissions = await Submission.find({ assignment: assignmentId })
       .populate("student", "name email")
@@ -231,11 +255,11 @@ exports.getAssignmentSubmissions = async (req, res) => {
   }
 };
 
+/* Remove student from class */
 exports.removeStudentFromClass = async (req, res) => {
   const { classId, studentId } = req.params;
 
   try {
-    // 1. Remove student from class's students array
     const updatedClass = await Class.findByIdAndUpdate(
       classId,
       { $pull: { students: studentId } },
@@ -244,7 +268,6 @@ exports.removeStudentFromClass = async (req, res) => {
 
     if (!updatedClass) return res.status(404).json({ message: "Class not found" });
 
-    // 2. Optionally, remove class from student's enrolled classes
     await User.findByIdAndUpdate(studentId, { $pull: { classes: classId } });
 
     res.json({ message: "Student removed successfully" });
@@ -254,7 +277,7 @@ exports.removeStudentFromClass = async (req, res) => {
   }
 };
 
-/* 🗑 Delete Class (Teacher Only) */
+/* 🗑 Delete Class */
 exports.deleteClass = async (req, res) => {
   try {
     const { classId } = req.params;
@@ -262,17 +285,14 @@ exports.deleteClass = async (req, res) => {
     const cls = await Class.findById(classId);
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
-    // ✅ Only owner teacher can delete
     if (cls.teacher.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // 🧹 Clean related data
     await Assignment.deleteMany({ class: classId });
     await Material.deleteMany({ class: classId });
     await Announcement.deleteMany({ class: classId });
 
-    // 🗑 Delete class
     await cls.deleteOne();
 
     res.json({ message: "Class deleted successfully" });
