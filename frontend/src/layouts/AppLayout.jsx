@@ -13,6 +13,11 @@ export default function AppLayout() {
 
   // Check if current page is chat - don't show stars on chat
   const isChatPage = location.pathname.includes("/chat");
+  const isAuthPage = location.pathname.includes("/login") || 
+                     location.pathname.includes("/register") || 
+                     location.pathname.includes("/verify-email") ||
+                     location.pathname.includes("/forgot-password") ||
+                     location.pathname.includes("/reset-password");
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -49,14 +54,19 @@ export default function AppLayout() {
     return null;
   }
 
+  // For auth pages, just render outlet without layout
+  if (isAuthPage) {
+    return <Outlet />;
+  }
+
   return (
     <div className="app-bg min-vh-100 position-relative">
       {/* Only show stars if NOT on chat page */}
       {!isChatPage && <Stars />}
       <Navbar user={user} onLogout={handleLogout} />
       <FloatingTimer />
-      {/* ✅ Remove pt-5 class to eliminate extra space */}
-      <div className={isChatPage ? "" : "pt-5"}>
+      {/* Remove extra padding on chat page */}
+      <div className={isChatPage ? "" : "pt-4"}>
         <Outlet />
       </div>
     </div>

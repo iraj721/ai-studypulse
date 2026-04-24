@@ -10,6 +10,9 @@ export default function Navbar({ user, onLogout }) {
   // Close navbar function
   const closeNavbar = () => setExpanded(false);
 
+  // Toggle navbar
+  const toggleNavbar = () => setExpanded(!expanded);
+
   // Handle logout
   const handleLogout = () => {
     closeNavbar();
@@ -19,6 +22,12 @@ export default function Navbar({ user, onLogout }) {
   // Close navbar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
+      // Check if click is on toggle button
+      const toggleButton = document.querySelector('.navbar-toggler');
+      if (toggleButton && toggleButton.contains(event.target)) {
+        return;
+      }
+      
       if (expanded && navRef.current && !navRef.current.contains(event.target)) {
         closeNavbar();
       }
@@ -40,9 +49,21 @@ export default function Navbar({ user, onLogout }) {
     return () => document.removeEventListener('keydown', handleEsc);
   }, [expanded]);
 
+  // Prevent body scroll when navbar is open on mobile
+  useEffect(() => {
+    if (expanded) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [expanded]);
+
   return (
     <nav className="navbar navbar-expand-lg navbar-dark custom-navbar shadow sticky-top" ref={navRef}>
-      <div className="container-fluid px-4">
+      <div className="container-fluid px-3 px-md-4">
         {/* Brand Logo */}
         <Link 
           className="navbar-brand fw-bold fs-4" 
@@ -56,135 +77,90 @@ export default function Navbar({ user, onLogout }) {
         <button
           className="navbar-toggler border-0"
           type="button"
-          onClick={() => setExpanded(!expanded)}
+          onClick={toggleNavbar}
           aria-expanded={expanded}
           aria-label="Toggle navigation"
         >
-          <span className="navbar-toggler-icon"></span>
+          <span className={`navbar-toggler-icon ${expanded ? 'close' : ''}`}></span>
         </button>
 
         {/* Navbar Links - Collapsible */}
         <div className={`collapse navbar-collapse ${expanded ? "show" : ""}`}>
-          <ul className="navbar-nav mx-auto gap-3">
+          <ul className="navbar-nav mx-auto gap-2 gap-lg-3">
             {/* Notes Dropdown */}
             <li className="nav-item dropdown">
-              <Link
+              <span
                 className="nav-link dropdown-toggle"
-                to="#"
                 role="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
-                onClick={(e) => e.preventDefault()}
               >
                 Notes
-              </Link>
+              </span>
               <ul className="dropdown-menu">
-                <li>
-                  <Link className="dropdown-item" to="/notes" onClick={closeNavbar}>
-                    All Notes
-                  </Link>
-                </li>
-                <li>
-                  <Link className="dropdown-item" to="/notes/create" onClick={closeNavbar}>
-                    Create Note
-                  </Link>
-                </li>
+                <li><Link className="dropdown-item" to="/notes" onClick={closeNavbar}>All Notes</Link></li>
+                <li><Link className="dropdown-item" to="/notes/create" onClick={closeNavbar}>Create Note</Link></li>
               </ul>
             </li>
 
             {/* Quizzes Dropdown */}
             <li className="nav-item dropdown">
-              <Link
+              <span
                 className="nav-link dropdown-toggle"
-                to="#"
                 role="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
-                onClick={(e) => e.preventDefault()}
               >
                 Quizzes
-              </Link>
+              </span>
               <ul className="dropdown-menu">
-                <li>
-                  <Link className="dropdown-item" to="/quizzes" onClick={closeNavbar}>
-                    My Quizzes
-                  </Link>
-                </li>
-                <li>
-                  <Link className="dropdown-item" to="/quizzes/generate" onClick={closeNavbar}>
-                    Generate Quiz
-                  </Link>
-                </li>
+                <li><Link className="dropdown-item" to="/quizzes" onClick={closeNavbar}>My Quizzes</Link></li>
+                <li><Link className="dropdown-item" to="/quizzes/generate" onClick={closeNavbar}>Generate Quiz</Link></li>
               </ul>
             </li>
 
             {/* Classes Dropdown */}
             <li className="nav-item dropdown">
-              <Link
+              <span
                 className="nav-link dropdown-toggle"
-                to="#"
                 role="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
-                onClick={(e) => e.preventDefault()}
               >
                 Classes
-              </Link>
+              </span>
               <ul className="dropdown-menu">
-                <li>
-                  <Link className="dropdown-item" to="/classes" onClick={closeNavbar}>
-                    My Classes
-                  </Link>
-                </li>
-                <li>
-                  <Link className="dropdown-item" to="/classes/join" onClick={closeNavbar}>
-                    Join Class
-                  </Link>
-                </li>
+                <li><Link className="dropdown-item" to="/classes" onClick={closeNavbar}>My Classes</Link></li>
+                <li><Link className="dropdown-item" to="/classes/join" onClick={closeNavbar}>Join Class</Link></li>
               </ul>
             </li>
 
             {/* Activities Dropdown */}
             <li className="nav-item dropdown">
-              <Link
+              <span
                 className="nav-link dropdown-toggle"
-                to="#"
                 role="button"
                 data-bs-toggle="dropdown"
                 aria-expanded="false"
-                onClick={(e) => e.preventDefault()}
               >
                 Activities
-              </Link>
+              </span>
               <ul className="dropdown-menu">
-                <li>
-                  <Link className="dropdown-item" to="/activities" onClick={closeNavbar}>
-                    My Activities
-                  </Link>
-                </li>
-                <li>
-                  <Link className="dropdown-item" to="/activities/add" onClick={closeNavbar}>
-                    Add Activity
-                  </Link>
-                </li>
+                <li><Link className="dropdown-item" to="/activities" onClick={closeNavbar}>My Activities</Link></li>
+                <li><Link className="dropdown-item" to="/activities/add" onClick={closeNavbar}>Add Activity</Link></li>
               </ul>
             </li>
 
-            {/* AI Assistant Link - Now with same styling */}
+            {/* AI Assistant Link */}
             <li className="nav-item">
-              <Link 
-                className="nav-link" 
-                to="/chat" 
-                onClick={closeNavbar}
-                style={{ display: 'inline-block', textAlign: 'center' }}
-              >
+              <Link className="nav-link" to="/chat" onClick={closeNavbar}>
                 AI Assistant
               </Link>
             </li>
           </ul>
 
           {/* User Section */}
-          <div className="d-flex align-items-center gap-3">
+          <div className="d-flex align-items-center gap-3 mt-2 mt-lg-0">
             <span className="text-white fw-semibold">{user?.name}</span>
             <button className="btn btn-outline-light btn-sm" onClick={handleLogout}>
               Logout
@@ -193,19 +169,34 @@ export default function Navbar({ user, onLogout }) {
         </div>
       </div>
 
-      {/* Mobile Responsive Styles */}
+      {/* Styles */}
       <style>{`
+        /* Custom Navbar */
+        .custom-navbar {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        }
+
+        /* Navbar Toggler Icon Animation */
+        .navbar-toggler-icon {
+          transition: transform 0.3s ease;
+        }
+        .navbar-toggler-icon.close {
+          transform: rotate(90deg);
+        }
+
+        /* Mobile Responsive */
         @media (max-width: 991px) {
           .navbar-collapse {
             position: fixed;
             top: 70px;
             left: 0;
             right: 0;
-            background: #0a0e27;
+            bottom: 0;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
             padding: 20px;
-            border-radius: 0 0 20px 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            z-index: 1000;
+            z-index: 1050;
+            overflow-y: auto;
+            transition: all 0.3s ease;
           }
           
           .navbar-collapse.collapse:not(.show) {
@@ -218,7 +209,6 @@ export default function Navbar({ user, onLogout }) {
           
           .navbar-nav {
             gap: 8px !important;
-            align-items: center;
           }
           
           .nav-item {
@@ -226,50 +216,58 @@ export default function Navbar({ user, onLogout }) {
             text-align: center;
           }
           
-          .nav-link.dropdown-toggle,
-          .nav-link {
+          .nav-link, .nav-link.dropdown-toggle {
             display: block !important;
             width: 100%;
             text-align: center;
-            padding: 10px;
-          }
-          
-          /* AI Assistant link - same as dropdowns */
-          .nav-item .nav-link {
-            display: block !important;
-            text-align: center !important;
-            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            color: white !important;
           }
           
           .dropdown-menu {
             position: static !important;
             transform: none !important;
             width: 100%;
-            background: rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.1);
             backdrop-filter: blur(10px);
             margin-top: 5px;
             border: none;
+            text-align: center;
           }
           
           .dropdown-item {
-            color: white;
+            color: white !important;
             text-align: center;
-            padding: 8px 16px;
+            padding: 10px;
           }
           
           .dropdown-item:hover {
             background: rgba(255,255,255,0.2);
-            color: white;
+            color: white !important;
           }
           
           .d-flex.align-items-center {
             justify-content: center;
-            margin-top: 16px;
-            padding-top: 16px;
+            margin-top: 20px;
+            padding-top: 20px;
             border-top: 1px solid rgba(255,255,255,0.2);
+            flex-direction: column;
+            gap: 12px !important;
           }
         }
-        
+
+        /* Tablet */
+        @media (min-width: 768px) and (max-width: 991px) {
+          .navbar-collapse {
+            top: 72px;
+          }
+          .nav-link, .nav-link.dropdown-toggle {
+            padding: 10px;
+          }
+        }
+
+        /* Mobile Small */
         @media (max-width: 576px) {
           .navbar-brand {
             font-size: 1.2rem !important;
@@ -285,28 +283,51 @@ export default function Navbar({ user, onLogout }) {
             padding: 16px;
           }
           
-          .nav-link.dropdown-toggle,
-          .nav-link {
-            font-size: 0.95rem;
+          .nav-link, .nav-link.dropdown-toggle {
+            padding: 10px;
+            font-size: 0.9rem;
+          }
+          
+          .dropdown-item {
             padding: 8px;
+            font-size: 0.85rem;
           }
         }
-        
-        /* Desktop styles - all items centered */
+
+        /* Desktop */
         @media (min-width: 992px) {
           .navbar-nav {
             align-items: center;
           }
           
-          .nav-link,
-          .nav-link.dropdown-toggle {
-            text-align: center;
+          .nav-link, .nav-link.dropdown-toggle {
             padding: 8px 16px;
+            transition: all 0.3s;
+          }
+          
+          .nav-link:hover, .nav-link.dropdown-toggle:hover {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
           }
           
           .dropdown:hover .dropdown-menu {
             display: block;
             margin-top: 0;
+          }
+          
+          .dropdown-menu {
+            background: #1e293b;
+            border: 1px solid rgba(255,255,255,0.1);
+          }
+          
+          .dropdown-item {
+            color: #e2e8f0;
+            transition: all 0.2s;
+          }
+          
+          .dropdown-item:hover {
+            background: #4f46e5;
+            color: white;
           }
         }
       `}</style>
