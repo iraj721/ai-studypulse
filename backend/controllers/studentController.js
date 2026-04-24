@@ -160,25 +160,49 @@ exports.getAssignmentsForClass = async (req, res) => {
   }
 };
 
-/* Submit assignment (file + optional text) */
-/* Submit assignment (file + optional text) - FIXED */
+/* Submit assignment (file + optional text) - COMPLETE FIX */
 exports.submitAssignment = async (req, res) => {
   try {
     const { classId, assignmentId } = req.params;
-    const answerText = req.body.answerText || "";
-    const fileUrl = req.file ? req.file.path : null;
+    
+    // ✅ SAFELY extract body data
+    let answerText = "";
+    if (req.body && req.body.answerText) {
+      answerText = req.body.answerText;
+    }
+    
+    let fileUrl = null;
+    if (req.file) {
+      fileUrl = req.file.path;
+    }
 
-    console.log("Submit assignment - classId:", classId, "assignmentId:", assignmentId);
-    console.log("File:", fileUrl, "Answer:", answerText);
+    console.log("=== SUBMIT ASSIGNMENT DEBUG ===");
+    console.log("classId:", classId);
+    console.log("assignmentId:", assignmentId);
+    console.log("answerText:", answerText);
+    console.log("fileUrl:", fileUrl);
+    console.log("req.body:", req.body);
+    console.log("req.file:", req.file);
+    console.log("=================================");
 
+    // Validate class
     const cls = await Class.findById(classId);
-    if (!cls) return res.status(404).json({ message: "Class not found" });
-    if (!cls.students.includes(req.user._id))
-      return res.status(403).json({ message: "Access denied" });
+    if (!cls) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+    
+    // Check if student is enrolled
+    if (!cls.students.includes(req.user._id)) {
+      return res.status(403).json({ message: "You are not enrolled in this class" });
+    }
 
+    // Validate assignment
     const assignment = await Assignment.findById(assignmentId);
-    if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+    if (!assignment) {
+      return res.status(404).json({ message: "Assignment not found" });
+    }
 
+    // Check due date
     const now = new Date();
     if (assignment.dueDate && now > assignment.dueDate) {
       return res.status(400).json({ message: "Cannot submit after due date" });
@@ -190,33 +214,44 @@ exports.submitAssignment = async (req, res) => {
       student: req.user._id,
     });
     if (existing) {
-      if (existing.file && fs.existsSync(existing.file)) fs.unlinkSync(existing.file);
+      if (existing.file && fs.existsSync(existing.file)) {
+        fs.unlinkSync(existing.file);
+      }
       await existing.deleteOne();
     }
 
+    // Create new submission
     const submission = await Submission.create({
       assignment: assignmentId,
       student: req.user._id,
       file: fileUrl,
-      answerText: answerText,
+      answerText: answerText || "",
     });
 
-    // Send email notification to teacher
+    // Send email to teacher
     const teacher = await User.findById(cls.teacher);
     if (teacher && teacher.email) {
-      const { sendEmailNotification } = require("../services/notificationService");
-      await sendEmailNotification(
-        teacher.email,
-        teacher.name,
-        `📝 New Assignment Submission: ${assignment.title}`,
-        `Student ${req.user.name} has submitted "${assignment.title}".\n\n${answerText ? `Answer: ${answerText.substring(0, 200)}...` : "No text answer provided."}\n\nPlease review and grade.`
-      );
+      try {
+        const { sendEmailNotification } = require("../services/notificationService");
+        await sendEmailNotification(
+          teacher.email,
+          teacher.name,
+          `📝 New Submission: ${assignment.title}`,
+          `Student: ${req.user.name}\nAssignment: ${assignment.title}\n\nAnswer: ${answerText || "No text provided"}\n\nPlease review in the dashboard.`
+        );
+      } catch (emailErr) {
+        console.error("Failed to send email:", emailErr);
+      }
     }
 
-    res.status(201).json({ message: "Assignment submitted successfully", submission });
+    res.status(201).json({ 
+      success: true,
+      message: "Assignment submitted successfully",
+      submission 
+    });
   } catch (err) {
     console.error("Submit assignment error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 };
 
