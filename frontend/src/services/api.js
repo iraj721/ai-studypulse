@@ -1,10 +1,13 @@
 import axios from "axios";
 
+// ✅ Define API URL with fallback
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL.replace(/\/$/, "") + "/api",
+  baseURL: API_URL.replace(/\/$/, "") + "/api",  // ✅ Use API_URL here
 });
 
-// ✅ Add Authorization header ONLY for protected routes
+// Add Authorization header ONLY for protected routes
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
 
@@ -23,7 +26,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ✅ Handle responses globally
+// Handle responses globally
 api.interceptors.response.use(
   (response) => response,
   (error) => {

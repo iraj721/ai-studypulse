@@ -35,7 +35,6 @@ import StudyGroupsPage from "./pages/students/StudyGroupsPage";
 import BookmarksPage from "./pages/students/BookmarksPage";
 import TimerPage from "./pages/students/TimerPage";
 
-
 /* ================= ADMIN ================= */
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminDashboard from "./pages/admin/AdminDashboard";
@@ -51,6 +50,13 @@ import AdminClassAssignments from "./pages/admin/AdminClassAssignments";
 import AdminStudentClassDetails from "./pages/admin/AdminClassStudents";
 import AdminClassAssignmentSubmissions from "./pages/admin/AdminClassAssignmentSubmissions";
 import AdminClassStudents from "./pages/admin/AdminClassStudents";
+import AdminStudentFullDetails from "./pages/admin/AdminStudentFullDetails";
+// Add these imports with other admin imports
+import AdminFlashcardsView from "./pages/admin/AdminFlashcardsView";
+import AdminBookmarksView from "./pages/admin/AdminBookmarksView";
+import AdminVideosView from "./pages/admin/AdminVideosView";
+import AdminGroupsView from "./pages/admin/AdminGroupsView";
+import AdminChatView from "./pages/admin/AdminChatView";
 
 /* ================= TEACHER ================= */
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
@@ -146,7 +152,21 @@ export default function App() {
           path="/admin/student/class/:classId"
           element={<AdminStudentClassDetails />}
         />
-
+        <Route
+          path="/admin/student-full/:id"
+          element={<AdminStudentFullDetails />}
+        />
+        <Route
+          path="/admin/users/:id/flashcards"
+          element={<AdminFlashcardsView />}
+        />
+        <Route
+          path="/admin/users/:id/bookmarks"
+          element={<AdminBookmarksView />}
+        />
+        <Route path="/admin/users/:id/videos" element={<AdminVideosView />} />
+        <Route path="/admin/users/:id/groups" element={<AdminGroupsView />} />
+        <Route path="/admin/users/:id/chat" element={<AdminChatView />} />
         {/* ADMIN CLASS ROUTES */}
         <Route
           path="/admin/class/:classId/announcements"

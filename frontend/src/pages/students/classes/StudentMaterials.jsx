@@ -5,7 +5,7 @@ import Stars from "../../../components/Stars";
 import BackButton from "../../../components/BackButton";
 import Toast from "../../../components/Toast";
 
-const BASE_URL = import.meta.env.VITE_API_URL.replace(/\/$/, "");
+const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace("/api", "");
 
 export default function StudentMaterials() {
   const { classId } = useParams();

@@ -7,6 +7,7 @@ export default function FloatingTimer() {
   const navigate = useNavigate();
   const { timerState, startTimer, pauseTimer, resetTimer } = useTimer();
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
   const [position, setPosition] = useState({ x: 20, y: 100 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -25,6 +26,24 @@ export default function FloatingTimer() {
     localStorage.setItem('floatingTimerPosition', JSON.stringify(position));
   }, [position]);
 
+  // Auto-show when timer is active (study mode)
+  useEffect(() => {
+    if (timerState.isActive && timerState.mode === 'study') {
+      setIsVisible(true);
+    }
+  }, [timerState.isActive, timerState.mode]);
+
+  // Auto-minimize when not active for 30 seconds
+  useEffect(() => {
+    let timeout;
+    if (!timerState.isActive && !isMinimized && isVisible) {
+      timeout = setTimeout(() => {
+        setIsMinimized(true);
+      }, 30000);
+    }
+    return () => clearTimeout(timeout);
+  }, [timerState.isActive, isMinimized, isVisible]);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -38,7 +57,7 @@ export default function FloatingTimer() {
   };
 
   const handleMouseDown = (e) => {
-    if (e.target.closest('.floating-timer-controls')) return;
+    if (e.target.closest('.floating-timer-controls') || e.target.closest('.close-timer-btn')) return;
     setIsDragging(true);
     setDragOffset({
       x: e.clientX - position.x,
@@ -51,7 +70,6 @@ export default function FloatingTimer() {
     const newX = e.clientX - dragOffset.x;
     const newY = e.clientY - dragOffset.y;
     
-    // Keep within viewport bounds
     const maxX = window.innerWidth - 280;
     const maxY = window.innerHeight - 150;
     
@@ -76,16 +94,18 @@ export default function FloatingTimer() {
     };
   }, [isDragging]);
 
-  // Auto-minimize when not active for 30 seconds
-  useEffect(() => {
-    let timeout;
-    if (!timerState.isActive && !isMinimized) {
-      timeout = setTimeout(() => {
-        setIsMinimized(true);
-      }, 30000);
-    }
-    return () => clearTimeout(timeout);
-  }, [timerState.isActive, isMinimized]);
+  const handleClose = () => {
+    setIsVisible(false);
+    pauseTimer();
+  };
+
+  const handleShow = () => {
+    setIsVisible(true);
+  };
+
+  if (!isVisible) {
+    return null;
+  }
 
   return (
     <div
@@ -98,7 +118,6 @@ export default function FloatingTimer() {
         zIndex: 9999
       }}
     >
-      {/* Drag Handle */}
       <div className="floating-timer-header" onMouseDown={handleMouseDown}>
         <div className="timer-drag-handle">
           <FaClock className="drag-icon" />
@@ -107,6 +126,9 @@ export default function FloatingTimer() {
         <div className="timer-header-actions">
           <button onClick={() => setIsMinimized(!isMinimized)} className="minimize-btn">
             {isMinimized ? <FaExpand /> : <FaTimes />}
+          </button>
+          <button onClick={handleClose} className="close-timer-btn" title="Close timer">
+            <FaTimes />
           </button>
         </div>
       </div>
@@ -131,7 +153,10 @@ export default function FloatingTimer() {
               <button onClick={resetTimer} className="float-reset">
                 <FaUndo />
               </button>
-              <button onClick={() => navigate('/timer')} className="float-expand">
+              <button onClick={() => {
+                navigate('/timer');
+                handleShow();
+              }} className="float-expand">
                 <FaExpand />
               </button>
             </div>
@@ -191,7 +216,7 @@ export default function FloatingTimer() {
           display: flex;
           gap: 8px;
         }
-        .minimize-btn {
+        .minimize-btn, .close-timer-btn {
           background: none;
           border: none;
           color: #94a3b8;
@@ -201,9 +226,12 @@ export default function FloatingTimer() {
           border-radius: 6px;
           transition: all 0.2s;
         }
-        .minimize-btn:hover {
+        .minimize-btn:hover, .close-timer-btn:hover {
           background: rgba(255,255,255,0.1);
           color: white;
+        }
+        .close-timer-btn:hover {
+          color: #ef4444;
         }
         .floating-timer-body {
           padding: 12px;

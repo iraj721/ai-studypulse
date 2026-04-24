@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 
 const TimerContext = createContext();
 
@@ -13,33 +13,43 @@ export const TimerProvider = ({ children }) => {
     studyDuration: 25,
     breakDuration: 5,
     longBreakDuration: 15,
-    currentSessionStart: null,
     sessionHistory: []
   });
+  
+  const intervalRef = useRef(null);
+  const [pendingSave, setPendingSave] = useState(null);
 
-  // Load timer state from localStorage on mount
+  // ✅ Load saved state from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('timerState');
     if (saved) {
-      const parsed = JSON.parse(saved);
-      // Don't restore active state if it was running
-      setTimerState({
-        ...parsed,
-        isActive: false,
-        currentSessionStart: null
-      });
+      try {
+        const parsed = JSON.parse(saved);
+        setTimerState(prev => ({
+          ...prev,
+          ...parsed,
+          isActive: false
+        }));
+      } catch (e) {
+        console.error("Failed to load timer state:", e);
+      }
     }
     
     const savedHistory = localStorage.getItem('timerSessionHistory');
     if (savedHistory) {
-      setTimerState(prev => ({
-        ...prev,
-        sessionHistory: JSON.parse(savedHistory)
-      }));
+      try {
+        const history = JSON.parse(savedHistory);
+        setTimerState(prev => ({
+          ...prev,
+          sessionHistory: history
+        }));
+      } catch (e) {
+        console.error("Failed to load timer history:", e);
+      }
     }
   }, []);
 
-  // Save timer state to localStorage whenever it changes
+  // ✅ Save state to localStorage
   useEffect(() => {
     const toSave = {
       mode: timerState.mode,
@@ -52,12 +62,72 @@ export const TimerProvider = ({ children }) => {
     localStorage.setItem('timerState', JSON.stringify(toSave));
   }, [timerState.mode, timerState.timeLeft, timerState.studyDuration, timerState.breakDuration, timerState.longBreakDuration, timerState.sessions]);
 
+  // ✅ Save history to localStorage
+  useEffect(() => {
+    localStorage.setItem('timerSessionHistory', JSON.stringify(timerState.sessionHistory));
+  }, [timerState.sessionHistory]);
+
+  // ✅ TIMER COUNTDOWN LOGIC
+  useEffect(() => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+
+    if (timerState.isActive && timerState.timeLeft > 0) {
+      intervalRef.current = setInterval(() => {
+        setTimerState(prev => ({
+          ...prev,
+          timeLeft: prev.timeLeft - 1
+        }));
+      }, 1000);
+    }
+    
+    // When timer reaches 0
+    if (timerState.timeLeft === 0 && timerState.isActive) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      
+      if (timerState.mode === 'study') {
+        // ✅ Show save modal for completed study session
+        const newSessions = timerState.sessions + 1;
+        const isLongBreak = newSessions % 4 === 0;
+        
+        // Store pending save info
+        setPendingSave({
+          duration: timerState.studyDuration,
+          sessions: newSessions
+        });
+        
+        setTimerState(prev => ({
+          ...prev,
+          sessions: newSessions,
+          mode: 'break',
+          timeLeft: (isLongBreak ? prev.longBreakDuration : prev.breakDuration) * 60,
+          isActive: true
+        }));
+      } else {
+        // Break completed - switch to study
+        setTimerState(prev => ({
+          ...prev,
+          mode: 'study',
+          timeLeft: prev.studyDuration * 60,
+          isActive: true
+        }));
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [timerState.isActive, timerState.timeLeft, timerState.mode, timerState.sessions]);
+
   const startTimer = () => {
-    setTimerState(prev => ({
-      ...prev,
-      isActive: true,
-      currentSessionStart: new Date()
-    }));
+    setTimerState(prev => ({ ...prev, isActive: true }));
   };
 
   const pauseTimer = () => {
@@ -65,74 +135,67 @@ export const TimerProvider = ({ children }) => {
   };
 
   const resetTimer = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
     const studyMins = timerState.mode === 'study' ? timerState.studyDuration : 
                       (timerState.mode === 'break' && timerState.sessions % 4 === 0 ? timerState.longBreakDuration : timerState.breakDuration);
     setTimerState(prev => ({
       ...prev,
       timeLeft: studyMins * 60,
-      isActive: false,
-      currentSessionStart: null
+      isActive: false
     }));
   };
 
   const updateSettings = (study, shortBreak, longBreak) => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
     setTimerState(prev => ({
       ...prev,
       studyDuration: study,
       breakDuration: shortBreak,
       longBreakDuration: longBreak,
-      timeLeft: prev.mode === 'study' ? study * 60 : (prev.mode === 'break' && prev.sessions % 4 === 0 ? longBreak * 60 : shortBreak * 60)
+      timeLeft: prev.mode === 'study' ? study * 60 : (prev.mode === 'break' && prev.sessions % 4 === 0 ? longBreak * 60 : shortBreak * 60),
+      isActive: false
     }));
   };
 
+  // ✅ Save completed session to history
   const addCompletedSession = (subject, topic, duration) => {
     const newSession = {
       id: Date.now(),
-      subject,
-      topic,
-      duration,
+      subject: subject || "Study Session",
+      topic: topic || "Pomodoro",
+      duration: duration || 25,
       date: new Date().toISOString(),
-      type: 'pomodoro'
+      type: 'pomodoro',
+      completedAt: new Date().toLocaleTimeString()
     };
+    
     setTimerState(prev => ({
       ...prev,
-      sessions: prev.sessions + 1,
       sessionHistory: [newSession, ...prev.sessionHistory].slice(0, 50)
     }));
     
-    // Save to localStorage
-    const updatedHistory = [newSession, ...timerState.sessionHistory].slice(0, 50);
-    localStorage.setItem('timerSessionHistory', JSON.stringify(updatedHistory));
+    // Clear pending save
+    setPendingSave(null);
   };
 
-  const completeSession = () => {
-    setTimerState(prev => {
-      const newSessions = prev.sessions + 1;
-      const isLongBreak = newSessions % 4 === 0;
-      return {
-        ...prev,
-        sessions: newSessions,
-        mode: 'break',
-        timeLeft: (isLongBreak ? prev.longBreakDuration : prev.breakDuration) * 60,
-        isActive: true,
-        currentSessionStart: new Date()
-      };
-    });
-  };
+  // ✅ Get pending save info
+  const getPendingSave = () => pendingSave;
 
-  const completeBreak = () => {
-    setTimerState(prev => ({
-      ...prev,
-      mode: 'study',
-      timeLeft: prev.studyDuration * 60,
-      isActive: true,
-      currentSessionStart: new Date()
-    }));
+  // ✅ Clear pending save (when user skips)
+  const clearPendingSave = () => {
+    setPendingSave(null);
   };
 
   const clearHistory = () => {
     setTimerState(prev => ({ ...prev, sessionHistory: [] }));
-    localStorage.removeItem('timerSessionHistory');
   };
 
   return (
@@ -143,8 +206,8 @@ export const TimerProvider = ({ children }) => {
       resetTimer,
       updateSettings,
       addCompletedSession,
-      completeSession,
-      completeBreak,
+      getPendingSave,
+      clearPendingSave,
       clearHistory
     }}>
       {children}

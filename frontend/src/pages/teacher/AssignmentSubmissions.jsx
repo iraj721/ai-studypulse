@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import Spinner from "../../components/Spinner";
 
-const BASE_URL = import.meta.env.VITE_API_URL.replace("/api", "");
+const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace("/api", "");
 
 export default function AssignmentSubmissions() {
   const { id, assignmentId } = useParams();

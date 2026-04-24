@@ -1,7 +1,10 @@
 import axios from "axios";
 
+// ✅ Define API URL with fallback
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 const apiAdmin = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL.replace(/\/$/, "")}/api`,
+  baseURL: `${API_URL.replace(/\/$/, "")}/api`,
   headers: {
     "Content-Type": "application/json",
   },
@@ -25,7 +28,6 @@ apiAdmin.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem("adminToken");
-      // Redirect only if not already on login page
       if (!window.location.pathname.includes("/admin/login")) {
         window.location.href = "/admin/login";
       }
