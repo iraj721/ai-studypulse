@@ -82,7 +82,7 @@ Return ONLY valid JSON. NO extra text. Format EXACTLY like this:
 DO NOT include letters (A, B, C, D) in options.
 Start directly with { and end with }.`;
 
-    const aiResponse = await askHF(prompt, req.user?._id);
+    const aiResponse = await askHF(prompt, req.user?._id, "flashcards");
     console.log("AI Raw Response:", aiResponse.substring(0, 500));
     
     let parsed = null;

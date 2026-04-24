@@ -103,6 +103,27 @@ async function askHuggingFace(prompt) {
   }
 }
 
+const recordAIUsage = async (userId, feature, tokensUsed = 0) => {
+  if (!userId) return;
+  
+  try {
+    const AIUsage = require("../models/AIUsage");
+    const today = new Date().toISOString().split('T')[0];
+    
+    await AIUsage.findOneAndUpdate(
+      { user: userId, feature, date: today },
+      { 
+        $inc: { requestsCount: 1, tokensUsed: tokensUsed },
+        $setOnInsert: { user: userId, feature, date: today }
+      },
+      { upsert: true, new: true }
+    );
+    console.log(`✅ Recorded AI usage: ${feature} - Tokens: ${tokensUsed}`);
+  } catch (err) {
+    console.error("Error recording AI usage:", err);
+  }
+};
+
 // ✅ FIXED: Pass userId as parameter instead of req
 const askAI = async (prompt, userId = null, mode = "fast") => {
   // Check cache first

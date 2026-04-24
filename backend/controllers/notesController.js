@@ -83,7 +83,7 @@ IMPORTANT: ${fileContent ? 'BASE YOUR NOTES ENTIRELY ON THE DOCUMENT CONTENT.' :
 
 Format in clean Markdown.`;
 
-    const aiContent = await askHF(prompt, req.user?._id);
+    const aiContent = await askHF(prompt, req.user?._id, "notes");
     
     // ✅ FALLBACK: Agar AI empty response de toh
     const finalContent = aiContent && aiContent.length > 100 

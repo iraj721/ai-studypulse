@@ -57,7 +57,7 @@ Create detailed notes with:
 
 Format in Markdown. Make it STUDENT-FRIENDLY and COMPREHENSIVE.`;
 
-  const summary = await askHF(prompt, userId);
+  const summary = await askHF(prompt, userId, "video");
   return summary;
 };
 

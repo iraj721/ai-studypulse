@@ -117,7 +117,7 @@ const sendMessage = async (req, res) => {
       type: "chat",
     });
 
-    const aiText = await askHF(text, req.user?._id);
+    const aiText = await askHF(text, req.user?._id, "chat");
 
     const aiMessage = await Message.create({
       user: req.user._id,
