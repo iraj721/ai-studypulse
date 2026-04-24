@@ -161,9 +161,15 @@ exports.getAssignmentsForClass = async (req, res) => {
 };
 
 /* Submit assignment (file + optional text) */
+/* Submit assignment (file + optional text) - FIXED */
 exports.submitAssignment = async (req, res) => {
   try {
     const { classId, assignmentId } = req.params;
+    const answerText = req.body.answerText || "";
+    const fileUrl = req.file ? req.file.path : null;
+
+    console.log("Submit assignment - classId:", classId, "assignmentId:", assignmentId);
+    console.log("File:", fileUrl, "Answer:", answerText);
 
     const cls = await Class.findById(classId);
     if (!cls) return res.status(404).json({ message: "Class not found" });
@@ -171,12 +177,12 @@ exports.submitAssignment = async (req, res) => {
       return res.status(403).json({ message: "Access denied" });
 
     const assignment = await Assignment.findById(assignmentId);
-    if (!assignment)
-      return res.status(404).json({ message: "Assignment not found" });
+    if (!assignment) return res.status(404).json({ message: "Assignment not found" });
 
     const now = new Date();
-    if (assignment.dueDate && now > assignment.dueDate)
+    if (assignment.dueDate && now > assignment.dueDate) {
       return res.status(400).json({ message: "Cannot submit after due date" });
+    }
 
     // Remove existing submission if any
     const existing = await Submission.findOne({
@@ -184,24 +190,30 @@ exports.submitAssignment = async (req, res) => {
       student: req.user._id,
     });
     if (existing) {
-      if (existing.file && fs.existsSync(existing.file))
-        fs.unlinkSync(existing.file);
+      if (existing.file && fs.existsSync(existing.file)) fs.unlinkSync(existing.file);
       await existing.deleteOne();
     }
-
-    const fileUrl = req.file ? req.file.path : null;
-    const { answerText } = req.body;
 
     const submission = await Submission.create({
       assignment: assignmentId,
       student: req.user._id,
       file: fileUrl,
-      answerText: answerText || "",
+      answerText: answerText,
     });
 
-    res
-      .status(201)
-      .json({ message: "Assignment submitted successfully", submission });
+    // Send email notification to teacher
+    const teacher = await User.findById(cls.teacher);
+    if (teacher && teacher.email) {
+      const { sendEmailNotification } = require("../services/notificationService");
+      await sendEmailNotification(
+        teacher.email,
+        teacher.name,
+        `📝 New Assignment Submission: ${assignment.title}`,
+        `Student ${req.user.name} has submitted "${assignment.title}".\n\n${answerText ? `Answer: ${answerText.substring(0, 200)}...` : "No text answer provided."}\n\nPlease review and grade.`
+      );
+    }
+
+    res.status(201).json({ message: "Assignment submitted successfully", submission });
   } catch (err) {
     console.error("Submit assignment error:", err);
     res.status(500).json({ message: "Server error" });

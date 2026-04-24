@@ -1,6 +1,34 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// ==================== MULTER CONFIGURATION (MUST BE BEFORE ROUTES) ====================
+const submissionStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = "uploads/submissions";
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
+
+const uploadSubmission = multer({ 
+  storage: submissionStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type'), false);
+    }
+  }
+});
 
 // ==================== IMPORT CONTROLLERS ====================
 const {
@@ -19,7 +47,7 @@ const {
 const { getAnnouncementsForClass } = require("../controllers/announcementController");
 const { getMaterialsForClass } = require("../controllers/materialController");
 
-// ✅ Import new controllers
+// Import new controllers
 const flashcardController = require("../controllers/flashcardController");
 const studyGroupController = require("../controllers/studyGroupController");
 const videoSummaryController = require("../controllers/videoSummaryController");
@@ -28,15 +56,17 @@ const bookmarkController = require("../controllers/bookmarkController");
 // ==================== EXISTING ROUTES ====================
 router.get("/classes", auth, getStudentClasses);
 router.post("/classes/join", auth, joinClass);
+router.get("/classes/count", auth, getStudentClassesCount);
+router.get("/classes/:classId", auth, getStudentClassDetails);
 router.get("/classes/:classId/dashboard", auth, getClassDashboard);
 router.get("/classes/:classId/assignments", auth, getAssignmentsForClass);
 router.get("/classes/:classId/announcements", auth, getAnnouncementsForClass);
-router.get("/classes/count", auth, getStudentClassesCount);
-router.get("/classes/:classId", auth, getStudentClassDetails);
 router.get("/classes/:classId/materials", auth, getMaterialsForClass);
 router.post("/classes/:classId/announcements/:announcementId/reply", auth, replyToAnnouncement);
 router.delete("/classes/:classId/leave", auth, leaveClass);
-router.post("/classes/:classId/assignments/:assignmentId/submit", auth, submitAssignment);
+
+// ==================== ASSIGNMENT SUBMIT ROUTES ====================
+router.post("/classes/:classId/assignments/:assignmentId/submit", auth, uploadSubmission.single("file"), submitAssignment);
 router.delete("/classes/:classId/assignments/:assignmentId/unsend", auth, unsendSubmission);
 
 // ==================== FLASHCARD ROUTES ====================
@@ -66,7 +96,5 @@ router.get("/bookmarks", auth, bookmarkController.getUserBookmarks);
 router.get("/bookmarks/collections", auth, bookmarkController.getCollections);
 router.put("/bookmarks/:id", auth, bookmarkController.updateBookmark);
 router.delete("/bookmarks/:id", auth, bookmarkController.deleteBookmark);
-// Student reply to announcement
-router.post("/classes/:classId/announcements/:announcementId/reply", auth, replyToAnnouncement);
 
 module.exports = router;
