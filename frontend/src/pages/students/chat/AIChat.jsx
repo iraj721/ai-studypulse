@@ -3,11 +3,26 @@ import api from "../../../services/api";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { oneDark, oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { 
-  FaMoon, FaSun, FaArrowDown, FaSpinner, FaBars, FaTimes, 
-  FaTrash, FaPlus, FaPaperPlane, FaRobot, FaUser, FaEdit,
-  FaCopy, FaCheck, FaRegTrashAlt, FaRegMessage
+import {
+  oneDark,
+  oneLight,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
+import {
+  FaMoon,
+  FaSun,
+  FaArrowDown,
+  FaSpinner,
+  FaBars,
+  FaTimes,
+  FaTrash,
+  FaPlus,
+  FaPaperPlane,
+  FaRobot,
+  FaUser,
+  FaEdit,
+  FaCopy,
+  FaCheck,
+  FaComment
 } from "react-icons/fa";
 import dayjs from "dayjs";
 import calendar from "dayjs/plugin/calendar";
@@ -21,7 +36,7 @@ dayjs.extend(relativeTime);
 
 export default function AIChat() {
   const navigate = useNavigate();
-  
+
   const [user, setUser] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
@@ -34,7 +49,7 @@ export default function AIChat() {
   const [copiedId, setCopiedId] = useState(null);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingText, setEditingText] = useState("");
-  
+
   const messagesEndRef = useRef(null);
   const textAreaRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -51,25 +66,26 @@ export default function AIChat() {
       }
     };
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   // Load dark mode preference
   useEffect(() => {
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+    const savedDarkMode = localStorage.getItem("darkMode") === "true";
     setDarkMode(savedDarkMode);
   }, []);
 
   // Save dark mode preference
   useEffect(() => {
-    localStorage.setItem('darkMode', darkMode);
+    localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
 
   const adjustTextareaHeight = () => {
     if (textAreaRef.current) {
       textAreaRef.current.style.height = "auto";
-      textAreaRef.current.style.height = Math.min(textAreaRef.current.scrollHeight, 200) + "px";
+      textAreaRef.current.style.height =
+        Math.min(textAreaRef.current.scrollHeight, 200) + "px";
     }
   };
   useEffect(() => adjustTextareaHeight(), [text]);
@@ -114,7 +130,7 @@ export default function AIChat() {
     try {
       const res = await api.post("/chat/sessions", { title: "New Chat" });
       const newSessionId = res.data._id;
-      setSessions(prev => [res.data, ...prev]);
+      setSessions((prev) => [res.data, ...prev]);
       setCurrentSessionId(newSessionId);
       setMessages([]);
       if (isMobile) setIsSidebarOpen(false);
@@ -127,13 +143,13 @@ export default function AIChat() {
   const deleteSession = async (sessionId, e) => {
     e.stopPropagation();
     if (!window.confirm("Delete this chat permanently?")) return;
-    
+
     try {
       await api.delete(`/chat/sessions/${sessionId}`);
-      setSessions(prev => prev.filter(s => s._id !== sessionId));
-      
+      setSessions((prev) => prev.filter((s) => s._id !== sessionId));
+
       if (currentSessionId === sessionId) {
-        const remainingSessions = sessions.filter(s => s._id !== sessionId);
+        const remainingSessions = sessions.filter((s) => s._id !== sessionId);
         if (remainingSessions.length > 0) {
           fetchSession(remainingSessions[0]._id);
         } else {
@@ -149,15 +165,17 @@ export default function AIChat() {
   const handleSend = async (e) => {
     e.preventDefault();
     if (!text.trim() || loadingAI) return;
-    
+
     const messageText = text.trim();
-    
+
     if (!currentSessionId) {
       // Create new session and send message
       try {
-        const res = await api.post("/chat/sessions", { title: messageText.slice(0, 30) });
+        const res = await api.post("/chat/sessions", {
+          title: messageText.slice(0, 30),
+        });
         const newSessionId = res.data._id;
-        setSessions(prev => [res.data, ...prev]);
+        setSessions((prev) => [res.data, ...prev]);
         setCurrentSessionId(newSessionId);
         await sendMessageToSession(newSessionId, messageText);
       } catch (err) {
@@ -180,29 +198,35 @@ export default function AIChat() {
       text: messageText,
       createdAt: new Date(),
     };
-    setMessages(prev => [...prev, tempUserMessage]);
+    setMessages((prev) => [...prev, tempUserMessage]);
     scrollToBottom();
 
     setLoadingAI(true);
 
     try {
       const tempAiId = Date.now() + 1;
-      setMessages(prev => [...prev, {
-        _id: tempAiId,
-        role: "assistant",
-        text: "",
-        createdAt: new Date(),
-      }]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          _id: tempAiId,
+          role: "assistant",
+          text: "",
+          createdAt: new Date(),
+        },
+      ]);
       scrollToBottom();
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/chat/sessions/${sessionId}/message`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL}/api/chat/sessions/${sessionId}/message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ text: messageText }),
         },
-        body: JSON.stringify({ text: messageText }),
-      });
+      );
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -221,9 +245,11 @@ export default function AIChat() {
               const data = JSON.parse(line.slice(6));
               if (data.type === "chunk") {
                 fullResponse += data.content;
-                setMessages(prev => prev.map(msg =>
-                  msg._id === tempAiId ? { ...msg, text: fullResponse } : msg
-                ));
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg._id === tempAiId ? { ...msg, text: fullResponse } : msg,
+                  ),
+                );
                 scrollToBottom();
               } else if (data.type === "done") {
                 fetchSessions();
@@ -236,9 +262,16 @@ export default function AIChat() {
       }
     } catch (err) {
       console.error(err);
-      setMessages(prev => prev.map(msg =>
-        msg._id === tempAiId ? { ...msg, text: "Sorry, I'm having trouble responding. Please try again." } : msg
-      ));
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg._id === tempAiId
+            ? {
+                ...msg,
+                text: "Sorry, I'm having trouble responding. Please try again.",
+              }
+            : msg,
+        ),
+      );
     } finally {
       setLoadingAI(false);
     }
@@ -276,12 +309,12 @@ export default function AIChat() {
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-  const toggleDarkMode = () => setDarkMode(prev => !prev);
+  const toggleDarkMode = () => setDarkMode((prev) => !prev);
 
   // Custom Markdown components for code highlighting
   const MarkdownComponents = {
     code({ node, inline, className, children, ...props }) {
-      const match = /language-(\w+)/.exec(className || '');
+      const match = /language-(\w+)/.exec(className || "");
       return !inline && match ? (
         <SyntaxHighlighter
           style={darkMode ? oneDark : oneLight}
@@ -289,14 +322,14 @@ export default function AIChat() {
           PreTag="div"
           {...props}
         >
-          {String(children).replace(/\n$/, '')}
+          {String(children).replace(/\n$/, "")}
         </SyntaxHighlighter>
       ) : (
         <code className={className} {...props}>
           {children}
         </code>
       );
-    }
+    },
   };
 
   // Group messages by date
@@ -331,11 +364,11 @@ export default function AIChat() {
             <FaPlus /> New Chat
           </button>
         </div>
-        
+
         <div className="sessions-list-new">
           {sessions.length === 0 ? (
             <div className="no-sessions-new">
-              <FaRegMessage className="no-sessions-icon" />
+              <FaComment className="no-sessions-icon" />
               <p>No conversations yet</p>
               <button onClick={createNewChat}>Start a new chat</button>
             </div>
@@ -355,7 +388,7 @@ export default function AIChat() {
                     {dayjs(session.updatedAt).fromNow()}
                   </div>
                 </div>
-                <button 
+                <button
                   className="delete-session-new"
                   onClick={(e) => deleteSession(session._id, e)}
                   title="Delete chat"
@@ -366,17 +399,21 @@ export default function AIChat() {
             ))
           )}
         </div>
-        
+
         <div className="sidebar-footer">
           <div className="user-info">
-            <div className="user-avatar-mini">{user?.name?.charAt(0) || "U"}</div>
-            <span>{user?.name?.split(' ')[0] || "User"}</span>
+            <div className="user-avatar-mini">
+              {user?.name?.charAt(0) || "U"}
+            </div>
+            <span>{user?.name?.split(" ")[0] || "User"}</span>
           </div>
         </div>
       </div>
 
       {/* Main Chat Area */}
-      <div className={`chat-main-area-new ${isSidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+      <div
+        className={`chat-main-area-new ${isSidebarOpen ? "sidebar-open" : "sidebar-closed"}`}
+      >
         <div className="chat-header-new">
           <div className="header-left">
             {!isSidebarOpen && (
@@ -389,33 +426,55 @@ export default function AIChat() {
               <p className="model-badge">Powered by Groq Llama 3.1</p>
             </div>
           </div>
-          <button className="dark-mode-btn-new" onClick={toggleDarkMode} title={darkMode ? "Light mode" : "Dark mode"}>
+          <button
+            className="dark-mode-btn-new"
+            onClick={toggleDarkMode}
+            title={darkMode ? "Light mode" : "Dark mode"}
+          >
             {darkMode ? <FaSun /> : <FaMoon />}
           </button>
         </div>
 
-        <div className="chat-messages-area-new" ref={chatContainerRef} onScroll={handleScroll}>
+        <div
+          className="chat-messages-area-new"
+          ref={chatContainerRef}
+          onScroll={handleScroll}
+        >
           {messages.length === 0 ? (
             <div className="welcome-screen-new">
               <div className="welcome-icon-new">
                 <FaRobot />
               </div>
-              <h2>Hello, {user?.name?.split(' ')[0] || "Student"}! 👋</h2>
+              <h2>Hello, {user?.name?.split(" ")[0] || "Student"}! 👋</h2>
               <p>How can I help you with your studies today?</p>
               <div className="suggestions-grid">
-                <button onClick={() => setText("Explain quantum computing in simple terms")}>
+                <button
+                  onClick={() =>
+                    setText("Explain quantum computing in simple terms")
+                  }
+                >
                   🔬 Explain quantum computing
                 </button>
-                <button onClick={() => setText("Help me understand calculus derivatives")}>
+                <button
+                  onClick={() =>
+                    setText("Help me understand calculus derivatives")
+                  }
+                >
                   📐 Help me understand calculus
                 </button>
-                <button onClick={() => setText("Summarize the theory of relativity")}>
+                <button
+                  onClick={() => setText("Summarize the theory of relativity")}
+                >
                   🌌 Summarize relativity
                 </button>
-                <button onClick={() => setText("Create a study plan for finals")}>
+                <button
+                  onClick={() => setText("Create a study plan for finals")}
+                >
                   📅 Create a study plan
                 </button>
-                <button onClick={() => setText("Explain machine learning basics")}>
+                <button
+                  onClick={() => setText("Explain machine learning basics")}
+                >
                   🤖 Machine learning basics
                 </button>
                 <button onClick={() => setText("Help with essay writing")}>
@@ -428,12 +487,14 @@ export default function AIChat() {
               {groupedMessages.map((item, i) =>
                 item.type === "date" ? (
                   <div key={i} className="date-divider-new">
-                    <span>{dayjs(item.date).calendar(null, {
-                      sameDay: "[Today]",
-                      lastDay: "[Yesterday]",
-                      lastWeek: "dddd",
-                      sameElse: "MMMM D, YYYY",
-                    })}</span>
+                    <span>
+                      {dayjs(item.date).calendar(null, {
+                        sameDay: "[Today]",
+                        lastDay: "[Yesterday]",
+                        lastWeek: "dddd",
+                        sameElse: "MMMM D, YYYY",
+                      })}
+                    </span>
                   </div>
                 ) : (
                   <div
@@ -442,7 +503,9 @@ export default function AIChat() {
                   >
                     <div className="message-avatar-new">
                       {item.role === "user" ? (
-                        <div className="user-avatar">{user?.name?.charAt(0) || "U"}</div>
+                        <div className="user-avatar">
+                          {user?.name?.charAt(0) || "U"}
+                        </div>
                       ) : (
                         <div className="ai-avatar">
                           <FaRobot />
@@ -452,7 +515,9 @@ export default function AIChat() {
                     <div className="message-content-new">
                       <div className="message-header-new">
                         <span className="message-sender">
-                          {item.role === "user" ? user?.name?.split(' ')[0] || "You" : "StudyPulse AI"}
+                          {item.role === "user"
+                            ? user?.name?.split(" ")[0] || "You"
+                            : "StudyPulse AI"}
                         </span>
                         <span className="message-time-new">
                           {dayjs(item.createdAt).format("h:mm A")}
@@ -475,17 +540,25 @@ export default function AIChat() {
                       <div className="message-actions-new">
                         {editingMessageId === item._id ? (
                           <>
-                            <button onClick={saveEdit} className="action-btn save">
+                            <button
+                              onClick={saveEdit}
+                              className="action-btn save"
+                            >
                               <FaCheck /> Save
                             </button>
-                            <button onClick={() => setEditingMessageId(null)} className="action-btn cancel">
+                            <button
+                              onClick={() => setEditingMessageId(null)}
+                              className="action-btn cancel"
+                            >
                               Cancel
                             </button>
                           </>
                         ) : (
                           item.role === "assistant" && (
-                            <button 
-                              onClick={() => copyToClipboard(item.text, item._id)} 
+                            <button
+                              onClick={() =>
+                                copyToClipboard(item.text, item._id)
+                              }
                               className="action-btn copy"
                               title="Copy response"
                             >
@@ -497,11 +570,11 @@ export default function AIChat() {
                       </div>
                     </div>
                   </div>
-                )
+                ),
               )}
             </>
           )}
-          
+
           {loadingAI && (
             <div className="message-row-new assistant">
               <div className="message-avatar-new">
@@ -517,7 +590,7 @@ export default function AIChat() {
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -543,11 +616,17 @@ export default function AIChat() {
               }}
               disabled={loadingAI}
             />
-            <button type="submit" disabled={loadingAI || !text.trim()} className="send-btn">
+            <button
+              type="submit"
+              disabled={loadingAI || !text.trim()}
+              className="send-btn"
+            >
               {loadingAI ? <FaSpinner className="spinner" /> : <FaPaperPlane />}
             </button>
           </div>
-          <p className="input-hint">Press Enter to send, Shift + Enter for new line</p>
+          <p className="input-hint">
+            Press Enter to send, Shift + Enter for new line
+          </p>
         </form>
       </div>
 
