@@ -20,83 +20,46 @@ export default function StudentAssignments() {
     fetchAssignments();
   }, []);
 
-  // When fetching assignments, ensure file URLs are correct
   const fetchAssignments = async () => {
     try {
       const res = await api.get(`/student/classes/${classId}/assignments`);
-      const assignmentsData = res.data;
-
-      // ✅ Fix file URLs in submissions
-      const fixedAssignments = assignmentsData.map((assignment) => {
-        if (assignment.submission && assignment.submission.file) {
-          let fileUrl = assignment.submission.file;
-          if (fileUrl && !fileUrl.startsWith("http")) {
-            const BASE_URL = (
-              import.meta.env.VITE_API_URL || "http://localhost:5000"
-            ).replace("/api", "");
-            assignment.submission.fileUrl = `${BASE_URL}/${fileUrl}`;
-          } else {
-            assignment.submission.fileUrl = fileUrl;
-          }
-        }
-        return assignment;
-      });
-
-      setAssignments(fixedAssignments);
+      setAssignments(res.data || []);
     } catch (err) {
       setToast({ message: "Failed to load assignments", type: "error" });
+    } finally {
+      setLoading(false);
     }
   };
 
   const submitAssignment = async (id) => {
-    // ✅ Check if there's any content to submit
     if (!answers[id]?.text && !answers[id]?.file) {
-      setToast({
-        message: "Please add answer text or upload a file",
-        type: "error",
-      });
+      setToast({ message: "Please add answer text or upload a file", type: "error" });
       return;
     }
 
     const data = new FormData();
-    if (answers[id]?.text) {
-      data.append("answerText", answers[id].text);
-    }
-    if (answers[id]?.file) {
-      data.append("file", answers[id].file);
-    }
+    if (answers[id]?.text) data.append("answerText", answers[id].text);
+    if (answers[id]?.file) data.append("file", answers[id].file);
 
     try {
       const response = await api.post(
         `/student/classes/${classId}/assignments/${id}/submit`,
         data,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          timeout: 30000,
-        },
+        { headers: { "Content-Type": "multipart/form-data" }, timeout: 30000 }
       );
 
       if (response.data.success) {
-        setToast({
-          message: "Assignment submitted successfully!",
-          type: "success",
-        });
-        fetchAssignments(); // Refresh the list
+        setToast({ message: "Assignment submitted successfully!", type: "success" });
+        fetchAssignments();
       }
     } catch (err) {
       console.error("Submit error:", err);
-      setToast({
-        message: err.response?.data?.message || "Error submitting assignment",
-        type: "error",
-      });
+      setToast({ message: err.response?.data?.message || "Error submitting assignment", type: "error" });
     }
   };
 
   const unsendAssignment = async (id) => {
-    if (!window.confirm("Are you sure you want to unsend your submission?"))
-      return;
+    if (!window.confirm("Are you sure you want to unsend your submission?")) return;
     try {
       await api.delete(`/student/classes/${classId}/assignments/${id}/unsend`);
       setToast({ message: "Submission unsent successfully!", type: "success" });
@@ -106,61 +69,41 @@ export default function StudentAssignments() {
     }
   };
 
+  // ✅ Updated openFile function for Cloudinary URLs
   const openFile = (fileUrl) => {
     if (!fileUrl) {
       setToast({ message: "No file attached", type: "error" });
       return;
     }
 
-    const BASE_URL = (
-      import.meta.env.VITE_API_URL || "http://localhost:5000"
-    ).replace("/api", "");
-
     let fullUrl = fileUrl;
 
-    // ✅ Handle Cloudinary URLs (already full URLs)
+    // ✅ If it's already a full URL (Cloudinary)
     if (fileUrl.startsWith("http")) {
       fullUrl = fileUrl;
     }
-    // ✅ Handle local uploads (starts with uploads/)
+    // ✅ Handle local uploads (fallback)
     else if (fileUrl.startsWith("uploads/")) {
       fullUrl = `${BASE_URL}/${fileUrl}`;
     }
-    // ✅ Handle relative paths
+    // ✅ Handle just filename
     else {
-      fullUrl = `${BASE_URL}/uploads/submissions/${fileUrl.split("/").pop()}`;
+      fullUrl = `${BASE_URL}/uploads/submissions/${fileUrl}`;
     }
 
     console.log("Opening file URL:", fullUrl);
-
-    // ✅ For PDF and images, open directly
-    if (
-      fileUrl.toLowerCase().endsWith(".pdf") ||
-      fileUrl.match(/\.(jpg|jpeg|png|gif)$/i)
-    ) {
-      window.open(fullUrl, "_blank");
-    } else {
-      // ✅ For other files, use Google Docs viewer
-      const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`;
-      window.open(viewer, "_blank");
-    }
+    window.open(fullUrl, "_blank");
   };
 
-  if (loading)
-    return <div className="text-center mt-5 text-white">Loading...</div>;
+  if (loading) return <div className="text-center mt-5 text-white">Loading...</div>;
 
   return (
     <div className="assignments-bg min-vh-100 position-relative py-5">
       <Stars />
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast({ message: "", type: "success" })}
-      />
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
 
       <div className="container">
         <BackButton to={`/student/class/${classId}`} label="← Back to Class" />
-
         <h3 className="mb-4 text-white">📝 Assignments</h3>
 
         {assignments.length === 0 ? (
@@ -171,10 +114,7 @@ export default function StudentAssignments() {
             const due = a.dueDate ? new Date(a.dueDate) : null;
             const isBeforeDue = due ? now <= due : true;
             const totalMarks = a.marks ?? 0;
-            const obtainedMarks =
-              a.submission && a.submission.marks != null
-                ? a.submission.marks
-                : null;
+            const obtainedMarks = a.submission?.marks != null ? a.submission.marks : null;
 
             return (
               <div key={a._id} className="assignment-card mb-3 shadow-sm">
@@ -183,10 +123,7 @@ export default function StudentAssignments() {
                 <p className="fw-semibold">Total Marks: {totalMarks}</p>
 
                 {a.attachment && (
-                  <button
-                    className="btn btn-sm btn-outline-primary mb-2"
-                    onClick={() => openFile(a.attachment)}
-                  >
+                  <button className="btn btn-sm btn-outline-primary mb-2" onClick={() => openFile(a.attachment)}>
                     📎 View Assignment File
                   </button>
                 )}
@@ -195,68 +132,29 @@ export default function StudentAssignments() {
                   <>
                     <p className="text-success">✅ Submitted</p>
                     {obtainedMarks != null ? (
-                      <p className="fw-bold text-primary">
-                        Marks: {obtainedMarks} / {totalMarks}
-                      </p>
+                      <p className="fw-bold text-primary">Marks: {obtainedMarks} / {totalMarks}</p>
                     ) : (
                       <p className="text-light-opacity">Marks not graded yet</p>
                     )}
                     {a.submission?.file && (
-                      <button
-                        className="btn btn-sm btn-success mb-2"
-                        onClick={() => openFile(a.submission.file)}
-                      >
+                      <button className="btn btn-sm btn-success mb-2" onClick={() => openFile(a.submission.file)}>
                         View My Submission
                       </button>
                     )}
-                    {a.submission?.answerText && (
-                      <p>{a.submission.answerText}</p>
-                    )}
+                    {a.submission?.answerText && <p>{a.submission.answerText}</p>}
                     {isBeforeDue && (
-                      <button
-                        className="btn btn-sm btn-danger"
-                        onClick={() => unsendAssignment(a._id)}
-                      >
-                        Unsend
-                      </button>
+                      <button className="btn btn-sm btn-danger" onClick={() => unsendAssignment(a._id)}>Unsend</button>
                     )}
                   </>
                 ) : (
                   <>
                     {isBeforeDue ? (
                       <>
-                        <textarea
-                          className="form-control mb-2"
-                          placeholder="Your answer"
-                          onChange={(e) =>
-                            setAnswers({
-                              ...answers,
-                              [a._id]: {
-                                ...answers[a._id],
-                                text: e.target.value,
-                              },
-                            })
-                          }
-                        />
-                        <input
-                          type="file"
-                          className="form-control mb-2"
-                          onChange={(e) =>
-                            setAnswers({
-                              ...answers,
-                              [a._id]: {
-                                ...answers[a._id],
-                                file: e.target.files[0],
-                              },
-                            })
-                          }
-                        />
-                        <button
-                          className="btn btn-success"
-                          onClick={() => submitAssignment(a._id)}
-                        >
-                          Submit
-                        </button>
+                        <textarea className="form-control mb-2" placeholder="Your answer"
+                          onChange={(e) => setAnswers({ ...answers, [a._id]: { ...answers[a._id], text: e.target.value } })} />
+                        <input type="file" className="form-control mb-2"
+                          onChange={(e) => setAnswers({ ...answers, [a._id]: { ...answers[a._id], file: e.target.files[0] } })} />
+                        <button className="btn btn-success" onClick={() => submitAssignment(a._id)}>Submit</button>
                       </>
                     ) : (
                       <p className="text-danger">❌ Submission closed</p>
