@@ -3,9 +3,10 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { sendVerificationEmail, sendWelcomeEmail, sendPasswordResetEmail } = require('../services/emailService');
+const { isEmailApproved } = require("./teacherApprovalController");
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' }); // Extended to 7 days
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 // Step 1: Register (send verification code)
@@ -25,7 +26,6 @@ exports.register = async (req, res) => {
     let user = await User.findOne({ email });
     if (user) {
       if (!user.emailVerified) {
-        // User exists but not verified - resend code
         const code = user.generateVerificationCode();
         await user.save();
         await sendVerificationEmail(email, code, name);
@@ -38,9 +38,21 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
+    // ✅ TEACHER APPROVAL CHECK
+    let userRole = role && ['student', 'teacher'].includes(role) ? role : 'student';
+    
+    if (userRole === 'teacher') {
+      const isApproved = await isEmailApproved(email);
+      if (!isApproved) {
+        return res.status(403).json({ 
+          message: 'This email is not authorized for teacher registration. Please contact admin.',
+          requiresApproval: true
+        });
+      }
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userRole = role && ['student', 'teacher'].includes(role) ? role : 'student';
 
     // Create user (not verified yet)
     user = await User.create({ 
@@ -81,7 +93,6 @@ exports.verifyEmail = async (req, res) => {
       return res.status(400).json({ message: 'Email already verified' });
     }
 
-    // Check code
     if (user.verificationCode !== code) {
       return res.status(400).json({ message: 'Invalid verification code' });
     }
@@ -90,16 +101,13 @@ exports.verifyEmail = async (req, res) => {
       return res.status(400).json({ message: 'Verification code expired. Please request a new one.' });
     }
 
-    // Mark as verified
     user.emailVerified = true;
     user.verificationCode = undefined;
     user.verificationCodeExpires = undefined;
     await user.save();
 
-    // Send welcome email
     await sendWelcomeEmail(email, user.name);
 
-    // Generate token
     const token = generateToken(user._id);
 
     res.json({ 
@@ -138,7 +146,7 @@ exports.resendVerificationCode = async (req, res) => {
   }
 };
 
-// Login (check if verified)
+// Login
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -148,7 +156,6 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // Check if email is verified
     if (!user.emailVerified) {
       return res.status(403).json({ 
         message: 'Please verify your email first',
@@ -173,7 +180,7 @@ exports.login = async (req, res) => {
   }
 };
 
-// Forgot Password - Send reset link
+// Forgot Password
 exports.forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -183,13 +190,11 @@ exports.forgotPassword = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpire = Date.now() + 60 * 60 * 1000; // 1 hour
+    user.resetPasswordExpire = Date.now() + 60 * 60 * 1000;
     await user.save();
 
-    // Send email
     await sendPasswordResetEmail(email, resetToken, user.name);
 
     res.json({ message: 'Password reset link sent to your email' });
@@ -215,7 +220,6 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Invalid or expired token' });
     }
 
-    // Password strength validation
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     if (!passwordRegex.test(newPassword)) {
       return res.status(400).json({ 

@@ -23,6 +23,7 @@ const VideoSummary = require("../models/VideoSummary");
 const StudyGroup = require("../models/StudyGroup");
 const Message = require("../models/Message");
 const ChatSession = require("../models/ChatSession");
+const teacherApprovalController = require("../controllers/teacherApprovalController");
 
 /* ================= USERS ================= */
 router.get("/users", authMiddleware, roleMiddleware("admin"), getAllUsers);
@@ -107,5 +108,8 @@ router.get("/teachers/:id/classes", authMiddleware, roleMiddleware("admin"), get
 router.get("/teacher/classes/:classId", authMiddleware, roleMiddleware("admin"), getClassByIdTeacherAdmin);
 router.get("/analytics/overall", authMiddleware, roleMiddleware("admin"), aiAnalyticsController.getOverallAnalytics);
 router.get("/analytics/hourly", authMiddleware, roleMiddleware("admin"), aiAnalyticsController.getHourlyUsage);
+router.post("/teacher-approval/add", authMiddleware, roleMiddleware("admin"), teacherApprovalController.addApprovedTeacher);
+router.get("/teacher-approval/list", authMiddleware, roleMiddleware("admin"), teacherApprovalController.getApprovedTeachers);
+router.delete("/teacher-approval/:id", authMiddleware, roleMiddleware("admin"), teacherApprovalController.removeApprovedTeacher);
 
 module.exports = router;
