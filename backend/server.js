@@ -21,35 +21,42 @@ const teacherRoutes = require("./routes/teacher");
 const studentRoutes = require("./routes/student");
 
 // ✅ Validate required environment variables
-const requiredEnv = ['MONGO_URI', 'JWT_SECRET', 'GROQ_API_KEY', 'CLOUDINARY_CLOUD_NAME', 'EMAIL_USER', 'EMAIL_PASS'];
-requiredEnv.forEach(key => {
+const requiredEnv = [
+  "MONGO_URI",
+  "JWT_SECRET",
+  "GROQ_API_KEY",
+  "CLOUDINARY_CLOUD_NAME",
+  "EMAIL_USER",
+  "EMAIL_PASS",
+];
+requiredEnv.forEach((key) => {
   if (!process.env[key]) {
     console.error(`❌ Missing required env: ${key}`);
     process.exit(1);
   }
 });
 const app = express();
-app.set('trust proxy', 1); 
+app.set("trust proxy", 1);
 const server = http.createServer(app);
 
 /* =========================
    CORS CONFIGURATION - PRODUCTION READY
 ========================= */
 const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://localhost:5000',
-  'https://ai-studypulse.vercel.app',
-  'https://ai-studypulse.vercel.app/',
-  process.env.FRONTEND_URL
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:5000",
+  "https://ai-studypulse.vercel.app",
+  "https://ai-studypulse.vercel.app/",
+  process.env.FRONTEND_URL,
 ].filter(Boolean);
 
 // CORS options
 const corsOptions = {
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, postman)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -58,36 +65,38 @@ const corsOptions = {
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Authorization']
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Authorization"],
 };
 // Apply CORS middleware - this automatically handles OPTIONS preflight
 app.use(cors(corsOptions));
 
 // ✅ Socket.IO configuration
-const io = new Server(server, { 
+const io = new Server(server, {
   cors: {
-    origin: function(origin, callback) {
+    origin: function (origin, callback) {
       if (!origin) return callback(null, true);
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
-    methods: ['GET', 'POST']
-  }
+    methods: ["GET", "POST"],
+  },
 });
 
 /* =========================
    OTHER MIDDLEWARE
 ========================= */
-app.use(helmet({
-  crossOriginResourcePolicy: { policy: "cross-origin" },
-  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
-}));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  }),
+);
 
 app.use(express.json());
 
@@ -116,13 +125,38 @@ app.use("/api/quizzes/generate", aiLimiter);
 /* =========================
    UPLOADS STATIC FILES
 ========================= */
+/* =========================
+   UPLOADS STATIC FILES WITH CORS FOR GOOGLE DOCS
+========================= */
 const uploadsPath = path.join(__dirname, "uploads");
 const uploadDirs = ["assignments", "submissions", "materials"];
 uploadDirs.forEach((dir) => {
   const full = path.join(uploadsPath, dir);
   if (!fs.existsSync(full)) fs.mkdirSync(full, { recursive: true });
 });
-app.use("/uploads", express.static(uploadsPath));
+
+// ✅ Custom middleware for serving uploads with CORS headers
+const serveUploads = (req, res, next) => {
+  // Allow Google Docs viewer and any origin to access files
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Range, Content-Type");
+  res.setHeader(
+    "Access-Control-Expose-Headers",
+    "Content-Length, Content-Range",
+  );
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+
+  // Handle preflight OPTIONS request
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
+  next();
+};
+
+// Apply middleware before static serving
+app.use("/uploads", serveUploads, express.static(uploadsPath));
 
 /* =========================
    DATABASE CONNECTION
@@ -156,7 +190,7 @@ app.get("/api/debug/cors", (req, res) => {
   res.json({
     message: "CORS is working!",
     origin: req.headers.origin,
-    allowedOrigins: allowedOrigins
+    allowedOrigins: allowedOrigins,
   });
 });
 
@@ -180,5 +214,5 @@ app.locals.io = io;
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`✅ Allowed CORS origins: ${allowedOrigins.join(', ')}`);
+  console.log(`✅ Allowed CORS origins: ${allowedOrigins.join(", ")}`);
 });
