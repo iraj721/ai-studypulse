@@ -1,34 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/authMiddleware");
-const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
-
-// ==================== MULTER CONFIGURATION (MUST BE BEFORE ROUTES) ====================
-const submissionStorage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = "uploads/submissions";
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
-});
-
-const uploadSubmission = multer({ 
-  storage: submissionStorage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type'), false);
-    }
-  }
-});
+const { studentSubmission } = require("../middleware/cloudinaryUpload"); // ✅ Use Cloudinary
 
 // ==================== IMPORT CONTROLLERS ====================
 const {
@@ -65,8 +38,8 @@ router.get("/classes/:classId/materials", auth, getMaterialsForClass);
 router.post("/classes/:classId/announcements/:announcementId/reply", auth, replyToAnnouncement);
 router.delete("/classes/:classId/leave", auth, leaveClass);
 
-// ==================== ASSIGNMENT SUBMIT ROUTES ====================
-router.post("/classes/:classId/assignments/:assignmentId/submit", auth, uploadSubmission.single("file"), submitAssignment);
+// ==================== ASSIGNMENT SUBMIT ROUTES - USE CLOUDINARY ====================
+router.post("/classes/:classId/assignments/:assignmentId/submit", auth, studentSubmission.single("file"), submitAssignment);
 router.delete("/classes/:classId/assignments/:assignmentId/unsend", auth, unsendSubmission);
 
 // ==================== FLASHCARD ROUTES ====================

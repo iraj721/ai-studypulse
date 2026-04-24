@@ -1,6 +1,6 @@
 const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../config/cloudinary");  // ✅ config folder se require karo
+const cloudinary = require("../config/cloudinary");
 
 // File filter - only allow specific file types
 const fileFilter = (req, file, cb) => {
@@ -13,6 +13,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+// Teacher assignments storage
 const assignmentsStorage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => ({
@@ -22,6 +23,7 @@ const assignmentsStorage = new CloudinaryStorage({
   }),
 });
 
+// Materials storage
 const materialsStorage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => ({
@@ -31,19 +33,17 @@ const materialsStorage = new CloudinaryStorage({
   }),
 });
 
-// Add file size limit (5MB)
-const uploadConfig = {
-  storage: assignmentsStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: fileFilter,
-};
+// ✅ Student submissions storage - ADD THIS
+const studentSubmissionStorage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => ({
+    folder: "student_submissions",
+    resource_type: "auto",
+    public_id: `${Date.now()}-${file.originalname}`,
+  }),
+});
 
-const uploadMaterialConfig = {
-  storage: materialsStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
-  fileFilter: fileFilter,
-};
-
+// Notes/study materials storage
 const notesStorage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => ({
@@ -53,12 +53,32 @@ const notesStorage = new CloudinaryStorage({
   }),
 });
 
+const uploadConfig = {
+  storage: assignmentsStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: fileFilter,
+};
+
+const uploadMaterialConfig = {
+  storage: materialsStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: fileFilter,
+};
+
+const studentSubmissionConfig = {
+  storage: studentSubmissionStorage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: fileFilter,
+};
+
 module.exports = {
   assignments: multer(uploadConfig),
   materials: multer(uploadMaterialConfig),
-    uploadStudyMaterial: multer({ 
+  uploadStudyMaterial: multer({ 
     storage: notesStorage, 
-    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    limits: { fileSize: 10 * 1024 * 1024 }, 
     fileFilter: fileFilter 
-  })
+  }),
+  // ✅ Export for student submissions
+  studentSubmission: multer(studentSubmissionConfig),
 };
