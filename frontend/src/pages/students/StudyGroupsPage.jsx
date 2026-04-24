@@ -1,32 +1,68 @@
 import React, { useState, useEffect, useRef } from "react";
-import api from "../../services/api";
 import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
+import api from "../../services/api";
 import Stars from "../../components/Stars";
 import BackButton from "../../components/BackButton";
 import Toast from "../../components/Toast";
-import { FaPlus, FaUsers, FaShare, FaCopy, FaComments, FaStickyNote } from "react-icons/fa";
+import {
+  FaPlus,
+  FaUsers,
+  FaShare,
+  FaCopy,
+  FaComments,
+  FaStickyNote,
+  FaFileAlt,
+  FaVideo,
+  FaLightbulb,
+  FaPaperPlane,
+  FaTrash,
+  FaUserPlus,
+  FaIdCard,
+  FaFilePdf,
+  FaFileWord,
+  FaDownload,
+  FaEye,
+} from "react-icons/fa";
 
 export default function StudyGroupsPage() {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [groups, setGroups] = useState([]);
   const [selectedGroup, setSelectedGroup] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [messageText, setMessageText] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupDesc, setGroupDesc] = useState("");
   const [joinCode, setJoinCode] = useState("");
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([]);
-  const [shareTitle, setShareTitle] = useState("");
-  const [shareContent, setShareContent] = useState("");
-  const [activeTab, setActiveTab] = useState("chat");
   const [toast, setToast] = useState({ message: "", type: "success" });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("chat");
+  const [sharedContent, setSharedContent] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [quizzes, setQuizzes] = useState([]);
+  const [videos, setVideos] = useState([]);
+  const [flashcards, setFlashcards] = useState([]);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareType, setShareType] = useState(null);
+  const [selectedItemId, setSelectedItemId] = useState("");
+  const [sharingLoading, setSharingLoading] = useState(false);
+  const [deleteMenuOpen, setDeleteMenuOpen] = useState(null);
+  const [showContentModal, setShowContentModal] = useState(false);
+  const [viewingContent, setViewingContent] = useState(null);
+  const [showFileShareModal, setShowFileShareModal] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
+  const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
 
   useEffect(() => {
+    fetchUser();
     fetchGroups();
+    fetchUserContent();
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
@@ -36,26 +72,64 @@ export default function StudyGroupsPage() {
 
   useEffect(() => {
     if (selectedGroup && socketRef.current) {
-      socketRef.current.emit('joinGroupRoom', selectedGroup._id);
-      socketRef.current.on('newGroupMessage', (data) => {
-        setMessages(prev => [...prev, data]);
+      socketRef.current.emit("joinGroupRoom", selectedGroup._id);
+
+      socketRef.current.on("newGroupMessage", (data) => {
+        console.log("New message received:", data);
+        setMessages((prev) => {
+          if (prev.some((msg) => msg._id === data._id)) return prev;
+          return [...prev, data];
+        });
+        setTimeout(scrollToBottom, 100);
+      });
+
+      socketRef.current.on(
+        "messageDeleted",
+        ({ messageId, deleteForEveryone }) => {
+          setMessages((prev) => {
+            if (deleteForEveryone) {
+              return prev.filter((msg) => msg._id !== messageId);
+            } else {
+              return prev.map((msg) => {
+                if (msg._id === messageId) {
+                  return {
+                    ...msg,
+                    message: "You deleted this message",
+                    deleted: true,
+                  };
+                }
+                return msg;
+              });
+            }
+          });
+        },
+      );
+
+      socketRef.current.on("contentDeleted", ({ contentId }) => {
+        setSharedContent((prev) => prev.filter((c) => c._id !== contentId));
       });
     }
     return () => {
       if (socketRef.current) {
-        socketRef.current.off('newGroupMessage');
+        socketRef.current.off("newGroupMessage");
+        socketRef.current.off("messageDeleted");
+        socketRef.current.off("contentDeleted");
       }
     };
   }, [selectedGroup]);
 
   useEffect(() => {
-    if (!socketRef.current) {
-      socketRef.current = io(import.meta.env.VITE_API_URL, {
-        transports: ['websocket'],
-        reconnection: true
-      });
+    scrollToBottom();
+  }, [messages]);
+
+  const fetchUser = async () => {
+    try {
+      const res = await api.get("/auth/me");
+      setUser(res.data);
+    } catch (err) {
+      navigate("/login");
     }
-  }, []);
+  };
 
   const fetchGroups = async () => {
     try {
@@ -63,6 +137,8 @@ export default function StudyGroupsPage() {
       setGroups(res.data);
     } catch (err) {
       setToast({ message: "Failed to load groups", type: "error" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -71,8 +147,53 @@ export default function StudyGroupsPage() {
       const res = await api.get(`/student/groups/${groupId}`);
       setSelectedGroup(res.data);
       setMessages(res.data.messages || []);
+
+      const contentRes = await api.get(
+        `/student/groups/${groupId}/shared-content`,
+      );
+      setSharedContent(contentRes.data || []);
     } catch (err) {
       setToast({ message: "Failed to load group details", type: "error" });
+    }
+  };
+
+  const fetchUserContent = async () => {
+    try {
+      const [notesRes, quizzesRes, videosRes, flashcardsRes] =
+        await Promise.all([
+          api.get("/notes").catch(() => ({ data: [] })),
+          api.get("/quizzes").catch(() => ({ data: [] })),
+          api.get("/student/video/summaries").catch(() => ({ data: [] })),
+          api.get("/flashcards").catch(() => ({ data: [] })),
+        ]);
+      setNotes(notesRes.data || []);
+      setQuizzes(quizzesRes.data || []);
+      setVideos(videosRes.data || []);
+      setFlashcards(flashcardsRes.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const initSocket = () => {
+    if (!socketRef.current) {
+      socketRef.current = io(
+        import.meta.env.VITE_API_URL || "http://localhost:5000",
+        {
+          transports: ["websocket", "polling"],
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+        },
+      );
+
+      socketRef.current.on("connect", () => {
+        console.log("Socket connected");
+      });
+
+      socketRef.current.on("connect_error", (error) => {
+        console.log("Socket connection error:", error);
+      });
     }
   };
 
@@ -80,8 +201,14 @@ export default function StudyGroupsPage() {
     if (!groupName.trim()) return;
     setLoading(true);
     try {
-      const res = await api.post("/student/groups/create", { name: groupName, description: groupDesc });
-      setToast({ message: `Group created! Code: ${res.data.code}`, type: "success" });
+      const res = await api.post("/student/groups/create", {
+        name: groupName,
+        description: groupDesc,
+      });
+      setToast({
+        message: `Group created! Code: ${res.data.code}`,
+        type: "success",
+      });
       setShowCreateModal(false);
       setGroupName("");
       setGroupDesc("");
@@ -103,33 +230,152 @@ export default function StudyGroupsPage() {
       setJoinCode("");
       fetchGroups();
     } catch (err) {
-      setToast({ message: err.response?.data?.message || "Failed to join", type: "error" });
+      setToast({
+        message: err.response?.data?.message || "Failed to join",
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const sendMessage = async () => {
-    if (!message.trim() || !selectedGroup) return;
+    if (!messageText.trim() || !selectedGroup) return;
     try {
-      await api.post(`/student/groups/${selectedGroup._id}/messages`, { message });
-      setMessages(prev => [...prev, { userName: "You", message, createdAt: new Date() }]);
-      setMessage("");
+      await api.post(`/student/groups/${selectedGroup._id}/messages`, {
+        message: messageText,
+        type: "text",
+      });
+      setMessageText("");
     } catch (err) {
       setToast({ message: "Failed to send message", type: "error" });
     }
   };
 
-  const shareNote = async () => {
-    if (!shareTitle.trim() || !shareContent.trim()) return;
+  const deleteMessage = async (messageId, deleteForEveryone = false) => {
     try {
-      await api.post(`/student/groups/${selectedGroup._id}/notes`, { title: shareTitle, content: shareContent });
-      setToast({ message: "Note shared successfully!", type: "success" });
-      setShareTitle("");
-      setShareContent("");
-      fetchGroupDetails(selectedGroup._id);
+      await api.delete(
+        `/student/groups/${selectedGroup._id}/messages/${messageId}`,
+        {
+          data: { deleteForEveryone },
+        },
+      );
+      if (deleteForEveryone) {
+        setMessages((prev) => prev.filter((msg) => msg._id !== messageId));
+      } else {
+        setMessages((prev) =>
+          prev.map((msg) => {
+            if (msg._id === messageId) {
+              return {
+                ...msg,
+                message: "You deleted this message",
+                deleted: true,
+              };
+            }
+            return msg;
+          }),
+        );
+      }
+      setToast({
+        message: deleteForEveryone
+          ? "Message deleted for everyone"
+          : "Message deleted",
+        type: "success",
+      });
+      setDeleteMenuOpen(null);
     } catch (err) {
-      setToast({ message: "Failed to share note", type: "error" });
+      setToast({ message: "Failed to delete message", type: "error" });
+    }
+  };
+
+  const deleteSharedContent = async (contentId) => {
+    try {
+      await api.delete(
+        `/student/groups/${selectedGroup._id}/shared-content/${contentId}`,
+      );
+      setToast({ message: "Content deleted successfully", type: "success" });
+      setSharedContent((prev) => prev.filter((c) => c._id !== contentId));
+    } catch (err) {
+      setToast({ message: "Failed to delete content", type: "error" });
+    }
+  };
+
+  const shareContent = async () => {
+    if (!selectedItemId) {
+      setToast({ message: "Please select an item to share", type: "error" });
+      return;
+    }
+
+    setSharingLoading(true);
+    let endpoint = "";
+    let payload = {};
+
+    if (shareType === "note") {
+      endpoint = `/student/groups/${selectedGroup._id}/share-note`;
+      payload = { noteId: selectedItemId };
+    } else if (shareType === "quiz") {
+      endpoint = `/student/groups/${selectedGroup._id}/share-quiz`;
+      payload = { quizId: selectedItemId };
+    } else if (shareType === "youtube") {
+      endpoint = `/student/groups/${selectedGroup._id}/share-youtube`;
+      payload = { videoId: selectedItemId };
+    } else if (shareType === "insight") {
+      endpoint = `/student/groups/${selectedGroup._id}/share-insight`;
+      payload = { insightId: selectedItemId };
+    } else if (shareType === "flashcard") {
+      endpoint = `/student/groups/${selectedGroup._id}/share-flashcard`;
+      payload = { flashcardId: selectedItemId };
+    }
+
+    try {
+      await api.post(endpoint, payload);
+      setToast({
+        message: `${shareType?.toUpperCase()} shared successfully!`,
+        type: "success",
+      });
+      setShowShareModal(false);
+      setSelectedItemId("");
+      setShareType(null);
+      await fetchGroupDetails(selectedGroup._id);
+    } catch (err) {
+      console.error("Share error:", err);
+      setToast({
+        message: err.response?.data?.message || `Failed to share ${shareType}`,
+        type: "error",
+      });
+    } finally {
+      setSharingLoading(false);
+    }
+  };
+
+  const shareFile = async () => {
+    if (!selectedFile) {
+      setToast({ message: "Please select a file", type: "error" });
+      return;
+    }
+
+    setUploadingFile(true);
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    formData.append("groupId", selectedGroup._id);
+
+    try {
+      const response = await api.post(
+        `/student/groups/${selectedGroup._id}/share-file`,
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+      setToast({ message: "File shared successfully!", type: "success" });
+      setShowFileShareModal(false);
+      setSelectedFile(null);
+      await fetchGroupDetails(selectedGroup._id);
+    } catch (err) {
+      console.error("File share error:", err);
+      setToast({ message: "Failed to share file", type: "error" });
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -138,10 +384,142 @@ export default function StudyGroupsPage() {
     setToast({ message: "Code copied!", type: "success" });
   };
 
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  const canDeleteForEveryone = (message) => {
+    if (!selectedGroup || !user) return false;
+    const isOwner = message.user?._id === user._id || message.user === user._id;
+    const isGroupCreator =
+      selectedGroup.createdBy?._id === user._id ||
+      selectedGroup.createdBy === user._id;
+    return isOwner || isGroupCreator;
+  };
+
+  const formatTime = (date) => {
+    return new Date(date).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const openSharedContent = async (item) => {
+    if (item.type === "note") {
+      const noteId = item.metadata?.noteId;
+      if (noteId && selectedGroup) {
+        try {
+          const response = await api.get(
+            `/student/groups/${selectedGroup._id}/view-note/${noteId}`,
+          );
+          const noteData = response.data;
+          setViewingContent({
+            type: "note",
+            title: noteData.title,
+            content: noteData.content,
+            subject: noteData.subject,
+            topic: noteData.topic,
+            sharedBy: noteData.sharedBy,
+            sharedAt: noteData.sharedAt,
+          });
+          setShowContentModal(true);
+        } catch (err) {
+          setToast({ message: "Failed to load note", type: "error" });
+        }
+      }
+    } else if (item.type === "quiz") {
+      const quizId = item.metadata?.quizId;
+      if (quizId && selectedGroup) {
+        try {
+          const response = await api.get(
+            `/student/groups/${selectedGroup._id}/view-quiz/${quizId}`,
+          );
+          const quizData = response.data;
+          setViewingContent({
+            type: "quiz",
+            title: quizData.topic,
+            content: quizData,
+            sharedBy: quizData.sharedBy,
+            sharedAt: quizData.sharedAt,
+          });
+          setShowContentModal(true);
+        } catch (err) {
+          setToast({ message: "Failed to load quiz", type: "error" });
+        }
+      }
+    } else if (item.type === "youtube") {
+      // Video opens in modal too
+      setViewingContent({
+        type: "youtube",
+        title: item.title,
+        content: item.metadata?.summary || item.content,
+        videoUrl: item.metadata?.videoUrl,
+        sharedBy: item.sharedByName,
+        sharedAt: item.sharedAt,
+      });
+      setShowContentModal(true);
+    } else if (item.type === "insight") {
+      setViewingContent({
+        type: "insight",
+        title: item.title,
+        content: item.metadata?.fullContent || item.content,
+        sharedBy: item.sharedByName,
+        sharedAt: item.sharedAt,
+      });
+      setShowContentModal(true);
+    } else if (item.type === "flashcard") {
+      const flashcardId = item.metadata?.flashcardId;
+      if (flashcardId && selectedGroup) {
+        try {
+          const response = await api.get(
+            `/student/groups/${selectedGroup._id}/view-flashcard/${flashcardId}`,
+          );
+          const flashcardData = response.data;
+          setViewingContent({
+            type: "flashcard",
+            title: flashcardData.noteTopic || "Flashcard",
+            front: flashcardData.front,
+            back: flashcardData.back,
+            sharedBy: flashcardData.sharedBy,
+            sharedAt: flashcardData.sharedAt,
+          });
+          setShowContentModal(true);
+        } catch (err) {
+          setToast({ message: "Failed to load flashcard", type: "error" });
+        }
+      }
+    } else if (item.type === "file") {
+      setViewingContent({
+        type: "file",
+        title: item.title,
+        fileUrl: item.metadata?.fileUrl,
+        fileName: item.metadata?.fileName,
+        fileType: item.metadata?.fileType,
+        sharedBy: item.sharedByName,
+        sharedAt: item.sharedAt,
+      });
+      setShowContentModal(true);
+    }
+  };
+
+  const downloadFile = (fileUrl, fileName) => {
+    window.open(fileUrl, "_blank");
+  };
+
+  if (loading) {
+    return <div className="text-center mt-5">Loading...</div>;
+  }
+
   return (
     <div className="groups-page min-vh-100 py-5 position-relative">
       <Stars />
-      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: "", type: "success" })}
+      />
 
       <div className="container">
         <BackButton to="/dashboard" label="← Back to Dashboard" />
@@ -149,29 +527,50 @@ export default function StudyGroupsPage() {
         <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
           <h2 className="text-white fw-bold">👥 Study Groups</h2>
           <div className="groups-actions">
-            <button onClick={() => setShowCreateModal(true)} className="btn-create">
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="btn-create"
+            >
               <FaPlus /> Create Group
             </button>
             <button onClick={() => setShowJoinModal(true)} className="btn-join">
-              <FaUsers /> Join Group
+              <FaUserPlus /> Join Group
             </button>
           </div>
         </div>
 
         <div className="groups-layout">
-          {/* Sidebar - Groups List */}
           <div className="groups-sidebar">
             <h5>My Groups ({groups.length})</h5>
             <div className="groups-list">
               {groups.length === 0 ? (
-                <div className="empty-groups">No groups yet. Create or join one!</div>
+                <div className="empty-groups">
+                  No groups yet. Create or join one!
+                </div>
               ) : (
-                groups.map(group => (
-                  <div key={group._id} className={`group-item ${selectedGroup?._id === group._id ? 'active' : ''}`} onClick={() => fetchGroupDetails(group._id)}>
-                    <div className="group-avatar"><FaUsers /></div>
+                groups.map((group) => (
+                  <div
+                    key={group._id}
+                    className={`group-item ${selectedGroup?._id === group._id ? "active" : ""}`}
+                    onClick={() => {
+                      fetchGroupDetails(group._id);
+                      initSocket();
+                    }}
+                  >
+                    <div className="group-avatar">
+                      <FaUsers />
+                    </div>
                     <div className="group-details">
                       <div className="group-name">{group.name}</div>
-                      <div className="group-code" onClick={(e) => { e.stopPropagation(); copyCode(group.code); }}>Code: {group.code} <FaCopy /></div>
+                      <div
+                        className="group-code"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyCode(group.code);
+                        }}
+                      >
+                        Code: {group.code} <FaCopy />
+                      </div>
                     </div>
                   </div>
                 ))
@@ -179,7 +578,6 @@ export default function StudyGroupsPage() {
             </div>
           </div>
 
-          {/* Main Content */}
           <div className="groups-main">
             {selectedGroup ? (
               <>
@@ -187,144 +585,620 @@ export default function StudyGroupsPage() {
                   <div>
                     <h3>{selectedGroup.name}</h3>
                     <p>{selectedGroup.description}</p>
-                    <span className="member-count">👥 {selectedGroup.members?.length || 0} members</span>
+                    <span className="member-count">
+                      👥 {selectedGroup.members?.length || 0} members
+                    </span>
+                  </div>
+                  <div className="share-buttons">
+                    <button
+                      onClick={() => {
+                        setShareType("note");
+                        setShowShareModal(true);
+                      }}
+                      className="share-btn note"
+                    >
+                      <FaStickyNote /> Note
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShareType("quiz");
+                        setShowShareModal(true);
+                      }}
+                      className="share-btn quiz"
+                    >
+                      <FaFileAlt /> Quiz
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShareType("youtube");
+                        setShowShareModal(true);
+                      }}
+                      className="share-btn video"
+                    >
+                      <FaVideo /> Video
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShareType("insight");
+                        setShowShareModal(true);
+                      }}
+                      className="share-btn insight"
+                    >
+                      <FaLightbulb /> Insight
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShareType("flashcard");
+                        setShowShareModal(true);
+                      }}
+                      className="share-btn flashcard"
+                    >
+                      <FaIdCard /> Flashcard
+                    </button>
+                    <button
+                      onClick={() => setShowFileShareModal(true)}
+                      className="share-btn file"
+                    >
+                      <FaFilePdf /> File
+                    </button>
                   </div>
                 </div>
 
                 <div className="group-tabs">
-                  <button className={`tab-btn ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => setActiveTab('chat')}>
-                    <FaComments /> Chat
+                  <button
+                    className={`tab-btn ${activeTab === "chat" ? "active" : ""}`}
+                    onClick={() => setActiveTab("chat")}
+                  >
+                    <FaComments /> Chat ({messages.length})
                   </button>
-                  <button className={`tab-btn ${activeTab === 'notes' ? 'active' : ''}`} onClick={() => setActiveTab('notes')}>
-                    <FaStickyNote /> Shared Notes
+                  <button
+                    className={`tab-btn ${activeTab === "shared" ? "active" : ""}`}
+                    onClick={() => setActiveTab("shared")}
+                  >
+                    <FaShare /> Shared Content ({sharedContent.length})
                   </button>
                 </div>
 
-                {activeTab === 'chat' && (
+                {activeTab === "chat" && (
                   <div className="chat-container">
                     <div className="chat-messages">
                       {messages.length === 0 ? (
-                        <div className="no-messages">No messages yet. Start the conversation!</div>
+                        <div className="no-messages">
+                          No messages yet. Start the conversation!
+                        </div>
                       ) : (
-                        messages.map((msg, idx) => (
-                          <div key={idx} className="chat-message">
-                            <strong>{msg.userName}:</strong> {msg.message}
-                            <small>{new Date(msg.createdAt).toLocaleTimeString()}</small>
-                          </div>
-                        ))
+                        messages.map((msg) => {
+                          const isOwnMessage =
+                            msg.user?._id === user?._id ||
+                            msg.user === user?._id;
+                          const isDeleted = msg.deleted === true;
+                          return (
+                            <div
+                              key={msg._id}
+                              className={`message-row ${isOwnMessage ? "own" : "other"}`}
+                            >
+                              {!isOwnMessage && !isDeleted && (
+                                <div className="message-sender-name">
+                                  {msg.userName}
+                                </div>
+                              )}
+                              <div
+                                className={`message-bubble ${isOwnMessage ? "own" : "other"} ${isDeleted ? "deleted" : ""}`}
+                              >
+                                <div className="message-text">
+                                  {msg.type !== "text" && !isDeleted && (
+                                    <span className="message-type-icon">
+                                      {msg.type === "note" && "📓 "}
+                                      {msg.type === "quiz" && "📝 "}
+                                      {msg.type === "youtube" && "🎥 "}
+                                      {msg.type === "insight" && "💡 "}
+                                      {msg.type === "flashcard" && "🃏 "}
+                                      {msg.type === "file" && "📄 "}
+                                    </span>
+                                  )}
+                                  {msg.message}
+                                </div>
+                                <div className="message-footer">
+                                  <span className="message-time">
+                                    {formatTime(msg.createdAt)}
+                                  </span>
+                                  {!isDeleted &&
+                                    (isOwnMessage ||
+                                      canDeleteForEveryone(msg)) && (
+                                      <div className="message-delete-wrapper">
+                                        <button
+                                          className="message-delete-btn"
+                                          onClick={() =>
+                                            setDeleteMenuOpen(
+                                              deleteMenuOpen === msg._id
+                                                ? null
+                                                : msg._id,
+                                            )
+                                          }
+                                        >
+                                          <FaTrash />
+                                        </button>
+                                        {deleteMenuOpen === msg._id && (
+                                          <div className="delete-menu">
+                                            <button
+                                              onClick={() =>
+                                                deleteMessage(msg._id, false)
+                                              }
+                                            >
+                                              Delete for me
+                                            </button>
+                                            {canDeleteForEveryone(msg) && (
+                                              <button
+                                                onClick={() =>
+                                                  deleteMessage(msg._id, true)
+                                                }
+                                              >
+                                                Delete for everyone
+                                              </button>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
                       )}
+                      <div ref={messagesEndRef} />
                     </div>
                     <div className="chat-input">
-                      <input type="text" value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message..." onKeyPress={(e) => e.key === 'Enter' && sendMessage()} />
-                      <button onClick={sendMessage}>Send</button>
+                      <input
+                        type="text"
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                        placeholder="Type a message..."
+                        onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                      />
+                      <button onClick={sendMessage}>
+                        <FaPaperPlane /> Send
+                      </button>
                     </div>
                   </div>
                 )}
 
-                {activeTab === 'notes' && (
-                  <div className="notes-container">
-                    <div className="share-note-box">
-                      <h5><FaShare /> Share a Note</h5>
-                      <input type="text" placeholder="Title" value={shareTitle} onChange={(e) => setShareTitle(e.target.value)} />
-                      <textarea placeholder="Content" value={shareContent} onChange={(e) => setShareContent(e.target.value)} rows={3} />
-                      <button onClick={shareNote}>Share Note</button>
-                    </div>
-                    <div className="shared-notes-list">
-                      <h5>📖 Shared Notes</h5>
-                      {selectedGroup.notes?.length === 0 ? (
-                        <p className="text-muted">No notes shared yet</p>
-                      ) : (
-                        selectedGroup.notes?.map((note, idx) => (
-                          <div key={idx} className="shared-note">
-                            <div className="note-title">{note.title}</div>
-                            <div className="note-content">{note.content?.substring(0, 150)}...</div>
-                            <div className="note-meta">Shared by {note.createdBy?.name}</div>
+                {activeTab === "shared" && (
+                  <div className="shared-content-container">
+                    {sharedContent.length === 0 ? (
+                      <div className="no-content">
+                        No shared content yet. Share something using the buttons
+                        above!
+                      </div>
+                    ) : (
+                      sharedContent.map((item) => {
+                        const isOwner =
+                          item.sharedBy?._id === user?._id ||
+                          item.sharedBy === user?._id;
+                        const isGroupCreator =
+                          selectedGroup.createdBy?._id === user?._id ||
+                          selectedGroup.createdBy === user?._id;
+                        const canDelete = isOwner || isGroupCreator;
+                        return (
+                          <div key={item._id} className="shared-item">
+                            <div className="shared-icon">
+                              {item.type === "note" && "📓"}
+                              {item.type === "quiz" && "📝"}
+                              {item.type === "youtube" && "🎥"}
+                              {item.type === "insight" && "💡"}
+                              {item.type === "flashcard" && "🃏"}
+                              {item.type === "file" && "📄"}
+                            </div>
+                            <div className="shared-info">
+                              <div className="shared-title">{item.title}</div>
+                              <div className="shared-content-preview">
+                                {item.content}
+                              </div>
+                              <div className="shared-meta">
+                                Shared by {item.sharedByName} •{" "}
+                                {new Date(item.sharedAt).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <div className="shared-actions">
+                              <button
+                                className="shared-view-btn"
+                                onClick={() => openSharedContent(item)}
+                              >
+                                <FaEye /> View
+                              </button>
+                              {canDelete && (
+                                <button
+                                  className="shared-delete-btn"
+                                  onClick={() => deleteSharedContent(item._id)}
+                                >
+                                  <FaTrash />
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        ))
-                      )}
-                    </div>
+                        );
+                      })
+                    )}
                   </div>
                 )}
               </>
             ) : (
-              <div className="no-group-selected">Select a group to start collaborating</div>
+              <div className="no-group-selected">
+                Select a group to start collaborating
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Modals */}
+      {/* Create Modal */}
       {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+        <div
+          className="modal-overlay"
+          onClick={() => setShowCreateModal(false)}
+        >
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h4>Create Study Group</h4>
-            <input type="text" placeholder="Group Name" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
-            <textarea placeholder="Description (optional)" value={groupDesc} onChange={(e) => setGroupDesc(e.target.value)} rows={3} />
+            <input
+              type="text"
+              placeholder="Group Name"
+              value={groupName}
+              onChange={(e) => setGroupName(e.target.value)}
+            />
+            <textarea
+              placeholder="Description (optional)"
+              value={groupDesc}
+              onChange={(e) => setGroupDesc(e.target.value)}
+              rows={3}
+            />
             <div className="modal-actions">
-              <button onClick={createGroup} disabled={loading}>Create</button>
+              <button onClick={createGroup} disabled={loading}>
+                Create
+              </button>
               <button onClick={() => setShowCreateModal(false)}>Cancel</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Join Modal */}
       {showJoinModal && (
         <div className="modal-overlay" onClick={() => setShowJoinModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h4>Join Study Group</h4>
-            <input type="text" placeholder="Enter Group Code" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} />
+            <input
+              type="text"
+              placeholder="Enter Group Code"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+            />
             <div className="modal-actions">
-              <button onClick={joinGroup} disabled={loading}>Join</button>
+              <button onClick={joinGroup} disabled={loading}>
+                Join
+              </button>
               <button onClick={() => setShowJoinModal(false)}>Cancel</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="modal-overlay" onClick={() => setShowShareModal(false)}>
+          <div
+            className="modal-content share-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h4>Share {shareType?.toUpperCase()}</h4>
+            <select
+              value={selectedItemId}
+              onChange={(e) => setSelectedItemId(e.target.value)}
+            >
+              <option value="">Select {shareType} to share...</option>
+              {shareType === "note" &&
+                notes.map((n) => (
+                  <option key={n._id} value={n._id}>
+                    {n.subject} - {n.topic}
+                  </option>
+                ))}
+              {shareType === "quiz" &&
+                quizzes.map((q) => (
+                  <option key={q._id} value={q._id}>
+                    {q.topic}
+                  </option>
+                ))}
+              {shareType === "youtube" &&
+                videos.map((v) => (
+                  <option key={v._id} value={v._id}>
+                    {v.title}
+                  </option>
+                ))}
+              {shareType === "insight" && (
+                <option value="mock-insight-1">
+                  AI Learning Progress Insight
+                </option>
+              )}
+              {shareType === "flashcard" &&
+                flashcards.map((group) =>
+                  group.flashcards?.map((card) => (
+                    <option key={card._id} value={card._id}>
+                      {group.noteTopic || "Flashcard"} -{" "}
+                      {card.front.substring(0, 50)}...
+                    </option>
+                  )),
+                )}
+            </select>
+            <div className="modal-actions">
+              <button onClick={shareContent} disabled={sharingLoading}>
+                {sharingLoading ? "Sharing..." : "Share"}
+              </button>
+              <button onClick={() => setShowShareModal(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Share Modal */}
+      {showFileShareModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowFileShareModal(false)}
+        >
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h4>📄 Share File</h4>
+            <input
+              type="file"
+              onChange={(e) => setSelectedFile(e.target.files[0])}
+              accept=".pdf,.doc,.docx,.txt,.jpg,.png"
+            />
+            <div className="modal-actions">
+              <button onClick={shareFile} disabled={uploadingFile}>
+                {uploadingFile ? "Uploading..." : "Share"}
+              </button>
+              <button onClick={() => setShowFileShareModal(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Content Modal */}
+      {showContentModal && viewingContent && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowContentModal(false)}
+        >
+          <div
+            className="modal-content content-view-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h4>
+              {viewingContent.type === "note" && "📓 "}
+              {viewingContent.type === "quiz" && "📝 "}
+              {viewingContent.type === "insight" && "💡 "}
+              {viewingContent.type === "flashcard" && "🃏 "}
+              {viewingContent.type === "youtube" && "🎥 "}
+              {viewingContent.type === "file" && "📄 "}
+              {viewingContent.title}
+            </h4>
+            <div className="content-meta">
+              Shared by {viewingContent.sharedBy} •{" "}
+              {new Date(viewingContent.sharedAt).toLocaleString()}
+            </div>
+            <div className="content-body">
+              {viewingContent.type === "note" && (
+                <div className="note-content">
+                  <div className="note-subject">
+                    <strong>Subject:</strong> {viewingContent.subject}
+                  </div>
+                  <div className="note-topic">
+                    <strong>Topic:</strong> {viewingContent.topic}
+                  </div>
+                  <div className="note-text">
+                    <strong>Content:</strong>
+                    <br />
+                    {viewingContent.content}
+                  </div>
+                </div>
+              )}
+              {viewingContent.type === "quiz" && viewingContent.content && (
+                <div className="quiz-content">
+                  <p>
+                    <strong>Description:</strong>{" "}
+                    {viewingContent.content.description || "No description"}
+                  </p>
+                  <div className="quiz-questions">
+                    <strong>
+                      Questions ({viewingContent.content.questions?.length || 0}
+                      )
+                    </strong>
+                    {viewingContent.content.questions?.map((q, idx) => (
+                      <div key={idx} className="quiz-question">
+                        <p>
+                          <strong>
+                            {idx + 1}. {q.question}
+                          </strong>
+                        </p>
+                        <ul>
+                          {q.options?.map((opt, optIdx) => (
+                            <li
+                              key={optIdx}
+                              className={
+                                opt === q.answer ? "correct-answer" : ""
+                              }
+                            >
+                              {opt} {opt === q.answer && "✓"}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {viewingContent.type === "insight" && (
+                <div className="insight-content">
+                  <p>{viewingContent.content}</p>
+                  <div className="insight-tip">
+                    💡 AI-generated learning insight
+                  </div>
+                </div>
+              )}
+              {viewingContent.type === "flashcard" && (
+                <div className="flashcard-content">
+                  <div className="flashcard-front">
+                    <strong>📖 Question:</strong>
+                    <p>{viewingContent.front}</p>
+                  </div>
+                  <div className="flashcard-back">
+                    <strong>✅ Answer:</strong>
+                    <p>{viewingContent.back}</p>
+                  </div>
+                </div>
+              )}
+              {viewingContent.type === "youtube" && (
+                <div className="youtube-content">
+                  <p>
+                    <strong>Summary:</strong>
+                  </p>
+                  <p>{viewingContent.content}</p>
+                </div>
+              )}
+              {viewingContent.type === "file" && (
+                <div className="file-content">
+                  <p>
+                    <strong>File:</strong> {viewingContent.fileName}
+                  </p>
+                  <div className="file-actions">
+                    <button
+                      className="download-btn"
+                      onClick={() =>
+                        downloadFile(
+                          viewingContent.fileUrl,
+                          viewingContent.fileName,
+                        )
+                      }
+                    >
+                      <FaDownload /> Download File
+                    </button>
+                    {viewingContent.fileType === "pdf" && (
+                      <iframe
+                        src={viewingContent.fileUrl}
+                        width="100%"
+                        height="500px"
+                        title="PDF Viewer"
+                      ></iframe>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowContentModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
-        .groups-page {
-          background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #1a2a3d 100%);
-        }
+        .groups-page { background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #1a2a3d 100%); min-height: 100vh; }
         .groups-actions { display: flex; gap: 12px; }
-        .btn-create { background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-        .btn-join { background: #22c55e; color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
-        .groups-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+        .btn-create, .btn-join { padding: 10px 20px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; border: none; }
+        .btn-create { background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; }
+        .btn-join { background: #22c55e; color: white; }
+        .groups-layout { display: grid; grid-template-columns: 300px 1fr; gap: 20px; min-height: 500px; }
         .groups-sidebar { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px; color: white; }
-        .groups-sidebar h5 { margin-bottom: 15px; }
         .groups-list { max-height: 500px; overflow-y: auto; }
         .group-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
         .group-item:hover, .group-item.active { background: linear-gradient(135deg, #4f46e5, #6366f1); }
-        .group-avatar { font-size: 24px; }
         .group-name { font-weight: 600; }
         .group-code { font-size: 10px; opacity: 0.7; cursor: pointer; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
         .groups-main { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px; color: white; }
-        .group-header { margin-bottom: 20px; }
+        .group-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
         .member-count { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-top: 8px; }
+        .share-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+        .share-btn { padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; border: none; font-weight: 500; transition: all 0.2s; }
+        .share-btn.note { background: #3b82f6; color: white; }
+        .share-btn.quiz { background: #10b981; color: white; }
+        .share-btn.video { background: #ef4444; color: white; }
+        .share-btn.insight { background: #8b5cf6; color: white; }
+        .share-btn.flashcard { background: #f59e0b; color: white; }
+        .share-btn.file { background: #6b7280; color: white; }
+        .share-btn:hover { transform: translateY(-2px); opacity: 0.9; }
         .group-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; }
-        .tab-btn { background: none; border: none; color: white; padding: 8px 16px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; }
-        .tab-btn.active { background: rgba(255,255,255,0.2); border-radius: 10px; }
-        .chat-container { height: 400px; display: flex; flex-direction: column; }
-        .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 15px; }
-        .chat-message { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 12px; margin-bottom: 8px; display: flex; justify-content: space-between; flex-wrap: wrap; }
-        .chat-message small { font-size: 10px; opacity: 0.6; }
-        .no-messages { text-align: center; padding: 40px; opacity: 0.6; }
-        .chat-input { display: flex; gap: 10px; }
-        .chat-input input { flex: 1; padding: 12px; border: none; border-radius: 12px; }
-        .chat-input button { background: #4f46e5; color: white; border: none; padding: 12px 24px; border-radius: 12px; cursor: pointer; }
-        .share-note-box { background: rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
-        .share-note-box input, .share-note-box textarea { width: 100%; margin-bottom: 10px; padding: 10px; border: none; border-radius: 8px; }
-        .share-note-box button { background: #22c55e; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; }
-        .shared-notes-list { max-height: 300px; overflow-y: auto; }
-        .shared-note { background: rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
-        .note-title { font-weight: 600; margin-bottom: 5px; }
-        .note-content { font-size: 12px; opacity: 0.8; }
-        .note-meta { font-size: 10px; opacity: 0.6; margin-top: 8px; }
-        .no-group-selected { display: flex; align-items: center; justify-content: center; height: 400px; opacity: 0.6; }
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .tab-btn { background: none; border: none; color: white; padding: 8px 20px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; border-radius: 10px; font-size: 14px; }
+        .tab-btn.active { background: rgba(255,255,255,0.2); }
+        .tab-btn:hover { background: rgba(255,255,255,0.1); }
+        .chat-container { display: flex; flex-direction: column; height: 450px; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+        .message-row { display: flex; flex-direction: column; margin-bottom: 8px; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .message-row.own { align-items: flex-end; }
+        .message-row.other { align-items: flex-start; }
+        .message-sender-name { font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7); margin-bottom: 4px; margin-left: 12px; }
+        .message-bubble { max-width: 70%; padding: 10px 14px; border-radius: 18px; position: relative; word-wrap: break-word; transition: all 0.2s; }
+        .message-bubble.own { background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; border-bottom-right-radius: 4px; }
+        .message-bubble.other { background: rgba(255,255,255,0.15); color: white; border-bottom-left-radius: 4px; }
+        .message-bubble.deleted { opacity: 0.6; font-style: italic; background: rgba(255,255,255,0.08); }
+        .message-text { font-size: 14px; line-height: 1.4; }
+        .message-type-icon { font-weight: bold; margin-right: 4px; }
+        .message-footer { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 4px; }
+        .message-time { font-size: 10px; opacity: 0.6; }
+        .message-delete-wrapper { position: relative; display: inline-flex; }
+        .message-delete-btn { background: none; border: none; color: rgba(255,255,255,0.4); cursor: pointer; padding: 2px 6px; border-radius: 4px; font-size: 10px; transition: all 0.2s; }
+        .message-delete-btn:hover { color: #ef4444; background: rgba(0,0,0,0.1); }
+        .delete-menu { position: absolute; bottom: 100%; right: 0; background: #1e1e2e; color: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 10; margin-bottom: 5px; min-width: 140px; }
+        .delete-menu button { display: block; width: 100%; padding: 10px 14px; border: none; background: #2a2a3e; color: white; text-align: left; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+        .delete-menu button:hover { background: #ef4444; }
+        .chat-input { display: flex; gap: 10px; margin-top: 10px; }
+        .chat-input input { flex: 1; padding: 12px 18px; border: none; border-radius: 24px; background: rgba(255,255,255,0.15); color: white; outline: none; font-size: 14px; }
+        .chat-input input::placeholder { color: rgba(255,255,255,0.6); }
+        .chat-input button { padding: 12px 24px; background: linear-gradient(135deg, #4f46e5, #6366f1); border: none; border-radius: 24px; color: white; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; transition: all 0.2s; }
+        .shared-content-container { max-height: 450px; overflow-y: auto; }
+        .shared-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(255,255,255,0.08); border-radius: 12px; margin-bottom: 10px; transition: all 0.2s; }
+        .shared-item:hover { background: rgba(255,255,255,0.12); }
+        .shared-icon { font-size: 32px; min-width: 50px; text-align: center; }
+        .shared-info { flex: 1; }
+        .shared-title { font-weight: 600; margin-bottom: 5px; font-size: 14px; }
+        .shared-content-preview { font-size: 12px; opacity: 0.7; margin-bottom: 5px; }
+        .shared-meta { font-size: 10px; opacity: 0.5; }
+        .shared-actions { display: flex; gap: 8px; align-items: center; }
+        .shared-view-btn, .download-btn { padding: 8px 16px; background: linear-gradient(135deg, #4f46e5, #6366f1); border-radius: 8px; color: white; font-size: 12px; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; display: flex; align-items: center; gap: 5px; }
+        .shared-view-btn:hover, .download-btn:hover { transform: translateY(-1px); }
+        .shared-delete-btn { padding: 8px 12px; background: rgba(239, 68, 68, 0.2); border: none; border-radius: 8px; color: #ef4444; cursor: pointer; transition: all 0.2s; }
+        .shared-delete-btn:hover { background: rgba(239, 68, 68, 0.4); }
+        .no-group-selected, .no-messages, .no-content { display: flex; align-items: center; justify-content: center; height: 400px; opacity: 0.6; text-align: center; font-size: 14px; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; color: black; }
-        .modal-content input, .modal-content textarea { width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
+        .share-modal { max-width: 500px; }
+        .content-view-modal { max-width: 700px; max-height: 80vh; overflow-y: auto; }
+        .content-meta { font-size: 12px; color: #666; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .content-body { margin: 15px 0; }
+        .note-content, .quiz-content, .insight-content, .flashcard-content, .youtube-content, .file-content { line-height: 1.6; }
+        .note-subject, .note-topic { margin: 5px 0; }
+        .note-text { margin-top: 15px; white-space: pre-wrap; }
+        .quiz-question { margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 8px; }
+        .correct-answer { color: #10b981; font-weight: 500; }
+        .insight-tip { margin-top: 15px; padding: 10px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border-radius: 8px; text-align: center; }
+        .flashcard-content { display: flex; flex-direction: column; gap: 20px; }
+        .flashcard-front, .flashcard-back { padding: 15px; background: #f8f9fa; border-radius: 12px; }
+        .flashcard-front strong, .flashcard-back strong { color: #4f46e5; display: block; margin-bottom: 8px; }
+        .file-actions { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
+        .modal-content input, .modal-content textarea, .modal-content select { width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
-        @media (max-width: 768px) { .groups-layout { grid-template-columns: 1fr; } .groups-actions { width: 100%; justify-content: center; } .btn-create, .btn-join { flex: 1; justify-content: center; } }
+        .modal-actions button { padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .modal-actions button:first-child { background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; border: none; }
+        .modal-actions button:last-child { background: #e5e7eb; border: none; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
+        @media (max-width: 768px) {
+          .groups-layout { grid-template-columns: 1fr; }
+          .groups-actions { width: 100%; justify-content: center; }
+          .btn-create, .btn-join { flex: 1; justify-content: center; }
+          .message-bubble { max-width: 85%; }
+        }
       `}</style>
     </div>
   );

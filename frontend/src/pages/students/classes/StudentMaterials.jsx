@@ -5,7 +5,28 @@ import Stars from "../../../components/Stars";
 import BackButton from "../../../components/BackButton";
 import Toast from "../../../components/Toast";
 
-const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace("/api", "");
+const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000")
+  .replace(/\/api\/?$/, "")
+  .replace(/\/$/, "");
+
+// ✅ Helper function to get file that opens in browser (not download)
+const getFileUrl = (fileUrl) => {
+  if (!fileUrl) return null;
+  
+  // For Cloudinary files - add fl_attachment=0 to force inline display
+  if (fileUrl.includes('cloudinary.com')) {
+    const separator = fileUrl.includes('?') ? '&' : '?';
+    return `${fileUrl}${separator}fl_attachment=0`;
+  }
+  // For local files
+  if (fileUrl.startsWith('http')) {
+    return fileUrl;
+  }
+  if (fileUrl.startsWith('uploads/')) {
+    return `${BASE_URL}/${fileUrl}`;
+  }
+  return fileUrl;
+};
 
 export default function StudentMaterials() {
   const { classId } = useParams();
@@ -30,9 +51,17 @@ export default function StudentMaterials() {
     }
   };
 
+  // ✅ Updated openFile function - opens in browser, not download
   const openFile = (fileUrl) => {
-    if (!fileUrl) return;
-    const url = fileUrl.startsWith("http") ? fileUrl : `${BASE_URL}${fileUrl}`;
+    if (!fileUrl) {
+      setToast({ message: "No file attached", type: "error" });
+      return;
+    }
+    
+    const url = getFileUrl(fileUrl);
+    console.log("Opening material file:", url);
+    
+    // Use Google Docs viewer for better preview
     const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
     window.open(viewer, "_blank");
   };
@@ -57,7 +86,10 @@ export default function StudentMaterials() {
               <h5>{m.title}</h5>
               {m.content && <p className="text-light-opacity mb-2">{m.content}</p>}
               {m.fileUrl && (
-                <button className="btn btn-sm btn-outline-primary" onClick={() => openFile(m.fileUrl)}>
+                <button 
+                  className="btn btn-sm btn-outline-primary" 
+                  onClick={() => openFile(m.fileUrl)}
+                >
                   📎 View File
                 </button>
               )}

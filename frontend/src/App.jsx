@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import VerifyEmail from "./pages/VerifyEmail";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+
 /* ================= STUDENT ================= */
 import Dashboard from "./pages/students/Dashboard";
 import Activities from "./pages/students/activities/Activities";
@@ -47,11 +48,9 @@ import AdminTeacherClassDetails from "./pages/admin/AdminTeacherClassDetails";
 import AdminClassAnnouncements from "./pages/admin/AdminClassAnnouncements";
 import AdminClassMaterials from "./pages/admin/AdminClassMaterials";
 import AdminClassAssignments from "./pages/admin/AdminClassAssignments";
-import AdminStudentClassDetails from "./pages/admin/AdminClassStudents";
-import AdminClassAssignmentSubmissions from "./pages/admin/AdminClassAssignmentSubmissions";
 import AdminClassStudents from "./pages/admin/AdminClassStudents";
+import AdminClassAssignmentSubmissions from "./pages/admin/AdminClassAssignmentSubmissions";
 import AdminStudentFullDetails from "./pages/admin/AdminStudentFullDetails";
-// Add these imports with other admin imports
 import AdminFlashcardsView from "./pages/admin/AdminFlashcardsView";
 import AdminBookmarksView from "./pages/admin/AdminBookmarksView";
 import AdminVideosView from "./pages/admin/AdminVideosView";
@@ -59,6 +58,8 @@ import AdminGroupsView from "./pages/admin/AdminGroupsView";
 import AdminChatView from "./pages/admin/AdminChatView";
 import AdminAIAnalytics from "./pages/admin/AdminAIAnalytics";
 import AdminTeacherManagement from "./pages/admin/AdminTeacherManagement";
+// ✅ Import the student class details page (rename to avoid conflict)
+import AdminStudentClassDetailsPage from "./pages/admin/AdminStudentClassDetails";
 
 /* ================= TEACHER ================= */
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
@@ -91,41 +92,21 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/activities" element={<Activities />} />
           <Route path="/activities/add" element={<AddActivity />} />
-
           <Route path="/classes" element={<StudentClasses />} />
           <Route path="/classes/join" element={<JoinClass />} />
-
           <Route path="/chat" element={<AIChat />} />
           <Route path="/chat/:sessionId?" element={<AIChat />} />
-
           <Route path="/notes" element={<Notes />} />
           <Route path="/notes/create" element={<CreateNote />} />
           <Route path="/notes/edit/:id" element={<EditNote />} />
-
           <Route path="/quizzes" element={<QuizzesList />} />
           <Route path="/quizzes/generate" element={<GenerateQuiz />} />
           <Route path="/quizzes/:id" element={<TakeQuiz />} />
-
-          <Route
-            path="/student/class/:classId"
-            element={<StudentClassDashboard />}
-          />
-          <Route
-            path="/student/class/:classId/assignments"
-            element={<StudentAssignment />}
-          />
-          <Route
-            path="/student/class/:classId/assignments/:assignmentId"
-            element={<StudentAssignment />}
-          />
-          <Route
-            path="/student/class/:classId/announcements"
-            element={<StudentAnnouncements />}
-          />
-          <Route
-            path="/student/class/:classId/materials"
-            element={<StudentMaterials />}
-          />
+          <Route path="/student/class/:classId" element={<StudentClassDashboard />} />
+          <Route path="/student/class/:classId/assignments" element={<StudentAssignment />} />
+          <Route path="/student/class/:classId/assignments/:assignmentId" element={<StudentAssignment />} />
+          <Route path="/student/class/:classId/announcements" element={<StudentAnnouncements />} />
+          <Route path="/student/class/:classId/materials" element={<StudentMaterials />} />
           <Route path="/flashcards" element={<FlashcardsPage />} />
           <Route path="/video-summarizer" element={<VideoSummarizerPage />} />
           <Route path="/study-groups" element={<StudyGroupsPage />} />
@@ -139,102 +120,42 @@ export default function App() {
         <Route path="/admin/users/:id" element={<AdminUserDetails />} />
         <Route path="/admin/users/:id/notes" element={<AdminNoteDetails />} />
         <Route path="/admin/users/:id/quizzes" element={<AdminQuizDetails />} />
-        <Route
-          path="/admin/users/:id/activities"
-          element={<AdminActivityDetails />}
-        />
-
+        <Route path="/admin/users/:id/activities" element={<AdminActivityDetails />} />
         <Route path="/admin/teacher/:id" element={<AdminTeacherDetails />} />
-        <Route
-          path="/admin/teacher/class/:classId"
-          element={<AdminTeacherClassDetails />}
-        />
-
-        <Route
-          path="/admin/student/class/:classId"
-          element={<AdminStudentClassDetails />}
-        />
-        <Route
-          path="/admin/student-full/:id"
-          element={<AdminStudentFullDetails />}
-        />
-        <Route
-          path="/admin/users/:id/flashcards"
-          element={<AdminFlashcardsView />}
-        />
-        <Route
-          path="/admin/users/:id/bookmarks"
-          element={<AdminBookmarksView />}
-        />
+        <Route path="/admin/teacher/class/:classId" element={<AdminTeacherClassDetails />} />
+        <Route path="/admin/student/class/:classId" element={<AdminClassStudents />} />
+        <Route path="/admin/student-full/:id" element={<AdminStudentFullDetails />} />
+        <Route path="/admin/users/:id/flashcards" element={<AdminFlashcardsView />} />
+        <Route path="/admin/users/:id/bookmarks" element={<AdminBookmarksView />} />
         <Route path="/admin/users/:id/videos" element={<AdminVideosView />} />
         <Route path="/admin/users/:id/groups" element={<AdminGroupsView />} />
         <Route path="/admin/users/:id/chat" element={<AdminChatView />} />
         <Route path="/admin/analytics" element={<AdminAIAnalytics />} />
         <Route path="/admin/teacher-management" element={<AdminTeacherManagement />} />
-
+        
+        {/* ✅ Student Class Details Route */}
+        <Route path="/admin/student/:studentId/class/:classId" element={<AdminStudentClassDetailsPage />} />
 
         {/* ADMIN CLASS ROUTES */}
-        <Route
-          path="/admin/class/:classId/announcements"
-          element={<AdminClassAnnouncements />}
-        />
-        <Route
-          path="/admin/class/:classId/materials"
-          element={<AdminClassMaterials />}
-        />
-        <Route
-          path="/admin/class/:classId/assignments"
-          element={<AdminClassAssignments />}
-        />
-        <Route
-          path="/admin/assignment/:assignmentId/submissions"
-          element={<AdminClassAssignmentSubmissions />}
-        />
+        <Route path="/admin/class/:classId/announcements" element={<AdminClassAnnouncements />} />
+        <Route path="/admin/class/:classId/materials" element={<AdminClassMaterials />} />
+        <Route path="/admin/class/:classId/assignments" element={<AdminClassAssignments />} />
+        <Route path="/admin/assignment/:assignmentId/submissions" element={<AdminClassAssignmentSubmissions />} />
+        <Route path="/admin/teacher/class/:classId/students" element={<AdminClassStudents />} />
+        <Route path="/admin/teacher/class/:classId/materials" element={<AdminClassMaterials />} />
+        <Route path="/admin/teacher/class/:classId/announcements" element={<AdminClassAnnouncements />} />
+        <Route path="/admin/teacher/class/:classId/assignments" element={<AdminClassAssignments />} />
 
         {/* ========= TEACHER ========= */}
         <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
         <Route path="/teacher/classes/create" element={<CreateClass />} />
         <Route path="/teacher/classes/:id" element={<ClassDetails />} />
-        <Route
-          path="/teacher/classes/:id/students"
-          element={<ClassStudents />}
-        />
-        <Route
-          path="/teacher/classes/:id/announcements"
-          element={<ClassAnnouncements />}
-        />
-        <Route
-          path="/teacher/classes/:id/assignments"
-          element={<ClassAssignments />}
-        />
-        <Route
-          path="/teacher/classes/:id/assignments/create"
-          element={<CreateAssignment />}
-        />
-        <Route
-          path="/teacher/classes/:id/materials"
-          element={<ClassMaterials />}
-        />
-        <Route
-          path="/admin/teacher/class/:classId/students"
-          element={<AdminClassStudents />}
-        />
-        <Route
-          path="/admin/teacher/class/:classId/materials"
-          element={<AdminClassMaterials />}
-        />
-        <Route
-          path="/admin/teacher/class/:classId/announcements"
-          element={<AdminClassAnnouncements />}
-        />
-        <Route
-          path="/admin/teacher/class/:classId/assignments"
-          element={<AdminClassAssignments />}
-        />
-        <Route
-          path="/teacher/classes/:id/assignments/:assignmentId/submissions"
-          element={<AssignmentSubmissions />}
-        />
+        <Route path="/teacher/classes/:id/students" element={<ClassStudents />} />
+        <Route path="/teacher/classes/:id/announcements" element={<ClassAnnouncements />} />
+        <Route path="/teacher/classes/:id/assignments" element={<ClassAssignments />} />
+        <Route path="/teacher/classes/:id/assignments/create" element={<CreateAssignment />} />
+        <Route path="/teacher/classes/:id/materials" element={<ClassMaterials />} />
+        <Route path="/teacher/classes/:id/assignments/:assignmentId/submissions" element={<AssignmentSubmissions />} />
       </Routes>
     </BrowserRouter>
   );

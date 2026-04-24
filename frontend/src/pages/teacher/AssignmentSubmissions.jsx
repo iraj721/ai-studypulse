@@ -2,10 +2,30 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import Spinner from "../../components/Spinner";
+import Toast from "../../components/Toast";
 
 const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000")
   .replace(/\/api\/?$/, "")
   .replace(/\/$/, "");
+
+// ✅ Helper function to get file that opens in browser (not download)
+const getFileUrl = (fileUrl) => {
+  if (!fileUrl) return null;
+  
+  // For Cloudinary files - add fl_attachment=0 to force inline display
+  if (fileUrl.includes('cloudinary.com')) {
+    const separator = fileUrl.includes('?') ? '&' : '?';
+    return `${fileUrl}${separator}fl_attachment=0`;
+  }
+  // For local files
+  if (fileUrl.startsWith('http')) {
+    return fileUrl;
+  }
+  if (fileUrl.startsWith('uploads/')) {
+    return `${BASE_URL}/${fileUrl}`;
+  }
+  return `${BASE_URL}/uploads/submissions/${fileUrl.split('/').pop()}`;
+};
 
 export default function AssignmentSubmissions() {
   const { id, assignmentId } = useParams();
@@ -16,6 +36,7 @@ export default function AssignmentSubmissions() {
   const [marksInput, setMarksInput] = useState({});
   const [marksUploaded, setMarksUploaded] = useState({});
   const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -44,7 +65,7 @@ export default function AssignmentSubmissions() {
         setMarksUploaded(uploaded);
       } catch (err) {
         console.error(err);
-        alert("Failed to load submissions");
+        setToast({ message: "Failed to load submissions", type: "error" });
       } finally {
         setLoading(false);
       }
@@ -53,43 +74,19 @@ export default function AssignmentSubmissions() {
     fetchData();
   }, [id, assignmentId]);
 
+  // ✅ Updated openFile function - uses helper and opens in browser
   const openFile = (fileUrl) => {
     if (!fileUrl) {
-      alert("No file attached");
+      setToast({ message: "No file attached", type: "error" });
       return;
     }
 
-    const BASE_URL = (
-      import.meta.env.VITE_API_URL || "http://localhost:5000"
-    ).replace("/api", "");
-
-    let fullUrl = fileUrl;
-
-    // ✅ Handle Cloudinary URLs
-    if (fileUrl.startsWith("http")) {
-      fullUrl = fileUrl;
-    }
-    // ✅ Handle local uploads
-    else if (fileUrl.startsWith("uploads/")) {
-      fullUrl = `${BASE_URL}/${fileUrl}`;
-    }
-    // ✅ Handle relative paths
-    else {
-      fullUrl = `${BASE_URL}/uploads/submissions/${fileUrl.split("/").pop()}`;
-    }
-
+    const fullUrl = getFileUrl(fileUrl);
     console.log("Opening submission file:", fullUrl);
 
-    // ✅ For PDF and images, open directly
-    if (
-      fileUrl.toLowerCase().endsWith(".pdf") ||
-      fileUrl.match(/\.(jpg|jpeg|png|gif)$/i)
-    ) {
-      window.open(fullUrl, "_blank");
-    } else {
-      const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`;
-      window.open(viewer, "_blank");
-    }
+    // Use Google Docs viewer for all file types for better preview
+    const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`;
+    window.open(viewer, "_blank");
   };
 
   const uploadMarks = async (submissionId) => {
@@ -113,8 +110,11 @@ export default function AssignmentSubmissions() {
         ...prev,
         [submissionId]: true,
       }));
+      
+      setToast({ message: "Marks uploaded successfully!", type: "success" });
     } catch (err) {
       console.error(err);
+      setToast({ message: "Failed to upload marks", type: "error" });
     }
   };
 
@@ -122,6 +122,12 @@ export default function AssignmentSubmissions() {
 
   return (
     <div className="container py-5">
+      <Toast 
+        message={toast.message} 
+        type={toast.type} 
+        onClose={() => setToast({ message: "", type: "success" })} 
+      />
+
       <button
         className="btn btn-outline-secondary mb-4"
         onClick={() => navigate(-1)}
