@@ -11,7 +11,7 @@ export default function AppLayout() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Check if current page is chat - don't show stars on chat
+  // Check if current page is chat - don't show stars on chat
   const isChatPage = location.pathname.includes("/chat");
 
   useEffect(() => {
@@ -51,11 +51,12 @@ export default function AppLayout() {
 
   return (
     <div className="app-bg min-vh-100 position-relative">
-      {/* ✅ Only show stars if NOT on chat page */}
+      {/* Only show stars if NOT on chat page */}
       {!isChatPage && <Stars />}
       <Navbar user={user} onLogout={handleLogout} />
       <FloatingTimer />
-      <div className="pt-5">
+      {/* ✅ Remove pt-5 class to eliminate extra space */}
+      <div className={isChatPage ? "" : "pt-5"}>
         <Outlet />
       </div>
     </div>

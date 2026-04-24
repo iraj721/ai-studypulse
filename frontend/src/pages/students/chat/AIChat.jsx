@@ -1107,6 +1107,23 @@ export default function AIChat() {
             margin-left: 0;
           }
         }
+          /* Fix for navbar space issue */
+.ai-chat-container {
+  position: fixed;
+  top: 70px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: calc(100vh - 70px);
+}
+
+@media (max-width: 768px) {
+  .ai-chat-container {
+    top: 60px;
+    height: calc(100vh - 60px);
+  }
+}
       `}</style>
     </div>
   );
