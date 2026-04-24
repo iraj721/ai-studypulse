@@ -26,10 +26,6 @@ export default function AdminChatView() {
     }
   };
 
-  const toggleSession = (sessionId) => {
-    setExpandedSession(expandedSession === sessionId ? null : sessionId);
-  };
-
   if (loading) {
     return (
       <div className="bg-light min-vh-100 py-4">
@@ -45,89 +41,119 @@ export default function AdminChatView() {
     <div className="bg-light min-vh-100 py-4">
       <div className="container">
         <BackButton to={`/admin/users/${id}`} label="← Back to User Details" />
-        <h3 className="mb-4 fw-bold">💬 Student Chat Sessions</h3>
-        <p className="text-muted mb-4">Total: {sessions.length} chat sessions</p>
         
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h3 className="fw-bold">💬 Student Chat Sessions</h3>
+          <span className="badge bg-primary fs-6">{sessions.length} Sessions</span>
+        </div>
+
         {sessions.length === 0 ? (
-          <div className="alert alert-info text-center">No chat sessions found for this student.</div>
+          <div className="alert alert-info text-center py-5">
+            <div className="fs-1 mb-3">💬</div>
+            <h5>No Chat Sessions Found</h5>
+            <p>This student hasn't used the AI chat yet.</p>
+          </div>
         ) : (
-          <div className="chat-sessions-list">
+          <div className="chat-sessions-grid">
             {sessions.map((session) => (
-              <div key={session._id} className="card shadow-sm border-0 mb-3 hover-card">
-                <div className="card-header bg-white d-flex justify-content-between align-items-center">
-                  <div>
-                    <strong>{session.title}</strong>
-                    <small className="text-muted d-block">Messages: {session.messages?.length || 0}</small>
-                  </div>
-                  <button 
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={() => toggleSession(session._id)}
-                  >
-                    {expandedSession === session._id ? "Hide" : "View Messages"}
-                  </button>
-                </div>
-                <div className="card-body">
-                  <div className="text-muted small mb-2">
-                    Last updated: {new Date(session.updatedAt).toLocaleString()}
-                  </div>
-                  {expandedSession === session._id && (
-                    <div className="chat-messages mt-3">
-                      <h6>Messages:</h6>
-                      {session.messages?.map((msg, idx) => (
-                        <div key={idx} className="message-item">
-                          <div className={`message-bubble ${msg.role === 'user' ? 'user' : 'ai'}`}>
-                            <strong>{msg.role === 'user' ? '👤 Student' : '🤖 AI'}:</strong>
-                            <p className="mb-0 mt-1">{msg.text}</p>
-                            <small className="message-time">
-                              {new Date(msg.createdAt).toLocaleString()}
-                            </small>
-                          </div>
-                        </div>
-                      ))}
+              <div key={session._id} className="chat-session-card">
+                <div className="session-header" onClick={() => setExpandedSession(expandedSession === session._id ? null : session._id)}>
+                  <div className="session-icon">💬</div>
+                  <div className="session-info">
+                    <div className="session-title">{session.title}</div>
+                    <div className="session-meta">
+                      Messages: {session.messages?.length || 0} • {new Date(session.updatedAt).toLocaleDateString()}
                     </div>
-                  )}
+                  </div>
+                  <div className="session-expand">{expandedSession === session._id ? "▲" : "▼"}</div>
                 </div>
+                {expandedSession === session._id && (
+                  <div className="session-messages">
+                    {session.messages?.map((msg, idx) => (
+                      <div key={idx} className={`message-bubble ${msg.role === 'user' ? 'user' : 'ai'}`}>
+                        <strong>{msg.role === 'user' ? '👤 Student' : '🤖 AI'}:</strong>
+                        <p className="mb-0 mt-1">{msg.text}</p>
+                        <small>{new Date(msg.createdAt).toLocaleTimeString()}</small>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
       <style>{`
-        .hover-card {
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
+        .chat-sessions-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
         }
-        .hover-card:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        .chat-session-card {
+          background: white;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+          transition: all 0.3s;
         }
-        .chat-messages {
+        .chat-session-card:hover {
+          box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+        .session-header {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          padding: 16px 20px;
+          cursor: pointer;
+          background: white;
+        }
+        .session-icon {
+          font-size: 28px;
+        }
+        .session-info {
+          flex: 1;
+        }
+        .session-title {
+          font-weight: 600;
+          font-size: 16px;
+          color: #1e293b;
+          margin-bottom: 4px;
+        }
+        .session-meta {
+          font-size: 11px;
+          color: #64748b;
+        }
+        .session-expand {
+          font-size: 16px;
+          color: #94a3b8;
+        }
+        .session-messages {
+          padding: 20px;
+          background: #f8f9fa;
+          border-top: 1px solid #e2e8f0;
           max-height: 400px;
           overflow-y: auto;
-          padding: 10px;
-          background: #f8f9fa;
-          border-radius: 12px;
-        }
-        .message-item {
-          margin-bottom: 15px;
         }
         .message-bubble {
-          padding: 10px 15px;
+          padding: 12px 16px;
           border-radius: 12px;
+          margin-bottom: 12px;
           background: white;
-          border: 1px solid #e5e7eb;
         }
         .message-bubble.user {
           background: #e0e7ff;
-          border-color: #c7d2fe;
+          border-left: 3px solid #4f46e5;
         }
         .message-bubble.ai {
-          background: #f3f4f6;
+          background: #f1f5f9;
+          border-left: 3px solid #10b981;
         }
-        .message-time {
+        .message-bubble small {
           font-size: 10px;
-          color: #9ca3af;
+          color: #94a3b8;
           display: block;
-          margin-top: 5px;
+          margin-top: 6px;
         }
       `}</style>
     </div>
