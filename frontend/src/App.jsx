@@ -57,6 +57,7 @@ import AdminBookmarksView from "./pages/admin/AdminBookmarksView";
 import AdminVideosView from "./pages/admin/AdminVideosView";
 import AdminGroupsView from "./pages/admin/AdminGroupsView";
 import AdminChatView from "./pages/admin/AdminChatView";
+import AdminAIAnalytics from "./pages/admin/AdminAIAnalytics";
 
 /* ================= TEACHER ================= */
 import TeacherDashboard from "./pages/teacher/TeacherDashboard";
@@ -167,6 +168,8 @@ export default function App() {
         <Route path="/admin/users/:id/videos" element={<AdminVideosView />} />
         <Route path="/admin/users/:id/groups" element={<AdminGroupsView />} />
         <Route path="/admin/users/:id/chat" element={<AdminChatView />} />
+        <Route path="/admin/analytics" element={<AdminAIAnalytics />} />
+
         {/* ADMIN CLASS ROUTES */}
         <Route
           path="/admin/class/:classId/announcements"

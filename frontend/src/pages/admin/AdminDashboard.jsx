@@ -62,9 +62,19 @@ export default function AdminDashboard() {
             <h2 className="fw-bold fs-3 fs-md-2">👑 Admin Dashboard</h2>
             <small className="text-muted">System control & role management</small>
           </div>
-          <button type="button" className="btn btn-outline-danger btn-sm" onClick={logout}>
-            Logout
-          </button>
+          <div className="d-flex gap-2">
+            {/* ✅ AI Analytics Button */}
+            <button 
+              type="button" 
+              className="btn btn-info btn-sm" 
+              onClick={() => navigate("/admin/analytics")}
+            >
+              📊 AI Analytics
+            </button>
+            <button type="button" className="btn btn-outline-danger btn-sm" onClick={logout}>
+              Logout
+            </button>
+          </div>
         </div>
 
         {/* STATS CARDS - Fully Responsive Grid */}
