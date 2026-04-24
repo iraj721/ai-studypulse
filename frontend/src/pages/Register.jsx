@@ -7,7 +7,6 @@ export default function Register() {
   const navigate = useNavigate();
 
   const handleRegister = async (form, setToast) => {
-    // Password strength validation
     const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
     
     if (!form.name || !form.email || !form.password || !form.confirmPassword) {
@@ -36,15 +35,19 @@ export default function Register() {
         role: form.role || "student"
       });
       
-      // Store email temporarily for verification
       localStorage.setItem("pendingEmail", form.email);
-      
-      // Navigate to verification page
       navigate("/verify-email", { state: { email: form.email } });
-      
       setToast({ message: "Verification code sent to your email!", type: "success" });
     } catch (err) {
-      setToast({ message: err.response?.data?.message || "Registration failed", type: "error" });
+      // ✅ Handle teacher approval error
+      if (err.response?.data?.requiresApproval) {
+        setToast({ 
+          message: "This email is not authorized for teacher registration. Please contact admin.", 
+          type: "error" 
+        });
+      } else {
+        setToast({ message: err.response?.data?.message || "Registration failed", type: "error" });
+      }
     }
   };
 

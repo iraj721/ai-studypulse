@@ -60,18 +60,30 @@ export default function AdminDashboard() {
         <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4">
           <div>
             <h2 className="fw-bold fs-3 fs-md-2">👑 Admin Dashboard</h2>
-            <small className="text-muted">System control & role management</small>
+            <small className="text-muted">
+              System control & role management
+            </small>
           </div>
           <div className="d-flex gap-2">
-            {/* ✅ AI Analytics Button */}
-            <button 
-              type="button" 
-              className="btn btn-info btn-sm" 
+            <button
+              type="button"
+              className="btn btn-success btn-sm"
+              onClick={() => navigate("/admin/teacher-management")}
+            >
+              👨‍🏫 Teacher Management
+            </button>
+            <button
+              type="button"
+              className="btn btn-info btn-sm"
               onClick={() => navigate("/admin/analytics")}
             >
               📊 AI Analytics
             </button>
-            <button type="button" className="btn btn-outline-danger btn-sm" onClick={logout}>
+            <button
+              type="button"
+              className="btn btn-outline-danger btn-sm"
+              onClick={logout}
+            >
               Logout
             </button>
           </div>
@@ -187,17 +199,24 @@ export default function AdminDashboard() {
             ) : (
               <div className="p-3">
                 {filteredUsers.map((u) => (
-                  <div key={u._id} className="user-card-mobile mb-3 p-3 border rounded-3 shadow-sm">
+                  <div
+                    key={u._id}
+                    className="user-card-mobile mb-3 p-3 border rounded-3 shadow-sm"
+                  >
                     <div className="d-flex justify-content-between align-items-start mb-2">
                       <div>
                         <h6 className="fw-bold mb-1">{u.name}</h6>
-                        <span className={`role-badge ${u.role} mb-2 d-inline-block`}>
+                        <span
+                          className={`role-badge ${u.role} mb-2 d-inline-block`}
+                        >
                           {u.role === "admin" && "🛡️ Admin"}
                           {u.role === "teacher" && "👨‍🏫 Teacher"}
                           {u.role === "student" && "🎓 Student"}
                         </span>
                       </div>
-                      <small className="text-muted">{new Date(u.createdAt).toLocaleDateString()}</small>
+                      <small className="text-muted">
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </small>
                     </div>
                     <div className="text-muted small mb-3">
                       <div>📧 {u.email}</div>
@@ -253,15 +272,24 @@ export default function AdminDashboard() {
               <div className="p-4">
                 <h6 className="fw-bold mb-2 text-danger">⚠️ Delete User</h6>
                 <p className="mb-3">
-                  Are you sure you want to delete <strong>{userToDelete.name}</strong>?
+                  Are you sure you want to delete{" "}
+                  <strong>{userToDelete.name}</strong>?
                   <br />
-                  <span className="text-danger small">This action cannot be undone.</span>
+                  <span className="text-danger small">
+                    This action cannot be undone.
+                  </span>
                 </p>
                 <div className="d-flex justify-content-end gap-2">
-                  <button className="btn btn-sm btn-secondary" onClick={() => setUserToDelete(null)}>
+                  <button
+                    className="btn btn-sm btn-secondary"
+                    onClick={() => setUserToDelete(null)}
+                  >
                     Cancel
                   </button>
-                  <button className="btn btn-sm btn-danger" onClick={handleDelete}>
+                  <button
+                    className="btn btn-sm btn-danger"
+                    onClick={handleDelete}
+                  >
                     Delete
                   </button>
                 </div>
@@ -343,7 +371,13 @@ function StatCard({ title, value, color }) {
   return (
     <div className="card shadow-sm border-0 p-2 p-md-3 h-100 text-center">
       <h6 className="text-muted small mb-1">{title}</h6>
-      <h3 className="fw-bold mb-0" style={{ color: colors[color] || colors.default, fontSize: "clamp(1.5rem, 5vw, 2rem)" }}>
+      <h3
+        className="fw-bold mb-0"
+        style={{
+          color: colors[color] || colors.default,
+          fontSize: "clamp(1.5rem, 5vw, 2rem)",
+        }}
+      >
         {value}
       </h3>
     </div>
