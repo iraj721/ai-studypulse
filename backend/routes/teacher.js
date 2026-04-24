@@ -7,7 +7,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-// ✅ Setup for assignment submissions (student uploads)
+// Setup for assignment submissions
 const submissionStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = "uploads/submissions";
@@ -66,35 +66,34 @@ const {
 // Class Routes
 // =====================
 router.post("/classes", auth, role("teacher"), createClass);
-router.get("/classes", auth, role("teacher"), getTeacherClasses);
-router.get("/classes/:id", auth, getClassById);
+router.get("/classes", auth, getTeacherClasses);  // ✅ Remove role check for GET
+router.get("/classes/:id", auth, getClassById);   // ✅ Remove role check for GET
 router.delete("/classes/:classId", auth, role("teacher"), deleteClass);
 
 // =====================
 // Announcement Routes
 // =====================
 router.post("/classes/:id/announcement", auth, role("teacher"), createAnnouncement);
-router.get("/classes/:id/announcements", auth, getAnnouncementsForClass);
+router.get("/classes/:id/announcements", auth, getAnnouncementsForClass);  // ✅ Remove role check
 router.put("/classes/:id/announcement/:announcementId", auth, role("teacher"), editAnnouncement);
 router.delete("/classes/:id/announcement/:announcementId", auth, role("teacher"), deleteAnnouncement);
 
 // =====================
 // Student Management Routes
 // =====================
-// ✅ Remove student from class
 router.delete("/classes/:classId/students/:studentId", auth, role("teacher"), removeStudentFromClass);
 
 // =====================
 // Assignment Routes
 // =====================
 router.post("/classes/:classId/assignments", auth, role("teacher"), assignments.single("attachment"), createAssignment);
-router.get("/classes/:classId/assignments", auth, getAssignmentsByClass);
-router.get("/classes/:classId/assignments/:assignmentId/submissions", auth, getSubmissionsByAssignment);
+router.get("/classes/:classId/assignments", auth, getAssignmentsByClass);  // ✅ Remove role check
+router.get("/classes/:classId/assignments/:assignmentId/submissions", auth, getSubmissionsByAssignment);  // ✅ Remove role check
 router.put("/classes/:classId/assignments/:assignmentId", auth, role("teacher"), assignments.single("attachment"), updateAssignment);
 router.delete("/classes/:classId/assignments/:assignmentId", auth, role("teacher"), deleteAssignment);
 router.put("/classes/:classId/assignments/:assignmentId/submissions/:submissionId/marks", auth, role("teacher"), assignMarksToSubmission);
 
-// ✅ Student submit assignment
+// Student submit assignment
 router.post("/classes/:classId/assignments/:assignmentId/submit", auth, uploadSubmission.single("file"), submitAssignment);
 router.delete("/classes/:classId/assignments/:assignmentId/unsend", auth, unsendSubmission);
 
@@ -102,7 +101,7 @@ router.delete("/classes/:classId/assignments/:assignmentId/unsend", auth, unsend
 // Material Routes
 // =====================
 router.post("/classes/:id/material", auth, role("teacher"), materials.single("file"), uploadMaterial);
-router.get("/classes/:id/materials", auth, getMaterialsForClass);
+router.get("/classes/:id/materials", auth, getMaterialsForClass);  // ✅ Remove role check
 router.put("/classes/:classId/material/:materialId", auth, role("teacher"), materials.single("file"), updateMaterial);
 router.delete("/classes/:classId/material/:materialId", auth, role("teacher"), deleteMaterial);
 
