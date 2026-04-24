@@ -34,24 +34,44 @@ export default function StudentAssignments() {
   };
 
   const submitAssignment = async (id) => {
+    // ✅ Check if there's any content to submit
+    if (!answers[id]?.text && !answers[id]?.file) {
+      setToast({
+        message: "Please add answer text or upload a file",
+        type: "error",
+      });
+      return;
+    }
+
     const data = new FormData();
-    if (answers[id]?.text) data.append("answerText", answers[id].text);
-    if (answers[id]?.file) data.append("file", answers[id].file);
+    if (answers[id]?.text) {
+      data.append("answerText", answers[id].text);
+    }
+    if (answers[id]?.file) {
+      data.append("file", answers[id].file);
+    }
 
     try {
-      await api.post(
+      const response = await api.post(
         `/student/classes/${classId}/assignments/${id}/submit`,
         data,
         {
-          headers: { "Content-Type": "multipart/form-data" },
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+          timeout: 30000,
         },
       );
-      setToast({
-        message: "Assignment submitted successfully!",
-        type: "success",
-      });
-      fetchAssignments();
+
+      if (response.data.success) {
+        setToast({
+          message: "Assignment submitted successfully!",
+          type: "success",
+        });
+        fetchAssignments(); // Refresh the list
+      }
     } catch (err) {
+      console.error("Submit error:", err);
       setToast({
         message: err.response?.data?.message || "Error submitting assignment",
         type: "error",
@@ -72,10 +92,28 @@ export default function StudentAssignments() {
   };
 
   const openFile = (fileUrl) => {
-    if (!fileUrl) return;
-    const url = fileUrl.startsWith("http") ? fileUrl : `${BASE_URL}${fileUrl}`;
-    const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-    window.open(viewer, "_blank");
+    if (!fileUrl) {
+      setToast({ message: "No file attached", type: "error" });
+      return;
+    }
+
+    // ✅ Handle both absolute and relative URLs
+    let url = fileUrl;
+    if (!fileUrl.startsWith("http")) {
+      const BASE_URL = (
+        import.meta.env.VITE_API_URL || "http://localhost:5000"
+      ).replace("/api", "");
+      url = `${BASE_URL}${fileUrl}`;
+    }
+
+    // ✅ For PDF and images, open directly
+    if (fileUrl.endsWith(".pdf") || fileUrl.match(/\.(jpg|jpeg|png|gif)$/i)) {
+      window.open(url, "_blank");
+    } else {
+      // ✅ For other files, use Google Docs viewer
+      const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+      window.open(viewer, "_blank");
+    }
   };
 
   if (loading)
