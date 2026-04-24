@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import api from "../services/api";
 import Navbar from "../components/Navbar";
 import Stars from "../components/Stars";
@@ -7,8 +7,12 @@ import FloatingTimer from "../components/FloatingTimer";
 
 export default function AppLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // ✅ Check if current page is chat - don't show stars on chat
+  const isChatPage = location.pathname.includes("/chat");
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -47,7 +51,8 @@ export default function AppLayout() {
 
   return (
     <div className="app-bg min-vh-100 position-relative">
-      <Stars />
+      {/* ✅ Only show stars if NOT on chat page */}
+      {!isChatPage && <Stars />}
       <Navbar user={user} onLogout={handleLogout} />
       <FloatingTimer />
       <div className="pt-5">
