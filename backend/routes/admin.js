@@ -16,58 +16,92 @@ const {
   getClassByIdTeacherAdmin
 } = require("../controllers/adminController");
 
+// ✅ NEW CONTROLLERS FOR STUDENT FULL DATA
+const Flashcard = require("../models/Flashcard");
+const Bookmark = require("../models/Bookmark");
+const VideoSummary = require("../models/VideoSummary");
+const StudyGroup = require("../models/StudyGroup");
+const Message = require("../models/Message");
+const ChatSession = require("../models/ChatSession");
+
 /* ================= USERS ================= */
 router.get("/users", authMiddleware, roleMiddleware("admin"), getAllUsers);
 router.get("/users/:id", authMiddleware, roleMiddleware("admin"), getUserDetails);
 router.delete("/users/:id", authMiddleware, roleMiddleware("admin"), deleteUserByAdmin);
 
-/* ================= STUDENT ================= */
-router.get(
-  "/students/:id/classes",
-  authMiddleware,
-  roleMiddleware("admin"),
-  getStudentClassesAdmin
-);
+/* ================= STUDENT - FULL DATA ================= */
+// Get student's flashcards
+router.get("/students/:id/flashcards", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+  try {
+    const flashcards = await Flashcard.find({ user: req.params.id }).sort({ createdAt: -1 });
+    res.json(flashcards);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
-router.get(
-  "/students/:id/submissions",
-  authMiddleware,
-  roleMiddleware("admin"),
-  getStudentSubmissionsAdmin
-);
+// Get student's bookmarks
+router.get("/students/:id/bookmarks", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+  try {
+    const bookmarks = await Bookmark.find({ user: req.params.id }).sort({ createdAt: -1 });
+    res.json(bookmarks);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
-/* ================= TEACHER (ADMIN VIEW) ================= */
+// Get student's video summaries
+router.get("/students/:id/videos", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+  try {
+    const videos = await VideoSummary.find({ user: req.params.id }).sort({ savedAt: -1 });
+    res.json(videos);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
-// ✅ THIS IS THE ONLY TEACHER CLASSES ROUTE
-router.get(
-  "/teachers/:id/classes",
-  authMiddleware,
-  roleMiddleware("admin"),
-  getTeacherClassesAdmin
-);
+// Get student's study groups
+router.get("/students/:id/groups", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+  try {
+    const groups = await StudyGroup.find({ members: req.params.id }).populate("createdBy", "name email");
+    res.json(groups);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
-// ✅ Single class full details (teacher class)
-router.get(
-  "/teacher/classes/:classId",
-  authMiddleware,
-  roleMiddleware("admin"),
-  getClassByIdTeacherAdmin
-);
+// Get student's chat messages
+router.get("/students/:id/chats", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+  try {
+    const messages = await Message.find({ user: req.params.id, type: "chat" }).sort({ createdAt: -1 }).limit(100);
+    res.json(messages);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
-/* ================= ASSIGNMENTS ================= */
-router.get(
-  "/assignment/:assignmentId/submissions",
-  authMiddleware,
-  roleMiddleware("admin"),
-  getAssignmentSubmissionsAdmin
-);
+// Get student's chat sessions
+router.get("/students/:id/chat-sessions", authMiddleware, roleMiddleware("admin"), async (req, res) => {
+  try {
+    const sessions = await ChatSession.find({ user: req.params.id }).sort({ updatedAt: -1 });
+    res.json(sessions);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
-/* ================= CLASS ================= */
-router.get(
-  "/classes/:id",
-  authMiddleware,
-  roleMiddleware("admin"),
-  getClassByIdAdmin
-);
+/* ================= EXISTING ROUTES ================= */
+router.get("/students/:id/classes", authMiddleware, roleMiddleware("admin"), getStudentClassesAdmin);
+router.get("/students/:id/submissions", authMiddleware, roleMiddleware("admin"), getStudentSubmissionsAdmin);
+router.get("/assignment/:assignmentId/submissions", authMiddleware, roleMiddleware("admin"), getAssignmentSubmissionsAdmin);
+router.get("/classes/:id", authMiddleware, roleMiddleware("admin"), getClassByIdAdmin);
+router.get("/teachers/:id/classes", authMiddleware, roleMiddleware("admin"), getTeacherClassesAdmin);
+router.get("/teacher/classes/:classId", authMiddleware, roleMiddleware("admin"), getClassByIdTeacherAdmin);
 
 module.exports = router;

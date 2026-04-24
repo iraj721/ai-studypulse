@@ -105,7 +105,7 @@ app.use("/api/", globalLimiter);
 
 const aiLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 30,
   message: { message: "Too many AI requests. Please wait a moment." },
   standardHeaders: true,
   legacyHeaders: false,

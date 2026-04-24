@@ -138,4 +138,99 @@ const sendMessage = async (req, res) => {
   }
 };
 
-module.exports = { getMessages, sendMessage, sendMessageStream };
+// Send message in a session (with streaming)
+const sendMessageInSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text } = req.body;
+    
+    if (!text || !text.trim()) {
+      return res.status(400).json({ message: "Message is required" });
+    }
+    
+    // Find or create session
+    let session = await ChatSession.findOne({ _id: id, user: req.user._id });
+    if (!session) {
+      session = await ChatSession.create({
+        user: req.user._id,
+        title: text.slice(0, 30) + (text.length > 30 ? "..." : ""),
+        messages: []
+      });
+    }
+    
+    // Add user message
+    const userMessage = {
+      role: "user",
+      text: text.trim(),
+      createdAt: new Date()
+    };
+    session.messages.push(userMessage);
+    
+    // Update title if it's the first message
+    if (session.messages.length === 1 && session.title === "New Chat") {
+      session.title = text.slice(0, 30) + (text.length > 30 ? "..." : "");
+    }
+    
+    await session.save();
+    
+    // Set up SSE headers for streaming
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+    
+    // Send user message confirmation
+    res.write(`data: ${JSON.stringify({ type: 'user', message: userMessage, sessionId: session._id })}\n\n`);
+    
+    // Prepare conversation history for context
+    const conversationHistory = session.messages.slice(-10).map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.text
+    }));
+    
+    // Stream AI response
+    const stream = await groq.chat.completions.create({
+      messages: [
+        { role: "system", content: "You are a helpful study assistant. Give concise, accurate responses." },
+        ...conversationHistory,
+        { role: "user", content: text.trim() }
+      ],
+      model: "llama-3.1-8b-instant",
+      temperature: 0.5,
+      max_tokens: 500,
+      stream: true,
+    });
+    
+    let fullResponse = "";
+    const aiMessageId = Date.now();
+    
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || "";
+      if (content) {
+        fullResponse += content;
+        res.write(`data: ${JSON.stringify({ type: 'chunk', content, messageId: aiMessageId })}\n\n`);
+      }
+    }
+    
+    // Add AI message to session
+    const aiMessage = {
+      role: "ai",
+      text: fullResponse,
+      createdAt: new Date()
+    };
+    session.messages.push(aiMessage);
+    session.updatedAt = new Date();
+    await session.save();
+    
+    res.write(`data: ${JSON.stringify({ type: 'done', message: aiMessage, sessionId: session._id })}\n\n`);
+    res.end();
+    
+  } catch (err) {
+    console.error("Send message error:", err);
+    res.write(`data: ${JSON.stringify({ type: 'error', error: err.message })}\n\n`);
+    res.end();
+  }
+};
+
+// Make sure to export it
+module.exports = { getMessages, sendMessage, sendMessageStream, sendMessageInSession };
