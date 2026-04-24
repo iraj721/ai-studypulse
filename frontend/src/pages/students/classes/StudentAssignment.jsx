@@ -5,7 +5,9 @@ import Stars from "../../../components/Stars";
 import BackButton from "../../../components/BackButton";
 import Toast from "../../../components/Toast";
 
-const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace("/api", "");
+const BASE_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+).replace("/api", "");
 
 export default function StudentAssignments() {
   const { classId } = useParams();
@@ -37,16 +39,29 @@ export default function StudentAssignments() {
     if (answers[id]?.file) data.append("file", answers[id].file);
 
     try {
-      await api.post(`/student/classes/${classId}/assignments/${id}/submit`, data);
-      setToast({ message: "Assignment submitted successfully!", type: "success" });
+      await api.post(
+        `/student/classes/${classId}/assignments/${id}/submit`,
+        data,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        },
+      );
+      setToast({
+        message: "Assignment submitted successfully!",
+        type: "success",
+      });
       fetchAssignments();
     } catch (err) {
-      setToast({ message: err.response?.data?.message || "Error submitting assignment", type: "error" });
+      setToast({
+        message: err.response?.data?.message || "Error submitting assignment",
+        type: "error",
+      });
     }
   };
 
   const unsendAssignment = async (id) => {
-    if (!window.confirm("Are you sure you want to unsend your submission?")) return;
+    if (!window.confirm("Are you sure you want to unsend your submission?"))
+      return;
     try {
       await api.delete(`/student/classes/${classId}/assignments/${id}/unsend`);
       setToast({ message: "Submission unsent successfully!", type: "success" });
@@ -63,12 +78,17 @@ export default function StudentAssignments() {
     window.open(viewer, "_blank");
   };
 
-  if (loading) return <div className="text-center mt-5 text-white">Loading...</div>;
+  if (loading)
+    return <div className="text-center mt-5 text-white">Loading...</div>;
 
   return (
     <div className="assignments-bg min-vh-100 position-relative py-5">
       <Stars />
-      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ message: "", type: "success" })}
+      />
 
       <div className="container">
         <BackButton to={`/student/class/${classId}`} label="← Back to Class" />
@@ -83,7 +103,10 @@ export default function StudentAssignments() {
             const due = a.dueDate ? new Date(a.dueDate) : null;
             const isBeforeDue = due ? now <= due : true;
             const totalMarks = a.marks ?? 0;
-            const obtainedMarks = a.submission && a.submission.marks != null ? a.submission.marks : null;
+            const obtainedMarks =
+              a.submission && a.submission.marks != null
+                ? a.submission.marks
+                : null;
 
             return (
               <div key={a._id} className="assignment-card mb-3 shadow-sm">
@@ -92,7 +115,10 @@ export default function StudentAssignments() {
                 <p className="fw-semibold">Total Marks: {totalMarks}</p>
 
                 {a.attachment && (
-                  <button className="btn btn-sm btn-outline-primary mb-2" onClick={() => openFile(a.attachment)}>
+                  <button
+                    className="btn btn-sm btn-outline-primary mb-2"
+                    onClick={() => openFile(a.attachment)}
+                  >
                     📎 View Assignment File
                   </button>
                 )}
@@ -101,29 +127,68 @@ export default function StudentAssignments() {
                   <>
                     <p className="text-success">✅ Submitted</p>
                     {obtainedMarks != null ? (
-                      <p className="fw-bold text-primary">Marks: {obtainedMarks} / {totalMarks}</p>
+                      <p className="fw-bold text-primary">
+                        Marks: {obtainedMarks} / {totalMarks}
+                      </p>
                     ) : (
                       <p className="text-light-opacity">Marks not graded yet</p>
                     )}
                     {a.submission?.file && (
-                      <button className="btn btn-sm btn-success mb-2" onClick={() => openFile(a.submission.file)}>
+                      <button
+                        className="btn btn-sm btn-success mb-2"
+                        onClick={() => openFile(a.submission.file)}
+                      >
                         View My Submission
                       </button>
                     )}
-                    {a.submission?.answerText && <p>{a.submission.answerText}</p>}
+                    {a.submission?.answerText && (
+                      <p>{a.submission.answerText}</p>
+                    )}
                     {isBeforeDue && (
-                      <button className="btn btn-sm btn-danger" onClick={() => unsendAssignment(a._id)}>Unsend</button>
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => unsendAssignment(a._id)}
+                      >
+                        Unsend
+                      </button>
                     )}
                   </>
                 ) : (
                   <>
                     {isBeforeDue ? (
                       <>
-                        <textarea className="form-control mb-2" placeholder="Your answer"
-                          onChange={(e) => setAnswers({ ...answers, [a._id]: { ...answers[a._id], text: e.target.value } })} />
-                        <input type="file" className="form-control mb-2"
-                          onChange={(e) => setAnswers({ ...answers, [a._id]: { ...answers[a._id], file: e.target.files[0] } })} />
-                        <button className="btn btn-success" onClick={() => submitAssignment(a._id)}>Submit</button>
+                        <textarea
+                          className="form-control mb-2"
+                          placeholder="Your answer"
+                          onChange={(e) =>
+                            setAnswers({
+                              ...answers,
+                              [a._id]: {
+                                ...answers[a._id],
+                                text: e.target.value,
+                              },
+                            })
+                          }
+                        />
+                        <input
+                          type="file"
+                          className="form-control mb-2"
+                          onChange={(e) =>
+                            setAnswers({
+                              ...answers,
+                              [a._id]: {
+                                ...answers[a._id],
+                                file: e.target.files[0],
+                              },
+                            })
+                          }
+                        />
+                        <button
+                          className="btn btn-success"
+                          onClick={() => submitAssignment(a._id)}
+                        >
+                          Submit
+                        </button>
                       </>
                     ) : (
                       <p className="text-danger">❌ Submission closed</p>
