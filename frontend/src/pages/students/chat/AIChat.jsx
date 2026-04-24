@@ -2,11 +2,6 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import api from "../../../services/api";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import {
-  oneDark,
-  oneLight,
-} from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
   FaMoon,
   FaSun,
@@ -22,13 +17,12 @@ import {
   FaEdit,
   FaCopy,
   FaCheck,
-  FaComment
+  FaComment,
 } from "react-icons/fa";
 import dayjs from "dayjs";
 import calendar from "dayjs/plugin/calendar";
 import relativeTime from "dayjs/plugin/relativeTime";
 import BackButton from "../../../components/BackButton";
-import Stars from "../../../components/Stars";
 
 // Extend dayjs
 dayjs.extend(calendar);
@@ -47,8 +41,6 @@ export default function AIChat() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
-  const [editingMessageId, setEditingMessageId] = useState(null);
-  const [editingText, setEditingText] = useState("");
 
   const messagesEndRef = useRef(null);
   const textAreaRef = useRef(null);
@@ -169,7 +161,6 @@ export default function AIChat() {
     const messageText = text.trim();
 
     if (!currentSessionId) {
-      // Create new session and send message
       try {
         const res = await api.post("/chat/sessions", {
           title: messageText.slice(0, 30),
@@ -191,7 +182,6 @@ export default function AIChat() {
     setText("");
     adjustTextareaHeight();
 
-    // Add user message immediately
     const tempUserMessage = {
       _id: Date.now(),
       role: "user",
@@ -284,18 +274,6 @@ export default function AIChat() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // Edit message
-  const startEditing = (message) => {
-    setEditingMessageId(message._id);
-    setEditingText(message.text);
-  };
-
-  const saveEdit = async () => {
-    // Note: This would require a backend endpoint to edit messages
-    setEditingMessageId(null);
-    setEditingText("");
-  };
-
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -311,27 +289,6 @@ export default function AIChat() {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const toggleDarkMode = () => setDarkMode((prev) => !prev);
 
-  // Custom Markdown components for code highlighting
-  const MarkdownComponents = {
-    code({ node, inline, className, children, ...props }) {
-      const match = /language-(\w+)/.exec(className || "");
-      return !inline && match ? (
-        <SyntaxHighlighter
-          style={darkMode ? oneDark : oneLight}
-          language={match[1]}
-          PreTag="div"
-          {...props}
-        >
-          {String(children).replace(/\n$/, "")}
-        </SyntaxHighlighter>
-      ) : (
-        <code className={className} {...props}>
-          {children}
-        </code>
-      );
-    },
-  };
-
   // Group messages by date
   const groupedMessages = [];
   let lastDate = null;
@@ -346,8 +303,6 @@ export default function AIChat() {
 
   return (
     <div className={`ai-chat-container ${darkMode ? "dark" : ""}`}>
-      <Stars />
-
       {/* Sidebar Toggle Button (Mobile) */}
       <button className="sidebar-toggle-btn-new" onClick={toggleSidebar}>
         {isSidebarOpen ? <FaTimes /> : <FaBars />}
@@ -381,7 +336,7 @@ export default function AIChat() {
               >
                 <div className="session-info-new">
                   <div className="session-title-new">
-                    <FaRegMessage className="session-icon" />
+                    <FaComment className="session-icon" />
                     <span>{session.title}</span>
                   </div>
                   <div className="session-time-new">
@@ -463,11 +418,6 @@ export default function AIChat() {
                   📐 Help me understand calculus
                 </button>
                 <button
-                  onClick={() => setText("Summarize the theory of relativity")}
-                >
-                  🌌 Summarize relativity
-                </button>
-                <button
                   onClick={() => setText("Create a study plan for finals")}
                 >
                   📅 Create a study plan
@@ -476,9 +426,6 @@ export default function AIChat() {
                   onClick={() => setText("Explain machine learning basics")}
                 >
                   🤖 Machine learning basics
-                </button>
-                <button onClick={() => setText("Help with essay writing")}>
-                  ✍️ Essay writing help
                 </button>
               </div>
             </div>
@@ -524,48 +471,18 @@ export default function AIChat() {
                         </span>
                       </div>
                       <div className="message-bubble-new">
-                        {editingMessageId === item._id ? (
-                          <textarea
-                            value={editingText}
-                            onChange={(e) => setEditingText(e.target.value)}
-                            className="edit-textarea"
-                            rows={4}
-                          />
-                        ) : (
-                          <ReactMarkdown components={MarkdownComponents}>
-                            {item.text}
-                          </ReactMarkdown>
-                        )}
+                        <ReactMarkdown>{item.text}</ReactMarkdown>
                       </div>
                       <div className="message-actions-new">
-                        {editingMessageId === item._id ? (
-                          <>
-                            <button
-                              onClick={saveEdit}
-                              className="action-btn save"
-                            >
-                              <FaCheck /> Save
-                            </button>
-                            <button
-                              onClick={() => setEditingMessageId(null)}
-                              className="action-btn cancel"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          item.role === "assistant" && (
-                            <button
-                              onClick={() =>
-                                copyToClipboard(item.text, item._id)
-                              }
-                              className="action-btn copy"
-                              title="Copy response"
-                            >
-                              {copiedId === item._id ? <FaCheck /> : <FaCopy />}
-                              {copiedId === item._id ? "Copied!" : "Copy"}
-                            </button>
-                          )
+                        {item.role === "assistant" && (
+                          <button
+                            onClick={() => copyToClipboard(item.text, item._id)}
+                            className="action-btn copy"
+                            title="Copy response"
+                          >
+                            {copiedId === item._id ? <FaCheck /> : <FaCopy />}
+                            {copiedId === item._id ? "Copied!" : "Copy"}
+                          </button>
                         )}
                       </div>
                     </div>
@@ -1033,14 +950,6 @@ export default function AIChat() {
         .action-btn.copy:hover {
           background: #f1f5f9;
         }
-        .edit-textarea {
-          width: 100%;
-          padding: 8px;
-          border: 1px solid #e2e8f0;
-          border-radius: 8px;
-          font-family: inherit;
-          font-size: 0.9rem;
-        }
 
         /* Input Form */
         .chat-input-form-new {
@@ -1148,22 +1057,6 @@ export default function AIChat() {
         @keyframes spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
-        }
-
-        /* Code Block Styling */
-        .message-bubble-new pre {
-          background: #1e293b;
-          padding: 12px;
-          border-radius: 8px;
-          overflow-x: auto;
-          margin: 12px 0;
-        }
-        .dark .message-bubble-new pre {
-          background: #0f172a;
-        }
-        .message-bubble-new code {
-          font-family: 'Fira Code', monospace;
-          font-size: 0.85rem;
         }
 
         /* Mobile Responsive */
