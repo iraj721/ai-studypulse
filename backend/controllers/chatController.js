@@ -1,4 +1,5 @@
 const Message = require("../models/Message");
+const ChatSession = require("../models/ChatSession");  // ✅ ADD THIS
 const askHF = require("../services/aiService");
 const Groq = require("groq-sdk");
 
@@ -46,7 +47,6 @@ const sendMessageStream = async (req, res) => {
       return res.status(400).json({ message: "Message is required" });
     }
 
-    // Save user message
     const userMessage = await Message.create({
       user: req.user._id,
       role: "user",
@@ -54,16 +54,13 @@ const sendMessageStream = async (req, res) => {
       type: "chat",
     });
 
-    // Set up SSE headers for streaming
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
 
-    // Send user message confirmation
     res.write(`data: ${JSON.stringify({ type: 'user', message: userMessage })}\n\n`);
 
-    // Create AI message placeholder
     const aiMessage = await Message.create({
       user: req.user._id,
       role: "ai",
@@ -71,7 +68,6 @@ const sendMessageStream = async (req, res) => {
       type: "chat",
     });
 
-    // Stream AI response with STRONG prompt
     const stream = await groq.chat.completions.create({
       messages: [
         { role: "system", content: STRONG_SYSTEM_PROMPT },
@@ -79,7 +75,7 @@ const sendMessageStream = async (req, res) => {
       ],
       model: "llama-3.1-8b-instant",
       temperature: 0.5,
-      max_tokens: 1000, // ✅ Increased for better responses
+      max_tokens: 1000,
       stream: true,
     });
 
@@ -93,7 +89,6 @@ const sendMessageStream = async (req, res) => {
       }
     }
 
-    // Update AI message with full response
     aiMessage.text = fullResponse;
     await aiMessage.save();
 
@@ -107,7 +102,7 @@ const sendMessageStream = async (req, res) => {
   }
 };
 
-// Regular non-streaming send (fallback) - also use strong prompt
+// Regular non-streaming send (fallback)
 const sendMessage = async (req, res) => {
   try {
     const { text } = req.body;
@@ -148,7 +143,6 @@ const sendMessageInSession = async (req, res) => {
       return res.status(400).json({ message: "Message is required" });
     }
     
-    // Find or create session
     let session = await ChatSession.findOne({ _id: id, user: req.user._id });
     if (!session) {
       session = await ChatSession.create({
@@ -158,7 +152,6 @@ const sendMessageInSession = async (req, res) => {
       });
     }
     
-    // Add user message
     const userMessage = {
       role: "user",
       text: text.trim(),
@@ -166,38 +159,33 @@ const sendMessageInSession = async (req, res) => {
     };
     session.messages.push(userMessage);
     
-    // Update title if it's the first message
     if (session.messages.length === 1 && session.title === "New Chat") {
       session.title = text.slice(0, 30) + (text.length > 30 ? "..." : "");
     }
     
     await session.save();
     
-    // Set up SSE headers for streaming
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders();
     
-    // Send user message confirmation
     res.write(`data: ${JSON.stringify({ type: 'user', message: userMessage, sessionId: session._id })}\n\n`);
     
-    // Prepare conversation history for context
     const conversationHistory = session.messages.slice(-10).map(msg => ({
       role: msg.role === 'user' ? 'user' : 'assistant',
       content: msg.text
     }));
     
-    // Stream AI response
     const stream = await groq.chat.completions.create({
       messages: [
-        { role: "system", content: "You are a helpful study assistant. Give concise, accurate responses." },
+        { role: "system", content: STRONG_SYSTEM_PROMPT },
         ...conversationHistory,
         { role: "user", content: text.trim() }
       ],
       model: "llama-3.1-8b-instant",
       temperature: 0.5,
-      max_tokens: 500,
+      max_tokens: 1000,
       stream: true,
     });
     
@@ -212,7 +200,6 @@ const sendMessageInSession = async (req, res) => {
       }
     }
     
-    // Add AI message to session
     const aiMessage = {
       role: "ai",
       text: fullResponse,
@@ -232,5 +219,4 @@ const sendMessageInSession = async (req, res) => {
   }
 };
 
-// Make sure to export it
 module.exports = { getMessages, sendMessage, sendMessageStream, sendMessageInSession };
