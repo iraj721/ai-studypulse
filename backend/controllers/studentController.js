@@ -292,7 +292,7 @@ exports.replyToAnnouncement = async (req, res) => {
   }
 };
 
-/* 🚪 Leave Class (Student) */
+/* 🚪 Leave Class (Student) - FIXED */
 exports.leaveClass = async (req, res) => {
   try {
     const { classId } = req.params;
@@ -300,19 +300,19 @@ exports.leaveClass = async (req, res) => {
     const cls = await Class.findById(classId);
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
-    // check student
+    // Check if student is enrolled
     if (!cls.students.includes(req.user._id)) {
-      return res
-        .status(400)
-        .json({ message: "You are not enrolled in this class" });
+      return res.status(400).json({ message: "You are not enrolled in this class" });
     }
 
-    // remove student
+    // Remove student from class
     cls.students = cls.students.filter(
-      (id) => id.toString() !== req.user._id.toString(),
+      (id) => id.toString() !== req.user._id.toString()
     );
-
     await cls.save();
+
+    // Also remove class from student's classes array
+    await User.findByIdAndUpdate(req.user._id, { $pull: { classes: classId } });
 
     res.json({ message: "You have left the class successfully" });
   } catch (err) {

@@ -31,6 +31,8 @@ const {
   updateMaterial,
   deleteMaterial,
 } = require("../controllers/materialController");
+const { submitAssignment, unsendSubmission } = require("../controllers/assignmentController");
+
 
 // =====================
 // Class Routes
@@ -147,5 +149,7 @@ router.delete(
   role("teacher"),
   deleteMaterial
 );
+router.post("/classes/:classId/assignments/:assignmentId/submit", auth, uploadSubmission.single("file"), submitAssignment);
+router.delete("/classes/:classId/assignments/:assignmentId/unsend", auth, unsendSubmission);
 
 module.exports = router;

@@ -1,8 +1,9 @@
 const Announcement = require("../models/Announcement");
 const Class = require("../models/Class");
-const { sendEmailToClass } = require("../services/notificationService");
+const User = require("../models/User");
+const { sendEmailNotification } = require("../services/notificationService");
 
-// Teacher: Create announcement with email
+// Teacher: Create announcement
 exports.createAnnouncement = async (req, res) => {
   try {
     const { id } = req.params;
@@ -10,7 +11,7 @@ exports.createAnnouncement = async (req, res) => {
 
     if (!text) return res.status(400).json({ message: "Announcement text is required" });
 
-    const cls = await Class.findById(id).populate("students", "email name");
+    const cls = await Class.findById(id);
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
     if (cls.teacher.toString() !== req.user._id.toString())
@@ -23,21 +24,14 @@ exports.createAnnouncement = async (req, res) => {
       attachment: attachment || null,
     });
 
-    // Send email notifications
-    await sendEmailToClass(cls.students, cls.name, "New Announcement", text, "announcement");
-
-    res.status(201).json({ 
-      success: true,
-      message: "Announcement posted and emails sent!",
-      announcement 
-    });
+    res.status(201).json(announcement);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// Student: Get announcements for a class
+// Student: Get announcements
 exports.getAnnouncementsForClass = async (req, res) => {
   try {
     const { classId } = req.params;
@@ -52,6 +46,48 @@ exports.getAnnouncementsForClass = async (req, res) => {
       .populate("teacher", "name email");
 
     res.json(announcements);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Student: Reply to announcement - WITH EMAIL TO TEACHER
+exports.replyToAnnouncement = async (req, res) => {
+  try {
+    const { classId, announcementId } = req.params;
+    const { text } = req.body;
+
+    if (!text?.trim()) return res.status(400).json({ message: "Reply text required" });
+
+    const cls = await Class.findById(classId).populate("teacher", "name email");
+    if (!cls) return res.status(404).json({ message: "Class not found" });
+
+    if (!cls.students.includes(req.user._id)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const announcement = await Announcement.findById(announcementId);
+    if (!announcement) return res.status(404).json({ message: "Announcement not found" });
+
+    announcement.replies.push({
+      student: req.user._id,
+      studentName: req.user.name,
+      text: text.trim(),
+    });
+    await announcement.save();
+
+    // Send email to teacher about reply
+    if (cls.teacher?.email) {
+      await sendEmailNotification(
+        cls.teacher.email,
+        cls.teacher.name,
+        `💬 New Reply on Announcement`,
+        `Student ${req.user.name} replied to your announcement:\n\n"${text}"\n\nClass: ${cls.name}`
+      );
+    }
+
+    res.json({ message: "Reply added successfully", replies: announcement.replies });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });

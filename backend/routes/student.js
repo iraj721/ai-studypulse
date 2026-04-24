@@ -66,5 +66,7 @@ router.get("/bookmarks", auth, bookmarkController.getUserBookmarks);
 router.get("/bookmarks/collections", auth, bookmarkController.getCollections);
 router.put("/bookmarks/:id", auth, bookmarkController.updateBookmark);
 router.delete("/bookmarks/:id", auth, bookmarkController.deleteBookmark);
+// Student reply to announcement
+router.post("/classes/:classId/announcements/:announcementId/reply", auth, replyToAnnouncement);
 
 module.exports = router;
