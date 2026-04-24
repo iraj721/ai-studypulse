@@ -3,6 +3,8 @@ const Announcement = require("../models/Announcement");
 const Assignment = require("../models/Assignment");
 const Submission = require("../models/Submission");
 const Class = require("../models/Class");
+const User = require("../models/User");  // ✅ ADD THIS
+const fs = require("fs");  // ✅ ADD THIS
 
 /* 📖 Get Student Joined Classes */
 exports.getStudentClasses = async (req, res) => {
@@ -41,14 +43,7 @@ exports.joinClass = async (req, res) => {
 /* Get single class details for student */
 exports.getStudentClassDetails = async (req, res) => {
   try {
-    const { classId } = req.params;
-    
-    // ✅ Validate ObjectId format first
-    if (!classId || !classId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ message: "Invalid class ID format" });
-    }
-    
-    const cls = await Class.findById(classId).populate(
+    const cls = await Class.findById(req.params.classId).populate(
       "teacher",
       "name email",
     );
@@ -58,7 +53,7 @@ exports.getStudentClassDetails = async (req, res) => {
 
     res.json(cls);
   } catch (err) {
-    console.error("Get student class details error:", err);
+    console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -76,7 +71,7 @@ exports.getStudentClassesCount = async (req, res) => {
     });
   } catch (err) {
     console.error("Get classes count error:", err);
-    res.json({ count: 0, lastClass: null }); // Return default instead of error
+    res.json({ count: 0, lastClass: null });
   }
 };
 
@@ -87,18 +82,15 @@ exports.getClassDashboard = async (req, res) => {
     const cls = await Class.findById(classId).populate("teacher", "name email");
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
-    // Check student
     if (!cls.students.includes(req.user._id))
       return res.status(403).json({ message: "Access denied" });
 
-    // Fetch data
     const [assignments, announcements, materials] = await Promise.all([
       Assignment.find({ class: classId }).sort({ createdAt: -1 }),
       Announcement.find({ class: classId }).sort({ createdAt: -1 }),
       Material.find({ class: classId }).sort({ createdAt: -1 }),
     ]);
 
-    // Map student submissions
     const submissions = await Submission.find({
       student: req.user._id,
       assignment: { $in: assignments.map((a) => a._id) },
@@ -160,29 +152,18 @@ exports.getAssignmentsForClass = async (req, res) => {
   }
 };
 
-/* Submit assignment (file + optional text) - COMPLETE FIX */
+/* ✅ COMPLETE FIXED Submit assignment */
 exports.submitAssignment = async (req, res) => {
   try {
     const { classId, assignmentId } = req.params;
-    
-    // ✅ SAFELY extract body data
-    let answerText = "";
-    if (req.body && req.body.answerText) {
-      answerText = req.body.answerText;
-    }
-    
-    let fileUrl = null;
-    if (req.file) {
-      fileUrl = req.file.path;
-    }
+    const answerText = req.body.answerText || "";
+    const fileUrl = req.file ? req.file.path : null;
 
     console.log("=== SUBMIT ASSIGNMENT DEBUG ===");
     console.log("classId:", classId);
     console.log("assignmentId:", assignmentId);
     console.log("answerText:", answerText);
     console.log("fileUrl:", fileUrl);
-    console.log("req.body:", req.body);
-    console.log("req.file:", req.file);
     console.log("=================================");
 
     // Validate class
@@ -215,7 +196,11 @@ exports.submitAssignment = async (req, res) => {
     });
     if (existing) {
       if (existing.file && fs.existsSync(existing.file)) {
-        fs.unlinkSync(existing.file);
+        try {
+          fs.unlinkSync(existing.file);
+        } catch (unlinkErr) {
+          console.error("Error deleting file:", unlinkErr);
+        }
       }
       await existing.deleteOne();
     }
@@ -225,7 +210,7 @@ exports.submitAssignment = async (req, res) => {
       assignment: assignmentId,
       student: req.user._id,
       file: fileUrl,
-      answerText: answerText || "",
+      answerText: answerText,
     });
 
     // Send email to teacher
@@ -260,39 +245,32 @@ exports.unsendSubmission = async (req, res) => {
   try {
     const { classId, assignmentId } = req.params;
 
-    // Check class
     const cls = await Class.findById(classId);
     if (!cls) return res.status(404).json({ message: "Class not found" });
     if (!cls.students.includes(req.user._id))
       return res.status(403).json({ message: "Access denied" });
 
-    // Check assignment
     const assignment = await Assignment.findById(assignmentId);
-    if (!assignment)
-      return res.status(404).json({ message: "Assignment not found" });
+    if (!assignment) return res.status(404).json({ message: "Assignment not found" });
 
-    // Check due date
     if (assignment.dueDate && new Date() > new Date(assignment.dueDate))
       return res.status(400).json({ message: "Cannot unsend after due date" });
 
-    // Find submission
     const submission = await Submission.findOne({
       assignment: assignmentId,
       student: req.user._id,
     });
-    if (!submission)
-      return res.status(400).json({ message: "No submission found" });
+    if (!submission) return res.status(400).json({ message: "No submission found" });
 
-    // Delete uploaded file if exists
-    if (submission.file) {
-      const fs = require("fs");
-      const path = submission.file; // this should be the full path like "uploads/submissions/xyz.docx"
-      if (fs.existsSync(path)) fs.unlinkSync(path);
+    if (submission.file && fs.existsSync(submission.file)) {
+      try {
+        fs.unlinkSync(submission.file);
+      } catch (unlinkErr) {
+        console.error("Error deleting file:", unlinkErr);
+      }
     }
 
-    // Remove submission document
     await Submission.deleteOne({ _id: submission._id });
-
     res.json({ message: "Submission unsent successfully" });
   } catch (err) {
     console.error("Error unsending submission:", err);
@@ -306,40 +284,49 @@ exports.replyToAnnouncement = async (req, res) => {
     const { classId, announcementId } = req.params;
     const { text } = req.body;
 
-    if (!text?.trim())
-      return res.status(400).json({ message: "Reply text required" });
+    if (!text?.trim()) return res.status(400).json({ message: "Reply text required" });
 
     const cls = await Class.findById(classId);
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
-    // Check if student belongs to class
     if (!cls.students.includes(req.user._id)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     const announcement = await Announcement.findById(announcementId);
-    if (!announcement)
-      return res.status(404).json({ message: "Announcement not found" });
+    if (!announcement) return res.status(404).json({ message: "Announcement not found" });
 
-    // Add reply
     announcement.replies.push({
       student: req.user._id,
       studentName: req.user.name,
       text: text.trim(),
     });
-
     await announcement.save();
-    res.json({
-      message: "Reply added successfully",
-      replies: announcement.replies,
-    });
+
+    // Send email to teacher
+    const teacher = await User.findById(cls.teacher);
+    if (teacher && teacher.email) {
+      try {
+        const { sendEmailNotification } = require("../services/notificationService");
+        await sendEmailNotification(
+          teacher.email,
+          teacher.name,
+          `💬 New Reply: ${announcement.text.substring(0, 50)}...`,
+          `Student: ${req.user.name}\nClass: ${cls.name}\n\nReply: "${text}"`
+        );
+      } catch (emailErr) {
+        console.error("Failed to send email:", emailErr);
+      }
+    }
+
+    res.json({ message: "Reply added successfully", replies: announcement.replies });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-/* 🚪 Leave Class (Student) - FIXED */
+/* 🚪 Leave Class (Student) */
 exports.leaveClass = async (req, res) => {
   try {
     const { classId } = req.params;
@@ -347,18 +334,15 @@ exports.leaveClass = async (req, res) => {
     const cls = await Class.findById(classId);
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
-    // Check if student is enrolled
     if (!cls.students.includes(req.user._id)) {
       return res.status(400).json({ message: "You are not enrolled in this class" });
     }
 
-    // Remove student from class
     cls.students = cls.students.filter(
-      (id) => id.toString() !== req.user._id.toString()
+      (id) => id.toString() !== req.user._id.toString(),
     );
     await cls.save();
 
-    // Also remove class from student's classes array
     await User.findByIdAndUpdate(req.user._id, { $pull: { classes: classId } });
 
     res.json({ message: "You have left the class successfully" });
