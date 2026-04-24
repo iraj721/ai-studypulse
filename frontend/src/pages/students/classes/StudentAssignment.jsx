@@ -114,23 +114,38 @@ export default function StudentAssignments() {
       return;
     }
 
-    // ✅ Get base URL
     const BASE_URL = (
       import.meta.env.VITE_API_URL || "http://localhost:5000"
     ).replace("/api", "");
 
-    // ✅ Build correct URL
     let fullUrl = fileUrl;
-    if (fileUrl.startsWith("uploads/")) {
+
+    // ✅ Handle Cloudinary URLs (already full URLs)
+    if (fileUrl.startsWith("http")) {
+      fullUrl = fileUrl;
+    }
+    // ✅ Handle local uploads (starts with uploads/)
+    else if (fileUrl.startsWith("uploads/")) {
       fullUrl = `${BASE_URL}/${fileUrl}`;
-    } else if (!fileUrl.startsWith("http")) {
+    }
+    // ✅ Handle relative paths
+    else {
       fullUrl = `${BASE_URL}/uploads/submissions/${fileUrl.split("/").pop()}`;
     }
 
-    console.log("Opening file:", fullUrl);
+    console.log("Opening file URL:", fullUrl);
 
-    // ✅ Open in new tab
-    window.open(fullUrl, "_blank");
+    // ✅ For PDF and images, open directly
+    if (
+      fileUrl.toLowerCase().endsWith(".pdf") ||
+      fileUrl.match(/\.(jpg|jpeg|png|gif)$/i)
+    ) {
+      window.open(fullUrl, "_blank");
+    } else {
+      // ✅ For other files, use Google Docs viewer
+      const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`;
+      window.open(viewer, "_blank");
+    }
   };
 
   if (loading)

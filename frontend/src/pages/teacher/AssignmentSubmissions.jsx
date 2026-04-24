@@ -3,7 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../../services/api";
 import Spinner from "../../components/Spinner";
 
-const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace("/api", "");
+const BASE_URL = (
+  import.meta.env.VITE_API_URL || "http://localhost:5000"
+).replace("/api", "");
 
 export default function AssignmentSubmissions() {
   const { id, assignmentId } = useParams();
@@ -19,7 +21,7 @@ export default function AssignmentSubmissions() {
     const fetchData = async () => {
       try {
         const res = await api.get(
-          `/teacher/classes/${id}/assignments/${assignmentId}/submissions`
+          `/teacher/classes/${id}/assignments/${assignmentId}/submissions`,
         );
 
         const assignmentData = res.data.assignment || null;
@@ -52,14 +54,42 @@ export default function AssignmentSubmissions() {
   }, [id, assignmentId]);
 
   const openFile = (fileUrl) => {
-    if (!fileUrl) return;
-    const url = fileUrl.startsWith("http") ? fileUrl : `${BASE_URL}${fileUrl}`;
-    window.open(
-      `https://docs.google.com/viewer?url=${encodeURIComponent(
-        url
-      )}&embedded=true`,
-      "_blank"
-    );
+    if (!fileUrl) {
+      alert("No file attached");
+      return;
+    }
+
+    const BASE_URL = (
+      import.meta.env.VITE_API_URL || "http://localhost:5000"
+    ).replace("/api", "");
+
+    let fullUrl = fileUrl;
+
+    // ✅ Handle Cloudinary URLs
+    if (fileUrl.startsWith("http")) {
+      fullUrl = fileUrl;
+    }
+    // ✅ Handle local uploads
+    else if (fileUrl.startsWith("uploads/")) {
+      fullUrl = `${BASE_URL}/${fileUrl}`;
+    }
+    // ✅ Handle relative paths
+    else {
+      fullUrl = `${BASE_URL}/uploads/submissions/${fileUrl.split("/").pop()}`;
+    }
+
+    console.log("Opening submission file:", fullUrl);
+
+    // ✅ For PDF and images, open directly
+    if (
+      fileUrl.toLowerCase().endsWith(".pdf") ||
+      fileUrl.match(/\.(jpg|jpeg|png|gif)$/i)
+    ) {
+      window.open(fullUrl, "_blank");
+    } else {
+      const viewer = `https://docs.google.com/viewer?url=${encodeURIComponent(fullUrl)}&embedded=true`;
+      window.open(viewer, "_blank");
+    }
   };
 
   const uploadMarks = async (submissionId) => {
@@ -72,11 +102,11 @@ export default function AssignmentSubmissions() {
     try {
       await api.put(
         `/teacher/classes/${id}/assignments/${assignmentId}/submissions/${submissionId}/marks`,
-        { marks }
+        { marks },
       );
 
       setSubmissions((prev) =>
-        prev.map((s) => (s._id === submissionId ? { ...s, marks } : s))
+        prev.map((s) => (s._id === submissionId ? { ...s, marks } : s)),
       );
 
       setMarksUploaded((prev) => ({
