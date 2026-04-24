@@ -5,10 +5,12 @@ import ReactMarkdown from "react-markdown";
 import { FaMoon, FaSun, FaArrowDown, FaSpinner, FaMicrophone, FaStop, FaBars, FaTimes, FaTrash, FaPlus } from "react-icons/fa";
 import dayjs from "dayjs";
 import calendar from "dayjs/plugin/calendar";
+import relativeTime from "dayjs/plugin/relativeTime";
 import BackButton from "../../../components/BackButton";
 import Stars from "../../../components/Stars";
 
 dayjs.extend(calendar);
+dayjs.extend(relativeTime);
 
 export default function AIChat() {
   const navigate = useNavigate();
