@@ -34,7 +34,7 @@ exports.createActivity = async (req, res) => {
     `;
 
     // Ask AI
-    const aiResponse = await askHF(prompt);
+    const aiResponse = await askHF(prompt, req.user?._id);
 
     // Split AI response into insights
     const insightsArray = aiResponse.split(/\n|;/).filter(line => line.trim() !== '');

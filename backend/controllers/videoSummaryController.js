@@ -7,6 +7,10 @@ const summarizeVideo = async (req, res) => {
   try {
     const { videoUrl } = req.body;
     
+    if (!videoUrl) {
+      return res.status(400).json({ message: "Video URL is required" });
+    }
+    
     const videoId = extractVideoId(videoUrl);
     if (!videoId) {
       return res.status(400).json({ message: "Invalid YouTube URL" });
@@ -22,12 +26,12 @@ const summarizeVideo = async (req, res) => {
     const videoInfo = await getVideoInfo(videoId);
     const transcript = await getTranscript(videoId);
     
-    if (!transcript) {
+    if (!transcript || transcript.length === 0) {
       return res.status(400).json({ message: "No transcript available for this video" });
     }
     
-    // Generate summary
-    const summary = await generateSummary(transcript, askHF);
+    // ✅ Generate summary using generateSummary function
+    const summary = await generateSummary(transcript, askHF, req.user?._id);
     
     // Save to database
     const videoSummary = await VideoSummary.create({
@@ -37,13 +41,13 @@ const summarizeVideo = async (req, res) => {
       title: videoInfo.title,
       author: videoInfo.author,
       thumbnail: videoInfo.thumbnail,
-      summary
+      summary: summary
     });
     
     res.status(201).json({ summary: videoSummary, isCached: false });
   } catch (err) {
     console.error("Video summary error:", err);
-    res.status(500).json({ message: "Failed to summarize video" });
+    res.status(500).json({ message: "Failed to summarize video: " + err.message });
   }
 };
 

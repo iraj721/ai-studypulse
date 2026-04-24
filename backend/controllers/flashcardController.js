@@ -33,7 +33,7 @@ Return EXACT JSON format:
   ]
 }`;
 
-    const aiResponse = await askHF(prompt);
+    const aiResponse = await askHF(prompt, req.user?._id);
     let flashcards = [];
     
     try {

@@ -28,6 +28,8 @@ const ChatSession = require("../models/ChatSession");
 router.get("/users", authMiddleware, roleMiddleware("admin"), getAllUsers);
 router.get("/users/:id", authMiddleware, roleMiddleware("admin"), getUserDetails);
 router.delete("/users/:id", authMiddleware, roleMiddleware("admin"), deleteUserByAdmin);
+const aiAnalyticsController = require("../controllers/aiAnalyticsController");
+
 
 /* ================= STUDENT - FULL DATA ================= */
 // Get student's flashcards
@@ -103,5 +105,7 @@ router.get("/assignment/:assignmentId/submissions", authMiddleware, roleMiddlewa
 router.get("/classes/:id", authMiddleware, roleMiddleware("admin"), getClassByIdAdmin);
 router.get("/teachers/:id/classes", authMiddleware, roleMiddleware("admin"), getTeacherClassesAdmin);
 router.get("/teacher/classes/:classId", authMiddleware, roleMiddleware("admin"), getClassByIdTeacherAdmin);
+router.get("/analytics/overall", authMiddleware, roleMiddleware("admin"), aiAnalyticsController.getOverallAnalytics);
+router.get("/analytics/hourly", authMiddleware, roleMiddleware("admin"), aiAnalyticsController.getHourlyUsage);
 
 module.exports = router;

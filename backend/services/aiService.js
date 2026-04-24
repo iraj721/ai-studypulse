@@ -15,10 +15,10 @@ const MODELS = {
   hfDefault: process.env.HF_MODEL || "meta-llama/Llama-3.2-1B-Instruct",
 };
 
-// ✅ 8 second timeout - user wait nahi karega
+// ✅ 8 second timeout
 const withTimeout = (promise, timeoutMs = 8000) => {
   const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("AI request timeout")), timeoutMs),
+    setTimeout(() => reject(new Error("AI request timeout")), timeoutMs)
   );
   return Promise.race([promise, timeout]);
 };
@@ -46,9 +46,9 @@ async function askGroq(prompt, model = MODELS.groqFast) {
         ],
         model: model,
         temperature: 0.5,
-        max_tokens: 1500, // ✅ Increased for better responses
+        max_tokens: 1500,
       }),
-      8000,
+      8000
     );
     return response.choices[0]?.message?.content || "";
   } catch (err) {
@@ -92,9 +92,9 @@ async function askHuggingFace(prompt) {
             Authorization: `Bearer ${process.env.HF_API_KEY}`,
             "Content-Type": "application/json",
           },
-        },
+        }
       ),
-      8000,
+      8000
     );
     return response.data?.choices?.[0]?.message?.content || "";
   } catch (err) {
@@ -103,7 +103,8 @@ async function askHuggingFace(prompt) {
   }
 }
 
-async function askAI(prompt, mode = "fast") {
+// ✅ FIXED: Pass userId as parameter instead of req
+const askAI = async (prompt, userId = null, mode = "fast") => {
   // Check cache first
   const cachedResponse = getCachedResponse(prompt);
   if (cachedResponse) {
@@ -130,13 +131,24 @@ async function askAI(prompt, mode = "fast") {
     return "I'm here to help! Could you please rephrase your question? I'll do my best to assist you. 📚";
   }
 
+  // ✅ Record usage if userId is provided
+  if (userId) {
+    try {
+      const { recordAIUsage } = require("../controllers/aiAnalyticsController");
+      const tokensUsed = Math.ceil(result.length / 4); // Approximate tokens
+      await recordAIUsage(userId, "chat", tokensUsed);
+    } catch (err) {
+      console.error("Failed to record AI usage:", err);
+    }
+  }
+
   // Cache the response
   if (result) {
     setCachedResponse(prompt, result);
   }
 
   return result;
-}
+};
 
 module.exports = askAI;
 module.exports.askGroq = askGroq;
