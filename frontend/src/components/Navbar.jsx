@@ -4,14 +4,24 @@ import "./navbar.css";
 
 export default function Navbar({ user, onLogout }) {
   const [expanded, setExpanded] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState(null);
   const navigate = useNavigate();
   const navRef = useRef(null);
 
   // Close navbar function
-  const closeNavbar = () => setExpanded(false);
+  const closeNavbar = () => {
+    setExpanded(false);
+    setOpenDropdown(null);
+  };
 
   // Toggle navbar
   const toggleNavbar = () => setExpanded(!expanded);
+
+  // Handle navigation and close
+  const handleNavigate = (path) => {
+    closeNavbar();
+    navigate(path);
+  };
 
   // Handle logout
   const handleLogout = () => {
@@ -19,10 +29,14 @@ export default function Navbar({ user, onLogout }) {
     onLogout();
   };
 
+  // Toggle dropdown on mobile
+  const toggleDropdown = (name) => {
+    setOpenDropdown(openDropdown === name ? null : name);
+  };
+
   // Close navbar when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Check if click is on toggle button
       const toggleButton = document.querySelector('.navbar-toggler');
       if (toggleButton && toggleButton.contains(event.target)) {
         return;
@@ -44,7 +58,6 @@ export default function Navbar({ user, onLogout }) {
         closeNavbar();
       }
     };
-    
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
   }, [expanded]);
@@ -61,15 +74,31 @@ export default function Navbar({ user, onLogout }) {
     };
   }, [expanded]);
 
+  const navItems = [
+    { name: 'Notes', path: null, links: [
+      { label: 'All Notes', path: '/notes' },
+      { label: 'Create Note', path: '/notes/create' }
+    ]},
+    { name: 'Quizzes', path: null, links: [
+      { label: 'My Quizzes', path: '/quizzes' },
+      { label: 'Generate Quiz', path: '/quizzes/generate' }
+    ]},
+    { name: 'Classes', path: null, links: [
+      { label: 'My Classes', path: '/classes' },
+      { label: 'Join Class', path: '/classes/join' }
+    ]},
+    { name: 'Activities', path: null, links: [
+      { label: 'My Activities', path: '/activities' },
+      { label: 'Add Activity', path: '/activities/add' }
+    ]},
+    { name: 'AI Assistant', path: '/chat', links: null }
+  ];
+
   return (
     <nav className="navbar navbar-expand-lg navbar-dark custom-navbar shadow sticky-top" ref={navRef}>
       <div className="container-fluid px-3 px-md-4">
         {/* Brand Logo */}
-        <Link 
-          className="navbar-brand fw-bold fs-4" 
-          to="/dashboard"
-          onClick={closeNavbar}
-        >
+        <Link className="navbar-brand fw-bold fs-4" to="/dashboard" onClick={closeNavbar}>
           AI StudyPulse
         </Link>
 
@@ -81,110 +110,181 @@ export default function Navbar({ user, onLogout }) {
           aria-expanded={expanded}
           aria-label="Toggle navigation"
         >
-          <span className={`navbar-toggler-icon ${expanded ? 'close' : ''}`}></span>
+          <span className="navbar-toggler-icon"></span>
         </button>
 
-        {/* Navbar Links - Collapsible */}
-        <div className={`collapse navbar-collapse ${expanded ? "show" : ""}`}>
+        {/* Navbar Links */}
+        <div className={`navbar-collapse ${expanded ? "show" : ""}`}>
           <ul className="navbar-nav mx-auto gap-2 gap-lg-3">
-            {/* Notes Dropdown */}
-            <li className="nav-item dropdown">
-              <span
-                className="nav-link dropdown-toggle"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                Notes
-              </span>
-              <ul className="dropdown-menu">
-                <li><Link className="dropdown-item" to="/notes" onClick={closeNavbar}>All Notes</Link></li>
-                <li><Link className="dropdown-item" to="/notes/create" onClick={closeNavbar}>Create Note</Link></li>
-              </ul>
-            </li>
-
-            {/* Quizzes Dropdown */}
-            <li className="nav-item dropdown">
-              <span
-                className="nav-link dropdown-toggle"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                Quizzes
-              </span>
-              <ul className="dropdown-menu">
-                <li><Link className="dropdown-item" to="/quizzes" onClick={closeNavbar}>My Quizzes</Link></li>
-                <li><Link className="dropdown-item" to="/quizzes/generate" onClick={closeNavbar}>Generate Quiz</Link></li>
-              </ul>
-            </li>
-
-            {/* Classes Dropdown */}
-            <li className="nav-item dropdown">
-              <span
-                className="nav-link dropdown-toggle"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                Classes
-              </span>
-              <ul className="dropdown-menu">
-                <li><Link className="dropdown-item" to="/classes" onClick={closeNavbar}>My Classes</Link></li>
-                <li><Link className="dropdown-item" to="/classes/join" onClick={closeNavbar}>Join Class</Link></li>
-              </ul>
-            </li>
-
-            {/* Activities Dropdown */}
-            <li className="nav-item dropdown">
-              <span
-                className="nav-link dropdown-toggle"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                Activities
-              </span>
-              <ul className="dropdown-menu">
-                <li><Link className="dropdown-item" to="/activities" onClick={closeNavbar}>My Activities</Link></li>
-                <li><Link className="dropdown-item" to="/activities/add" onClick={closeNavbar}>Add Activity</Link></li>
-              </ul>
-            </li>
-
-            {/* AI Assistant Link */}
-            <li className="nav-item">
-              <Link className="nav-link" to="/chat" onClick={closeNavbar}>
-                AI Assistant
-              </Link>
-            </li>
+            {navItems.map((item) => (
+              <li key={item.name} className={`nav-item ${item.links ? 'dropdown' : ''}`}>
+                {item.links ? (
+                  <>
+                    {/* Dropdown Toggle */}
+                    <button
+                      className="nav-link dropdown-toggle-custom"
+                      onClick={() => toggleDropdown(item.name)}
+                      aria-expanded={openDropdown === item.name}
+                    >
+                      {item.name}
+                    </button>
+                    {/* Dropdown Menu */}
+                    <div className={`dropdown-menu-custom ${openDropdown === item.name ? 'show' : ''}`}>
+                      {item.links.map((link) => (
+                        <button
+                          key={link.path}
+                          className="dropdown-item-custom"
+                          onClick={() => handleNavigate(link.path)}
+                        >
+                          {link.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <Link className="nav-link" to={item.path} onClick={closeNavbar}>
+                    {item.name}
+                  </Link>
+                )}
+              </li>
+            ))}
           </ul>
 
           {/* User Section */}
-          <div className="d-flex align-items-center gap-3 mt-2 mt-lg-0">
-            <span className="text-white fw-semibold">{user?.name}</span>
-            <button className="btn btn-outline-light btn-sm" onClick={handleLogout}>
+          <div className="user-section">
+            <span className="user-name">{user?.name}</span>
+            <button className="logout-btn" onClick={handleLogout}>
               Logout
             </button>
           </div>
         </div>
       </div>
 
-      {/* Styles */}
       <style>{`
-        /* Custom Navbar */
         .custom-navbar {
           background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         }
 
-        /* Navbar Toggler Icon Animation */
-        .navbar-toggler-icon {
-          transition: transform 0.3s ease;
-        }
-        .navbar-toggler-icon.close {
-          transform: rotate(90deg);
+        .navbar-brand {
+          color: white !important;
         }
 
-        /* Mobile Responsive */
+        .navbar-toggler {
+          outline: none;
+          box-shadow: none;
+        }
+
+        .navbar-toggler-icon {
+          filter: invert(1);
+        }
+
+        /* Desktop Styles */
+        @media (min-width: 992px) {
+          .navbar-collapse {
+            display: flex !important;
+          }
+          
+          .nav-link, .dropdown-toggle-custom {
+            color: white !important;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            background: none;
+            border: none;
+            font-size: 1rem;
+          }
+          
+          .nav-link:hover, .dropdown-toggle-custom:hover {
+            background: rgba(255,255,255,0.1);
+          }
+          
+          .dropdown-toggle-custom {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+          }
+          
+          .dropdown-toggle-custom::after {
+            content: "▼";
+            font-size: 10px;
+            transition: transform 0.3s;
+          }
+          
+          .dropdown-toggle-custom[aria-expanded="true"]::after {
+            transform: rotate(180deg);
+          }
+          
+          .dropdown-menu-custom {
+            position: absolute;
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 8px;
+            min-width: 180px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s;
+            border: 1px solid rgba(255,255,255,0.1);
+          }
+          
+          .dropdown:hover .dropdown-menu-custom {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+          }
+          
+          .dropdown-menu-custom.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+          }
+          
+          .dropdown-item-custom {
+            display: block;
+            width: 100%;
+            padding: 10px 16px;
+            color: #e2e8f0;
+            background: none;
+            border: none;
+            text-align: left;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          
+          .dropdown-item-custom:hover {
+            background: #4f46e5;
+            color: white;
+          }
+          
+          .user-section {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+          }
+          
+          .user-name {
+            color: white;
+            font-weight: 500;
+          }
+          
+          .logout-btn {
+            background: rgba(239,68,68,0.2);
+            border: none;
+            color: #ef4444;
+            padding: 6px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          
+          .logout-btn:hover {
+            background: #ef4444;
+            color: white;
+          }
+        }
+
+        /* Mobile Styles */
         @media (max-width: 991px) {
           .navbar-collapse {
             position: fixed;
@@ -196,81 +296,119 @@ export default function Navbar({ user, onLogout }) {
             padding: 20px;
             z-index: 1050;
             overflow-y: auto;
-            transition: all 0.3s ease;
-          }
-          
-          .navbar-collapse.collapse:not(.show) {
-            display: none !important;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
           }
           
           .navbar-collapse.show {
-            display: block !important;
+            transform: translateX(0);
           }
           
           .navbar-nav {
-            gap: 8px !important;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
           }
           
           .nav-item {
             width: 100%;
-            text-align: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
           }
           
-          .nav-link, .nav-link.dropdown-toggle {
-            display: block !important;
+          .nav-link, .dropdown-toggle-custom {
+            display: block;
             width: 100%;
-            text-align: center;
-            padding: 12px;
-            font-size: 1rem;
+            padding: 14px 16px;
             color: white !important;
-          }
-          
-          .dropdown-menu {
-            position: static !important;
-            transform: none !important;
-            width: 100%;
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            margin-top: 5px;
+            background: none;
             border: none;
-            text-align: center;
+            text-align: left;
+            font-size: 1rem;
+            cursor: pointer;
           }
           
-          .dropdown-item {
-            color: white !important;
-            text-align: center;
-            padding: 10px;
+          .dropdown-toggle-custom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
           }
           
-          .dropdown-item:hover {
-            background: rgba(255,255,255,0.2);
-            color: white !important;
+          .dropdown-toggle-custom::after {
+            content: "▼";
+            font-size: 12px;
+            transition: transform 0.3s;
           }
           
-          .d-flex.align-items-center {
-            justify-content: center;
+          .dropdown-toggle-custom[aria-expanded="true"]::after {
+            transform: rotate(180deg);
+          }
+          
+          .dropdown-menu-custom {
+            display: none;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 8px;
+            margin: 0 16px 8px 16px;
+          }
+          
+          .dropdown-menu-custom.show {
+            display: block;
+          }
+          
+          .dropdown-item-custom {
+            display: block;
+            width: 100%;
+            padding: 12px 16px;
+            color: white;
+            background: none;
+            border: none;
+            text-align: left;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+          }
+          
+          .dropdown-item-custom:active {
+            background: #4f46e5;
+          }
+          
+          .user-section {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
             margin-top: 20px;
             padding-top: 20px;
             border-top: 1px solid rgba(255,255,255,0.2);
-            flex-direction: column;
-            gap: 12px !important;
           }
-        }
-
-        /* Tablet */
-        @media (min-width: 768px) and (max-width: 991px) {
-          .navbar-collapse {
-            top: 72px;
+          
+          .user-name {
+            color: white;
+            font-weight: 500;
+            text-align: center;
+            font-size: 1rem;
           }
-          .nav-link, .nav-link.dropdown-toggle {
-            padding: 10px;
+          
+          .logout-btn {
+            background: rgba(239,68,68,0.2);
+            border: none;
+            color: #ef4444;
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 1rem;
+          }
+          
+          .logout-btn:active {
+            background: #ef4444;
+            color: white;
           }
         }
 
         /* Mobile Small */
         @media (max-width: 576px) {
           .navbar-brand {
-            font-size: 1.2rem !important;
+            font-size: 1.1rem !important;
           }
           
           .container-fluid {
@@ -283,51 +421,21 @@ export default function Navbar({ user, onLogout }) {
             padding: 16px;
           }
           
-          .nav-link, .nav-link.dropdown-toggle {
-            padding: 10px;
+          .nav-link, .dropdown-toggle-custom {
+            padding: 12px 14px;
             font-size: 0.9rem;
           }
           
-          .dropdown-item {
-            padding: 8px;
+          .dropdown-item-custom {
+            padding: 10px 14px;
             font-size: 0.85rem;
           }
         }
 
-        /* Desktop */
-        @media (min-width: 992px) {
-          .navbar-nav {
-            align-items: center;
-          }
-          
-          .nav-link, .nav-link.dropdown-toggle {
-            padding: 8px 16px;
-            transition: all 0.3s;
-          }
-          
-          .nav-link:hover, .nav-link.dropdown-toggle:hover {
-            background: rgba(255,255,255,0.1);
-            border-radius: 8px;
-          }
-          
-          .dropdown:hover .dropdown-menu {
-            display: block;
-            margin-top: 0;
-          }
-          
-          .dropdown-menu {
-            background: #1e293b;
-            border: 1px solid rgba(255,255,255,0.1);
-          }
-          
-          .dropdown-item {
-            color: #e2e8f0;
-            transition: all 0.2s;
-          }
-          
-          .dropdown-item:hover {
-            background: #4f46e5;
-            color: white;
+        /* Tablet */
+        @media (min-width: 768px) and (max-width: 991px) {
+          .navbar-collapse {
+            top: 72px;
           }
         }
       `}</style>
