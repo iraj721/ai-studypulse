@@ -497,6 +497,19 @@ export default function StudyGroupsPage() {
       setToast({ message: "Failed to remove member", type: "error" });
     }
   };
+  // Fetch group members for modal
+  const fetchGroupMembers = async () => {
+    if (!selectedGroup) return;
+    try {
+      const res = await api.get(`/student/groups/${selectedGroup._id}/members`);
+      setGroupMembers(res.data.members || []);
+      setIsCreator(res.data.isCreator || false);
+      setShowMembersModal(true);
+    } catch (err) {
+      console.error("Failed to fetch members:", err);
+      setToast({ message: "Failed to load members", type: "error" });
+    }
+  };
 
   const copyCode = (code) => {
     navigator.clipboard.writeText(code);
@@ -680,10 +693,10 @@ export default function StudyGroupsPage() {
                   </div>
                   <div className="group-actions-buttons">
                     <button
-                      onClick={() => setShowMembersModal(true)}
+                      onClick={() => fetchGroupMembers()} // ✅ Changed from setShowMembersModal(true)
                       className="btn-members"
                     >
-                      <FaUsers /> Members
+                      <FaUsers /> Members ({selectedGroup.members?.length || 0})
                     </button>
                     <button onClick={leaveGroup} className="btn-leave">
                       <FaSignOutAlt /> Leave Group

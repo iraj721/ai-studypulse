@@ -24,10 +24,12 @@ const createGroup = async (req, res) => {
       description,
       code,
       createdBy: req.user._id,
-      members: [{
-        user: req.user._id,
-        joinedAt: new Date()
-      }],
+      members: [
+        {
+          user: req.user._id,
+          joinedAt: new Date(),
+        },
+      ],
     });
 
     res.status(201).json(group);
@@ -37,7 +39,7 @@ const createGroup = async (req, res) => {
   }
 };
 
-// Join group by code
+// Join group by code - WITH REAL-TIME MEMBER UPDATE
 const joinGroup = async (req, res) => {
   try {
     const { code } = req.body;
@@ -49,9 +51,9 @@ const joinGroup = async (req, res) => {
 
     // Check if already a member (check in members array)
     const alreadyMember = group.members.some(
-      m => m.user.toString() === req.user._id.toString()
+      (m) => m.user.toString() === req.user._id.toString(),
     );
-    
+
     if (alreadyMember) {
       return res.status(400).json({ message: "Already a member" });
     }
@@ -59,13 +61,26 @@ const joinGroup = async (req, res) => {
     // Add member with joinedAt date
     group.members.push({
       user: req.user._id,
-      joinedAt: new Date()
+      joinedAt: new Date(),
     });
-    
+
     group.updatedAt = new Date();
     await group.save();
 
-    const members = await User.find({ _id: { $in: group.members.map(m => m.user) } });
+    // Get updated members list with user details
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } }).select(
+      "name email _id",
+    );
+
+    // Map members to include user details
+    const membersWithDetails = members.map((m) => ({
+      _id: m._id,
+      name: m.name,
+      email: m.email,
+    }));
+
+    // Send email notifications
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -74,12 +89,26 @@ const joinGroup = async (req, res) => {
           group.name,
           `${req.user.name} has joined the group!`,
           "member_joined",
-          group._id
+          group._id,
         );
       }
     }
 
-    res.json({ message: "Joined successfully", group });
+    // Emit socket event for real-time member update
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(`group_${group._id}`).emit("memberJoined", {
+        userId: req.user._id,
+        userName: req.user.name,
+        members: membersWithDetails,
+      });
+    }
+
+    res.json({
+      message: "Joined successfully",
+      group,
+      members: membersWithDetails,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -89,20 +118,20 @@ const joinGroup = async (req, res) => {
 // Get user's groups
 const getUserGroups = async (req, res) => {
   try {
-    const groups = await StudyGroup.find({ 
-      "members.user": req.user._id 
+    const groups = await StudyGroup.find({
+      "members.user": req.user._id,
     })
       .populate("createdBy", "name email")
       .populate("members.user", "name email")
       .sort({ updatedAt: -1 });
-    
+
     // Transform to old format for frontend compatibility
-    const transformedGroups = groups.map(group => {
+    const transformedGroups = groups.map((group) => {
       const groupObj = group.toObject();
-      groupObj.members = group.members.map(m => m.user);
+      groupObj.members = group.members.map((m) => m.user);
       return groupObj;
     });
-    
+
     res.json(transformedGroups);
   } catch (err) {
     console.error(err);
@@ -114,7 +143,7 @@ const getUserGroups = async (req, res) => {
 const getGroupDetails = async (req, res) => {
   try {
     const group = await StudyGroup.findById(req.params.id)
-      .populate("members.user", "name email")  // Updated populate
+      .populate("members.user", "name email")
       .populate("messages.user", "name")
       .populate("sharedContent.sharedBy", "name");
 
@@ -124,30 +153,30 @@ const getGroupDetails = async (req, res) => {
 
     // Check if user is a member and get their join date
     const memberInfo = group.members.find(
-      m => m.user._id.toString() === req.user._id.toString()
+      (m) => m.user._id.toString() === req.user._id.toString(),
     );
-    
+
     if (!memberInfo) {
       return res.status(403).json({ message: "Not a member" });
     }
 
     const userJoinDate = memberInfo.joinedAt;
-    
+
     // Filter messages - only show messages created after user joined
     const filteredMessages = group.messages.filter(
-      msg => new Date(msg.createdAt) >= new Date(userJoinDate)
+      (msg) => new Date(msg.createdAt) >= new Date(userJoinDate),
     );
-    
+
     // Filter shared content - only show content shared after user joined
     const filteredSharedContent = group.sharedContent.filter(
-      content => new Date(content.sharedAt) >= new Date(userJoinDate)
+      (content) => new Date(content.sharedAt) >= new Date(userJoinDate),
     );
 
     // Return group with filtered data
     const responseGroup = group.toObject();
     responseGroup.messages = filteredMessages;
     responseGroup.sharedContent = filteredSharedContent;
-    responseGroup.members = group.members; // Keep members as is
+    responseGroup.members = group.members.map((m) => m.user); // Send user objects for frontend
 
     res.json(responseGroup);
   } catch (err) {
@@ -181,7 +210,7 @@ const sendMessage = async (req, res) => {
     await group.save();
 
     const savedMessage = group.messages[group.messages.length - 1];
-    
+
     // Prepare message for client
     const messageToSend = {
       _id: savedMessage._id,
@@ -191,11 +220,14 @@ const sendMessage = async (req, res) => {
       type: type,
       sharedData: sharedData,
       deleted: false,
-      createdAt: savedMessage.createdAt
+      createdAt: savedMessage.createdAt,
     };
 
+    // Get members for email
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } });
+
     // Send email notifications (non-blocking)
-    const members = await User.find({ _id: { $in: group.members } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         sendGroupEmailNotification(
@@ -204,8 +236,8 @@ const sendMessage = async (req, res) => {
           group.name,
           `${req.user.name}: ${message.substring(0, 100)}${message.length > 100 ? "..." : ""}`,
           "new_message",
-          group._id
-        ).catch(err => console.error("Email error:", err));
+          group._id,
+        ).catch((err) => console.error("Email error:", err));
       }
     }
 
@@ -357,7 +389,11 @@ const shareNote = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (!group.members.includes(req.user._id)) {
+    // Check membership
+    const isMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString(),
+    );
+    if (!isMember) {
       return res
         .status(403)
         .json({ message: "You are not a member of this group" });
@@ -406,7 +442,8 @@ const shareNote = async (req, res) => {
 
     const savedMessage = group.messages[group.messages.length - 1];
 
-    const members = await User.find({ _id: { $in: group.members } });
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -415,7 +452,7 @@ const shareNote = async (req, res) => {
           group.name,
           `${req.user.name} shared a note: "${note.subject} - ${note.topic}"`,
           "shared_note",
-          group._id, // ✅ Added groupId
+          group._id,
         );
       }
     }
@@ -457,7 +494,10 @@ const shareQuiz = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (!group.members.includes(req.user._id)) {
+    const isMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString(),
+    );
+    if (!isMember) {
       return res
         .status(403)
         .json({ message: "You are not a member of this group" });
@@ -505,7 +545,8 @@ const shareQuiz = async (req, res) => {
 
     const savedMessage = group.messages[group.messages.length - 1];
 
-    const members = await User.find({ _id: { $in: group.members } });
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -514,7 +555,7 @@ const shareQuiz = async (req, res) => {
           group.name,
           `${req.user.name} shared a quiz: "${quiz.topic}"`,
           "shared_quiz",
-          group._id, // ✅ Added groupId
+          group._id,
         );
       }
     }
@@ -602,7 +643,8 @@ const shareYouTubeSummary = async (req, res) => {
 
     const savedMessage = group.messages[group.messages.length - 1];
 
-    const members = await User.find({ _id: { $in: group.members } });
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -611,7 +653,7 @@ const shareYouTubeSummary = async (req, res) => {
           group.name,
           `${req.user.name} shared a video summary: "${video.title}"`,
           "shared_video",
-          group._id, // ✅ Added groupId
+          group._id,
         );
       }
     }
@@ -628,10 +670,12 @@ const shareYouTubeSummary = async (req, res) => {
       createdAt: new Date(),
     });
 
-    res.status(201).json({
-      message: "Video summary shared successfully",
-      data: savedContent,
-    });
+    res
+      .status(201)
+      .json({
+        message: "Video summary shared successfully",
+        data: savedContent,
+      });
   } catch (err) {
     console.error("Share video error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -654,7 +698,10 @@ const shareFlashcard = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (!group.members.includes(req.user._id)) {
+    const isMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString(),
+    );
+    if (!isMember) {
       return res
         .status(403)
         .json({ message: "You are not a member of this group" });
@@ -706,7 +753,8 @@ const shareFlashcard = async (req, res) => {
 
     const savedMessage = group.messages[group.messages.length - 1];
 
-    const members = await User.find({ _id: { $in: group.members } });
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -715,7 +763,7 @@ const shareFlashcard = async (req, res) => {
           group.name,
           `${req.user.name} shared a flashcard: "${flashcard.noteTopic || "Study Card"}"`,
           "shared_flashcard",
-          group._id, // ✅ Added groupId
+          group._id,
         );
       }
     }
@@ -820,7 +868,8 @@ const shareInsight = async (req, res) => {
 
     const savedMessage = group.messages[group.messages.length - 1];
 
-    const members = await User.find({ _id: { $in: group.members } });
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -829,7 +878,7 @@ const shareInsight = async (req, res) => {
           group.name,
           `${req.user.name} shared an AI insight: "${insightTitle.substring(0, 50)}..."`,
           "shared_insight",
-          group._id, // ✅ Added groupId
+          group._id,
         );
       }
     }
@@ -892,7 +941,10 @@ const viewSharedNote = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (!group.members.includes(req.user._id)) {
+    const isMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString(),
+    );
+    if (!isMember) {
       console.log("User not a member of group");
       return res
         .status(403)
@@ -934,7 +986,10 @@ const shareFlashcardGroup = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (!group.members.includes(req.user._id)) {
+    const isMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString(),
+    );
+    if (!isMember) {
       return res
         .status(403)
         .json({ message: "You are not a member of this group" });
@@ -1001,7 +1056,8 @@ const shareFlashcardGroup = async (req, res) => {
 
     const savedMessage = group.messages[group.messages.length - 1];
 
-    const members = await User.find({ _id: { $in: group.members } });
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -1010,7 +1066,7 @@ const shareFlashcardGroup = async (req, res) => {
           group.name,
           `${req.user.name} shared a flashcard set: "${firstCard.noteTopic || "Study Cards"}" (${flashcardCount} cards)`,
           "shared_flashcard",
-          group._id, // ✅ Added groupId
+          group._id,
         );
       }
     }
@@ -1029,10 +1085,12 @@ const shareFlashcardGroup = async (req, res) => {
       });
     }
 
-    res.status(201).json({
-      message: "Flashcard set shared successfully",
-      data: savedContent,
-    });
+    res
+      .status(201)
+      .json({
+        message: "Flashcard set shared successfully",
+        data: savedContent,
+      });
   } catch (err) {
     console.error("Share flashcard group error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -1053,7 +1111,10 @@ const viewSharedQuiz = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (!group.members.includes(req.user._id)) {
+    const isMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString(),
+    );
+    if (!isMember) {
       return res
         .status(403)
         .json({ message: "You are not a member of this group" });
@@ -1096,7 +1157,10 @@ const viewSharedFlashcard = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (!group.members.includes(req.user._id)) {
+    const isMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString(),
+    );
+    if (!isMember) {
       return res
         .status(403)
         .json({ message: "You are not a member of this group" });
@@ -1142,7 +1206,10 @@ const shareFile = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (!group.members.includes(req.user._id)) {
+    const isMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString(),
+    );
+    if (!isMember) {
       return res
         .status(403)
         .json({ message: "You are not a member of this group" });
@@ -1197,7 +1264,8 @@ const shareFile = async (req, res) => {
     const savedMessage = group.messages[group.messages.length - 1];
 
     try {
-      const members = await User.find({ _id: { $in: group.members } });
+      const memberIds = group.members.map((m) => m.user);
+      const members = await User.find({ _id: { $in: memberIds } });
       for (const member of members) {
         if (member._id.toString() !== req.user._id.toString()) {
           await sendGroupEmailNotification(
@@ -1206,7 +1274,7 @@ const shareFile = async (req, res) => {
             group.name,
             `${req.user.name} shared a file: "${fileName}"`,
             "shared_file",
-            group._id, // ✅ Added groupId
+            group._id,
           );
         }
       }
@@ -1245,28 +1313,33 @@ const leaveGroup = async (req, res) => {
   try {
     const { id } = req.params;
     const group = await StudyGroup.findById(id);
-    
+
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
     }
-    
+
     // Check if user is a member
-    if (!group.members.includes(req.user._id)) {
-      return res.status(400).json({ message: "You are not a member of this group" });
+    const isMember = group.members.some(
+      (m) => m.user.toString() === req.user._id.toString(),
+    );
+    if (!isMember) {
+      return res
+        .status(400)
+        .json({ message: "You are not a member of this group" });
     }
-    
+
     // Remove user from members
     group.members = group.members.filter(
-      member => member.toString() !== req.user._id.toString()
+      (m) => m.user.toString() !== req.user._id.toString(),
     );
-    
+
     // If creator leaves, assign new creator or delete group
     if (group.createdBy.toString() === req.user._id.toString()) {
       if (group.members.length > 0) {
         // Assign new creator (first member)
-        group.createdBy = group.members[0];
+        group.createdBy = group.members[0].user;
         await group.save();
-        
+
         // Notify new creator
         const newCreator = await User.findById(group.createdBy);
         if (newCreator) {
@@ -1276,20 +1349,38 @@ const leaveGroup = async (req, res) => {
             group.name,
             `${req.user.name} left the group. You are now the group creator.`,
             "member_left",
-            group._id
+            group._id,
           );
         }
       } else {
         // Delete group if no members left
         await StudyGroup.findByIdAndDelete(id);
-        return res.json({ message: "Group deleted as you were the last member" });
+
+        // Emit socket event for group deletion
+        const io = req.app.locals.io;
+        if (io) {
+          io.to(`group_${id}`).emit("groupDeleted", { groupId: id });
+        }
+        return res.json({
+          message: "Group deleted as you were the last member",
+        });
       }
     }
-    
+
     await group.save();
-    
+
+    // Get updated members list
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } }).select(
+      "name email _id",
+    );
+    const membersWithDetails = members.map((m) => ({
+      _id: m._id,
+      name: m.name,
+      email: m.email,
+    }));
+
     // Notify other members
-    const members = await User.find({ _id: { $in: group.members } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -1298,21 +1389,25 @@ const leaveGroup = async (req, res) => {
           group.name,
           `${req.user.name} has left the group.`,
           "member_left",
-          group._id
+          group._id,
         );
       }
     }
-    
-    // Emit socket event
+
+    // Emit socket event for real-time member update
     const io = req.app.locals.io;
     if (io) {
       io.to(`group_${id}`).emit("memberLeft", {
         userId: req.user._id,
-        userName: req.user.name
+        userName: req.user.name,
+        members: membersWithDetails,
       });
     }
-    
-    res.json({ message: "Left group successfully" });
+
+    res.json({
+      message: "Left group successfully",
+      members: membersWithDetails,
+    });
   } catch (err) {
     console.error("Leave group error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -1324,32 +1419,37 @@ const removeMember = async (req, res) => {
   try {
     const { id, memberId } = req.params;
     const group = await StudyGroup.findById(id);
-    
+
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
     }
-    
+
     // Check if current user is creator
     if (group.createdBy.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Only group creator can remove members" });
+      return res
+        .status(403)
+        .json({ message: "Only group creator can remove members" });
     }
-    
+
     // Check if member exists
-    if (!group.members.includes(memberId)) {
+    const memberExists = group.members.some(
+      (m) => m.user.toString() === memberId,
+    );
+    if (!memberExists) {
       return res.status(404).json({ message: "Member not found in group" });
     }
-    
+
     // Cannot remove yourself
     if (memberId.toString() === req.user._id.toString()) {
-      return res.status(400).json({ message: "Use leave group to remove yourself" });
+      return res
+        .status(400)
+        .json({ message: "Use leave group to remove yourself" });
     }
-    
+
     // Remove member
-    group.members = group.members.filter(
-      member => member.toString() !== memberId
-    );
+    group.members = group.members.filter((m) => m.user.toString() !== memberId);
     await group.save();
-    
+
     // Notify removed member
     const removedUser = await User.findById(memberId);
     if (removedUser) {
@@ -1359,12 +1459,22 @@ const removeMember = async (req, res) => {
         group.name,
         `You have been removed from the group by ${req.user.name}.`,
         "member_removed",
-        group._id
+        group._id,
       );
     }
-    
+
+    // Get updated members list
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } }).select(
+      "name email _id",
+    );
+    const membersWithDetails = members.map((m) => ({
+      _id: m._id,
+      name: m.name,
+      email: m.email,
+    }));
+
     // Notify other members
-    const members = await User.find({ _id: { $in: group.members } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -1373,43 +1483,54 @@ const removeMember = async (req, res) => {
           group.name,
           `${removedUser?.name || "A member"} has been removed from the group.`,
           "member_removed",
-          group._id
+          group._id,
         );
       }
     }
-    
-    // Emit socket event
+
+    // Emit socket event for real-time member update
     const io = req.app.locals.io;
     if (io) {
       io.to(`group_${id}`).emit("memberRemoved", {
         userId: memberId,
-        userName: removedUser?.name
+        userName: removedUser?.name,
+        members: membersWithDetails,
       });
     }
-    
-    res.json({ message: "Member removed successfully" });
+
+    res.json({
+      message: "Member removed successfully",
+      members: membersWithDetails,
+    });
   } catch (err) {
     console.error("Remove member error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
-// Get group members (for admin panel)
+// Get group members (for modal)
 const getGroupMembers = async (req, res) => {
   try {
     const { id } = req.params;
-    const group = await StudyGroup.findById(id)
-      .populate("members", "name email _id")
-      .populate("createdBy", "name email _id");
-    
+    const group = await StudyGroup.findById(id);
+
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
     }
-    
+
+    const memberIds = group.members.map((m) => m.user);
+    const members = await User.find({ _id: { $in: memberIds } }).select(
+      "name email _id",
+    );
+    const creator = await User.findById(group.createdBy).select(
+      "name email _id",
+    );
+
     res.json({
-      members: group.members,
-      createdBy: group.createdBy,
-      isCreator: group.createdBy._id.toString() === req.user._id.toString()
+      members: members,
+      createdBy: creator,
+      isCreator: group.createdBy.toString() === req.user._id.toString(),
+      memberCount: members.length,
     });
   } catch (err) {
     console.error("Get members error:", err);
@@ -1436,7 +1557,7 @@ module.exports = {
   viewSharedNote,
   viewSharedQuiz,
   viewSharedFlashcard,
-  leaveGroup,       
-  removeMember,    
-  getGroupMembers,  
+  leaveGroup,
+  removeMember,
+  getGroupMembers,
 };
