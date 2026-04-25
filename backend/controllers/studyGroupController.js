@@ -136,23 +136,9 @@ const sendMessage = async (req, res) => {
     await group.save();
 
     const savedMessage = group.messages[group.messages.length - 1];
-
-    const members = await User.find({ _id: { $in: group.members } });
-    for (const member of members) {
-      if (member._id.toString() !== req.user._id.toString()) {
-        await sendGroupEmailNotification(
-          member.email,
-          member.name,
-          group.name,
-          `${req.user.name}: ${message.substring(0, 100)}${message.length > 100 ? "..." : ""}`,
-          "new_message",
-          group._id, // ✅ Added groupId
-        );
-      }
-    }
-
-    const io = req.app.locals.io;
-    io.to(`group_${req.params.id}`).emit("newGroupMessage", {
+    
+    // Prepare message for client
+    const messageToSend = {
       _id: savedMessage._id,
       user: req.user._id,
       userName: req.user.name,
@@ -160,12 +146,37 @@ const sendMessage = async (req, res) => {
       type: type,
       sharedData: sharedData,
       deleted: false,
-      createdAt: new Date(),
-    });
+      createdAt: savedMessage.createdAt
+    };
 
-    res.status(201).json({ message: "Message sent", data: savedMessage });
+    // Send email notifications (non-blocking)
+    const members = await User.find({ _id: { $in: group.members } });
+    for (const member of members) {
+      if (member._id.toString() !== req.user._id.toString()) {
+        sendGroupEmailNotification(
+          member.email,
+          member.name,
+          group.name,
+          `${req.user.name}: ${message.substring(0, 100)}${message.length > 100 ? "..." : ""}`,
+          "new_message",
+          group._id
+        ).catch(err => console.error("Email error:", err));
+      }
+    }
+
+    // Emit socket event for real-time
+    const io = req.app.locals.io;
+    if (io) {
+      const roomName = `group_${req.params.id}`;
+      io.to(roomName).emit("newGroupMessage", messageToSend);
+      console.log(`📨 Emitted newGroupMessage to room: ${roomName}`);
+    } else {
+      console.error("❌ Socket.IO not available");
+    }
+
+    res.status(201).json({ message: "Message sent", data: messageToSend });
   } catch (err) {
-    console.error(err);
+    console.error("Send message error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };

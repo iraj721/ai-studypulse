@@ -73,7 +73,7 @@ const corsOptions = {
 // Apply CORS middleware - this automatically handles OPTIONS preflight
 app.use(cors(corsOptions));
 
-// ✅ Socket.IO configuration
+// ✅ Socket.IO configuration with transports
 const io = new Server(server, {
   cors: {
     origin: function (origin, callback) {
@@ -87,6 +87,8 @@ const io = new Server(server, {
     credentials: true,
     methods: ["GET", "POST"],
   },
+  transports: ["websocket", "polling"],
+  allowEIO3: true,
 });
 
 /* =========================
@@ -194,6 +196,50 @@ app.get("/api/debug/cors", (req, res) => {
 });
 
 /* =========================
+   SOCKET.IO EVENT HANDLERS
+========================= */
+io.on("connection", (socket) => {
+  console.log("🟢 New client connected:", socket.id);
+
+  // Join group room
+  socket.on("joinGroupRoom", (groupId) => {
+    const roomName = `group_${groupId}`;
+    socket.join(roomName);
+    console.log(`📌 Socket ${socket.id} joined room: ${roomName}`);
+  });
+
+  // Leave group room
+  socket.on("leaveGroupRoom", (groupId) => {
+    const roomName = `group_${groupId}`;
+    socket.leave(roomName);
+    console.log(`📌 Socket ${socket.id} left room: ${roomName}`);
+  });
+
+  // Handle new group message (for redundancy)
+  socket.on("newGroupMessage", (data) => {
+    if (data && data.groupId) {
+      io.to(`group_${data.groupId}`).emit("newGroupMessage", data);
+      console.log(`📨 Message broadcast to group_${data.groupId}`);
+    }
+  });
+
+  // Handle disconnection
+  socket.on("disconnect", () => {
+    console.log("🔴 Client disconnected:", socket.id);
+  });
+
+  // Handle reconnect
+  socket.on("reconnect", (attemptNumber) => {
+    console.log(`🔄 Client reconnected after ${attemptNumber} attempts:`, socket.id);
+  });
+});
+
+/* =========================
+   MAKE IO ACCESSIBLE TO ROUTES
+========================= */
+app.locals.io = io;
+
+/* =========================
    ERROR HANDLING
 ========================= */
 app.use((req, res) => {
@@ -205,8 +251,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: err.message || "Internal server error" });
 });
 
-app.locals.io = io;
-
 /* =========================
    START SERVER
 ========================= */
@@ -214,4 +258,5 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`✅ Allowed CORS origins: ${allowedOrigins.join(", ")}`);
+  console.log(`✅ Socket.IO server ready`);
 });
