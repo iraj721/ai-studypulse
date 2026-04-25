@@ -6,12 +6,19 @@ exports.getGroupDetailsAdmin = async (req, res) => {
     const { groupId } = req.params;
     
     const group = await StudyGroup.findById(groupId)
-      .populate("members", "name email")
+      .populate("members.user", "name email")
       .populate("messages.user", "name")
       .populate("sharedContent.sharedBy", "name");
     
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
+    }
+    
+    // Handle both member structures
+    let members = group.members;
+    if (members && members.length > 0 && members[0] && members[0].user) {
+      // New structure: extract user objects
+      members = members.map(m => m.user);
     }
     
     res.json({
@@ -20,7 +27,7 @@ exports.getGroupDetailsAdmin = async (req, res) => {
       description: group.description,
       code: group.code,
       createdBy: group.createdBy,
-      members: group.members,
+      members: members,
       messages: group.messages,
       sharedContent: group.sharedContent,
       createdAt: group.createdAt,
@@ -28,6 +35,6 @@ exports.getGroupDetailsAdmin = async (req, res) => {
     });
   } catch (err) {
     console.error("Get group details admin error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 };

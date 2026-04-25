@@ -66,13 +66,43 @@ router.get("/students/:id/videos", authMiddleware, roleMiddleware("admin"), asyn
   }
 });
 
+// ✅ FIXED: Groups route - handles both old and new member structures
 router.get("/students/:id/groups", authMiddleware, roleMiddleware("admin"), async (req, res) => {
   try {
-    const groups = await StudyGroup.find({ members: req.params.id }).populate("createdBy", "name email");
-    res.json(groups);
+    const studentId = req.params.id;
+    
+    // Try to find groups using new structure (members.user)
+    let groups = await StudyGroup.find({ 
+      "members.user": studentId 
+    }).populate("createdBy", "name email");
+    
+    // If no groups found with new structure, try old structure (members array)
+    if (groups.length === 0) {
+      groups = await StudyGroup.find({ 
+        members: studentId 
+      }).populate("createdBy", "name email");
+    }
+    
+    // Transform groups to consistent format for frontend
+    const transformedGroups = groups.map(group => {
+      const groupObj = group.toObject();
+      // Handle both member structures
+      if (group.members && group.members.length > 0) {
+        if (group.members[0] && group.members[0].user) {
+          // New structure: members is array of objects with user field
+          groupObj.members = group.members.map(m => m.user);
+        } else {
+          // Old structure: members is array of user IDs
+          groupObj.members = group.members;
+        }
+      }
+      return groupObj;
+    });
+    
+    res.json(transformedGroups);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error fetching student groups:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 });
 

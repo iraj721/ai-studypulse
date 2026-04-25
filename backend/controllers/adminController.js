@@ -9,6 +9,22 @@ const Submission = require("../models/Submission");
 const Announcement = require("../models/Announcement");
 const Material = require("../models/Material");
 const mongoose = require("mongoose");
+// Helper function to transform groups (handles both member structures)
+const transformGroups = (groups) => {
+  return groups.map(group => {
+    const groupObj = group.toObject();
+    if (group.members && group.members.length > 0) {
+      if (group.members[0] && group.members[0].user) {
+        // New structure
+        groupObj.members = group.members.map(m => m.user);
+      } else {
+        // Old structure
+        groupObj.members = group.members;
+      }
+    }
+    return groupObj;
+  });
+};
 
 
 
