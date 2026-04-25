@@ -55,6 +55,8 @@ export default function StudyGroupsPage() {
   const [showFileShareModal, setShowFileShareModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [insights, setInsights] = useState([]);
+  const [flashcardGroups, setFlashcardGroups] = useState([]);
 
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
@@ -159,19 +161,24 @@ export default function StudyGroupsPage() {
 
   const fetchUserContent = async () => {
     try {
-      const [notesRes, quizzesRes, videosRes, flashcardsRes] =
+      const [notesRes, quizzesRes, videosRes, flashcardGroupsRes, insightsRes] =
         await Promise.all([
           api.get("/notes").catch(() => ({ data: [] })),
           api.get("/quizzes").catch(() => ({ data: [] })),
           api.get("/student/video/summaries").catch(() => ({ data: [] })),
-          api.get("/flashcards").catch(() => ({ data: [] })),
+          api.get("/student/flashcard-groups").catch(() => ({ data: [] })),
+          api.get("/student/insights").catch(() => ({ data: [] })),
         ]);
+
       setNotes(notesRes.data || []);
       setQuizzes(quizzesRes.data || []);
       setVideos(videosRes.data || []);
-      setFlashcards(flashcardsRes.data || []);
+      setFlashcardGroups(flashcardGroupsRes.data || []);
+      setInsights(insightsRes.data || []);
+
+      console.log("Flashcard groups loaded:", flashcardGroupsRes.data);
     } catch (err) {
-      console.error(err);
+      console.error("Fetch error:", err);
     }
   };
 
@@ -323,8 +330,8 @@ export default function StudyGroupsPage() {
       endpoint = `/student/groups/${selectedGroup._id}/share-insight`;
       payload = { insightId: selectedItemId };
     } else if (shareType === "flashcard") {
-      endpoint = `/student/groups/${selectedGroup._id}/share-flashcard`;
-      payload = { flashcardId: selectedItemId };
+      endpoint = `/student/groups/${selectedGroup._id}/share-flashcard-group`;
+      payload = { noteId: selectedItemId };
     }
 
     try {
@@ -407,96 +414,83 @@ export default function StudyGroupsPage() {
   };
 
   const openSharedContent = async (item) => {
+    // For notes - directly show from the shared content data
     if (item.type === "note") {
-      const noteId = item.metadata?.noteId;
-      if (noteId && selectedGroup) {
-        try {
-          const response = await api.get(
-            `/student/groups/${selectedGroup._id}/view-note/${noteId}`,
-          );
-          const noteData = response.data;
-          setViewingContent({
-            type: "note",
-            title: noteData.title,
-            content: noteData.content,
-            subject: noteData.subject,
-            topic: noteData.topic,
-            sharedBy: noteData.sharedBy,
-            sharedAt: noteData.sharedAt,
-          });
-          setShowContentModal(true);
-        } catch (err) {
-          setToast({ message: "Failed to load note", type: "error" });
-        }
-      }
-    } else if (item.type === "quiz") {
-      const quizId = item.metadata?.quizId;
-      if (quizId && selectedGroup) {
-        try {
-          const response = await api.get(
-            `/student/groups/${selectedGroup._id}/view-quiz/${quizId}`,
-          );
-          const quizData = response.data;
-          setViewingContent({
-            type: "quiz",
-            title: quizData.topic,
-            content: quizData,
-            sharedBy: quizData.sharedBy,
-            sharedAt: quizData.sharedAt,
-          });
-          setShowContentModal(true);
-        } catch (err) {
-          setToast({ message: "Failed to load quiz", type: "error" });
-        }
-      }
-    } else if (item.type === "youtube") {
-      // Video opens in modal too
+      setViewingContent({
+        type: "note",
+        title: item.title,
+        content: item.metadata?.fullContent || item.content,
+        subject: item.metadata?.subject,
+        topic: item.metadata?.topic,
+        sharedBy: item.sharedByName,
+        sharedAt: item.sharedAt,
+      });
+      setShowContentModal(true);
+    }
+    // For quizzes - directly show from the shared content data
+    else if (item.type === "quiz") {
+      setViewingContent({
+        type: "quiz",
+        title: item.title,
+        content: {
+          topic: item.metadata?.topic,
+          questions: item.metadata?.questions || [],
+          description: item.metadata?.description,
+        },
+        sharedBy: item.sharedByName,
+        sharedAt: item.sharedAt,
+      });
+      setShowContentModal(true);
+    }
+    // For flashcards - directly show from the shared content data
+    else if (item.type === "flashcard") {
+      setViewingContent({
+        type: "flashcard",
+        title: item.title,
+        flashcards: item.metadata?.flashcards || [],
+        flashcardCount: item.metadata?.flashcardCount || 0,
+        noteTopic: item.metadata?.noteTopic,
+        sharedBy: item.sharedByName,
+        sharedAt: item.sharedAt,
+      });
+      setShowContentModal(true);
+    }
+    // For youtube videos
+    else if (item.type === "youtube") {
       setViewingContent({
         type: "youtube",
         title: item.title,
         content: item.metadata?.summary || item.content,
-        videoUrl: item.metadata?.videoUrl,
         sharedBy: item.sharedByName,
         sharedAt: item.sharedAt,
       });
       setShowContentModal(true);
-    } else if (item.type === "insight") {
+    }
+    // For insights
+    else if (item.type === "insight") {
       setViewingContent({
         type: "insight",
         title: item.title,
-        content: item.metadata?.fullContent || item.content,
+        content:
+          item.metadata?.fullContent || item.content || "No content available",
         sharedBy: item.sharedByName,
         sharedAt: item.sharedAt,
       });
       setShowContentModal(true);
-    } else if (item.type === "flashcard") {
-      const flashcardId = item.metadata?.flashcardId;
-      if (flashcardId && selectedGroup) {
-        try {
-          const response = await api.get(
-            `/student/groups/${selectedGroup._id}/view-flashcard/${flashcardId}`,
-          );
-          const flashcardData = response.data;
-          setViewingContent({
-            type: "flashcard",
-            title: flashcardData.noteTopic || "Flashcard",
-            front: flashcardData.front,
-            back: flashcardData.back,
-            sharedBy: flashcardData.sharedBy,
-            sharedAt: flashcardData.sharedAt,
-          });
-          setShowContentModal(true);
-        } catch (err) {
-          setToast({ message: "Failed to load flashcard", type: "error" });
-        }
-      }
-    } else if (item.type === "file") {
+    }
+    // For files
+    else if (item.type === "file") {
+      // Get the full file URL
+      const fileUrl = item.metadata?.fileUrl || item.link;
+      const fileName = item.metadata?.fileName || item.title;
+      const fileType = item.metadata?.fileType || "";
+
       setViewingContent({
         type: "file",
-        title: item.title,
-        fileUrl: item.metadata?.fileUrl,
-        fileName: item.metadata?.fileName,
-        fileType: item.metadata?.fileType,
+        title: fileName,
+        fileUrl: fileUrl,
+        fileName: fileName,
+        fileType: fileType,
         sharedBy: item.sharedByName,
         sharedAt: item.sharedAt,
       });
@@ -913,20 +907,34 @@ export default function StudyGroupsPage() {
                     {v.title}
                   </option>
                 ))}
-              {shareType === "insight" && (
-                <option value="mock-insight-1">
-                  AI Learning Progress Insight
-                </option>
-              )}
-              {shareType === "flashcard" &&
-                flashcards.map((group) =>
-                  group.flashcards?.map((card) => (
-                    <option key={card._id} value={card._id}>
-                      {group.noteTopic || "Flashcard"} -{" "}
-                      {card.front.substring(0, 50)}...
+              {shareType === "insight" && insights.length > 0
+                ? insights.map((insight) => (
+                    <option key={insight._id} value={insight._id}>
+                      💡 {insight.title?.substring(0, 80) || "AI Insight"}...
                     </option>
-                  )),
-                )}
+                  ))
+                : shareType === "insight" && (
+                    <option disabled>
+                      No insights found. Add study activities to generate
+                      insights!
+                    </option>
+                  )}
+              {shareType === "flashcard" && flashcardGroups.length > 0
+                ? flashcardGroups.map((group) => (
+                    <option
+                      key={group.noteId || group._id}
+                      value={group.noteId}
+                    >
+                      📚 {group.noteSubject || "Note"} -{" "}
+                      {group.noteTopic || "Flashcards"} ({group.flashcardCount}{" "}
+                      cards)
+                    </option>
+                  ))
+                : shareType === "flashcard" && (
+                    <option disabled>
+                      No flashcard sets found. Generate some first!
+                    </option>
+                  )}
             </select>
             <div className="modal-actions">
               <button onClick={shareContent} disabled={sharingLoading}>
@@ -995,6 +1003,7 @@ export default function StudyGroupsPage() {
                   <div className="note-topic">
                     <strong>Topic:</strong> {viewingContent.topic}
                   </div>
+                  <hr />
                   <div className="note-text">
                     <strong>Content:</strong>
                     <br />
@@ -1002,8 +1011,13 @@ export default function StudyGroupsPage() {
                   </div>
                 </div>
               )}
+
               {viewingContent.type === "quiz" && viewingContent.content && (
                 <div className="quiz-content">
+                  <p>
+                    <strong>Topic:</strong>{" "}
+                    {viewingContent.content.topic || viewingContent.title}
+                  </p>
                   <p>
                     <strong>Description:</strong>{" "}
                     {viewingContent.content.description || "No description"}
@@ -1037,60 +1051,136 @@ export default function StudyGroupsPage() {
                   </div>
                 </div>
               )}
-              {viewingContent.type === "insight" && (
-                <div className="insight-content">
-                  <p>{viewingContent.content}</p>
-                  <div className="insight-tip">
-                    💡 AI-generated learning insight
-                  </div>
-                </div>
-              )}
+
               {viewingContent.type === "flashcard" && (
-                <div className="flashcard-content">
-                  <div className="flashcard-front">
-                    <strong>📖 Question:</strong>
-                    <p>{viewingContent.front}</p>
-                  </div>
-                  <div className="flashcard-back">
-                    <strong>✅ Answer:</strong>
-                    <p>{viewingContent.back}</p>
+                <div className="flashcard-set-content">
+                  <p>
+                    <strong>Total Cards:</strong>{" "}
+                    {viewingContent.flashcardCount}
+                  </p>
+                  <div className="flashcard-list">
+                    {viewingContent.flashcards?.map((card, idx) => (
+                      <div key={idx} className="flashcard-item">
+                        <div className="flashcard-question">
+                          <strong>Q{idx + 1}:</strong> {card.front}
+                        </div>
+                        <div className="flashcard-answer">
+                          <strong>A:</strong> {card.back}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
+
               {viewingContent.type === "youtube" && (
                 <div className="youtube-content">
-                  <p>
-                    <strong>Summary:</strong>
-                  </p>
-                  <p>{viewingContent.content}</p>
+                  <strong>🎥 Video Summary:</strong>
+                  <div className="formatted-content">
+                    {viewingContent.content?.split("\n").map(
+                      (line, idx) =>
+                        line.trim() && (
+                          <p
+                            key={idx}
+                            className={
+                              line.startsWith("•") ? "bullet-point" : ""
+                            }
+                          >
+                            {line.startsWith("•") ? "•" : ""}{" "}
+                            {line.replace(/^•\s*/, "")}
+                          </p>
+                        ),
+                    )}
+                  </div>
                 </div>
               )}
+
+              {viewingContent.type === "insight" && (
+                <div className="insight-content">
+                  <div className="insight-text">
+                    <div className="formatted-content">
+                      {viewingContent.content?.split("\n").map(
+                        (line, idx) =>
+                          line.trim() && (
+                            <p
+                              key={idx}
+                              className={
+                                line.startsWith("•")
+                                  ? "bullet-point"
+                                  : line.startsWith("1.") ||
+                                      line.startsWith("2.") ||
+                                      line.startsWith("3.")
+                                    ? "numbered-point"
+                                    : ""
+                              }
+                            >
+                              {line}
+                            </p>
+                          ),
+                      )}
+                    </div>
+                  </div>
+                  <div className="insight-tip">
+                    💡 AI-generated learning insight based on your activity
+                  </div>
+                </div>
+              )}
+
               {viewingContent.type === "file" && (
                 <div className="file-content">
                   <p>
-                    <strong>File:</strong> {viewingContent.fileName}
+                    <strong>File Name:</strong> {viewingContent.fileName}
+                  </p>
+                  <p>
+                    <strong>Shared by:</strong> {viewingContent.sharedBy}
                   </p>
                   <div className="file-actions">
                     <button
                       className="download-btn"
-                      onClick={() =>
-                        downloadFile(
-                          viewingContent.fileUrl,
-                          viewingContent.fileName,
+                      onClick={() => {
+                        const fullUrl = viewingContent.fileUrl.startsWith(
+                          "http",
                         )
-                      }
+                          ? viewingContent.fileUrl
+                          : `http://localhost:5000${viewingContent.fileUrl}`;
+                        window.open(fullUrl, "_blank");
+                      }}
                     >
-                      <FaDownload /> Download File
+                      📥 Download / View File
                     </button>
-                    {viewingContent.fileType === "pdf" && (
-                      <iframe
-                        src={viewingContent.fileUrl}
-                        width="100%"
-                        height="500px"
-                        title="PDF Viewer"
-                      ></iframe>
-                    )}
                   </div>
+                  {viewingContent.fileType === "application/pdf" && (
+                    <iframe
+                      src={
+                        viewingContent.fileUrl.startsWith("http")
+                          ? viewingContent.fileUrl
+                          : `http://localhost:5000${viewingContent.fileUrl}`
+                      }
+                      width="100%"
+                      height="400px"
+                      title="PDF Preview"
+                      style={{
+                        marginTop: "15px",
+                        border: "none",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  )}
+                  {viewingContent.fileType?.includes("image") && (
+                    <img
+                      src={
+                        viewingContent.fileUrl.startsWith("http")
+                          ? viewingContent.fileUrl
+                          : `http://localhost:5000${viewingContent.fileUrl}`
+                      }
+                      alt={viewingContent.fileName}
+                      style={{
+                        maxWidth: "100%",
+                        marginTop: "15px",
+                        borderRadius: "8px",
+                      }}
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -1180,7 +1270,14 @@ export default function StudyGroupsPage() {
         .note-text { margin-top: 15px; white-space: pre-wrap; }
         .quiz-question { margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 8px; }
         .correct-answer { color: #10b981; font-weight: 500; }
-        .insight-tip { margin-top: 15px; padding: 10px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border-radius: 8px; text-align: center; }
+        .insight-tip {
+  background: #f0fdf4;
+  color: #166534;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 14px;
+}
         .flashcard-content { display: flex; flex-direction: column; gap: 20px; }
         .flashcard-front, .flashcard-back { padding: 15px; background: #f8f9fa; border-radius: 12px; }
         .flashcard-front strong, .flashcard-back strong { color: #4f46e5; display: block; margin-bottom: 8px; }
@@ -1199,6 +1296,138 @@ export default function StudyGroupsPage() {
           .btn-create, .btn-join { flex: 1; justify-content: center; }
           .message-bubble { max-width: 85%; }
         }
+          .content-view-modal {
+  max-width: 700px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.note-content, .quiz-content, .flashcard-content, .youtube-content, .insight-content, .file-content {
+  line-height: 1.6;
+  margin-top: 15px;
+}
+.note-text {
+  white-space: pre-wrap;
+  background: #f5f5f5;
+  padding: 15px;
+  border-radius: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.quiz-question {
+  margin: 15px 0;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+.correct-answer {
+  color: #10b981;
+  font-weight: 500;
+}
+.flashcard-front, .flashcard-back {
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  margin-bottom: 15px;
+}
+.download-btn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+ .insight-text {
+  background: #ffffff;
+  color: #1e293b;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 15px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.insight-text p {
+  margin: 0 0 10px 0;
+  line-height: 1.6;
+  color: #1e293b;
+}
+.insight-tip {
+  background: #f0fdf4;
+  color: #166534;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 14px;
+}
+  .flashcard-set-content {
+  max-height: 500px;
+  overflow-y: auto;
+}
+.flashcard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 15px;
+}
+.flashcard-item {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 15px;
+  border-left: 4px solid #f59e0b;
+}
+.flashcard-question {
+  margin-bottom: 10px;
+  color: #1e293b;
+}
+.flashcard-answer {
+  color: #475569;
+  padding-left: 15px;
+  border-left: 2px solid #e2e8f0;
+}
+  /* Formatted Content Styles */
+.formatted-content {
+  line-height: 1.6;
+  color: #1e293b;
+}
+.formatted-content p {
+  margin: 8px 0;
+}
+.formatted-content .bullet-point {
+  padding-left: 20px;
+  position: relative;
+  margin: 5px 0;
+}
+.formatted-content .numbered-point {
+  margin: 5px 0;
+  padding-left: 5px;
+}
+.youtube-content .formatted-content {
+  background: #f1f5f9;
+  padding: 15px;
+  border-radius: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+.insight-text .formatted-content {
+  background: #ffffff;
+  padding: 15px;
+  border-radius: 12px;
+  color: #1e293b;
+  white-space: pre-wrap;
+}
+.insight-text .formatted-content p {
+  color: #1e293b;
+}
+.insight-text .formatted-content .bullet-point {
+  color: #1e293b;
+  padding-left: 20px;
+}
+.insight-text .formatted-content .numbered-point {
+  color: #1e293b;
+}
+  
       `}</style>
     </div>
   );
