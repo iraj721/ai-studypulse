@@ -49,6 +49,21 @@ export default function Home() {
       title: "Materials",
       desc: "Access all uploaded class materials, files, and resources shared by teachers.",
     },
+    {
+      icon: "👥",
+      title: "Study Groups",
+      desc: "Create or join study groups to collaborate with peers and share resources.",
+    },
+    {
+      icon: "🃏",
+      title: "Flashcards",
+      desc: "Generate AI-powered flashcards from your notes for effective revision.",
+    },
+    {
+      icon: "🎥",
+      title: "YouTube Summarizer",
+      desc: "Get AI-generated summaries of educational videos instantly.",
+    },
   ];
 
   return (
@@ -89,7 +104,7 @@ export default function Home() {
         </h2>
         <div className="row g-4">
           {features.map((feature, idx) => (
-            <div className="col-md-4" key={idx}>
+            <div className="col-md-4 col-lg-3" key={idx}>
               <div className="card feature-card h-100 p-4 text-center animate-card">
                 <div className="fs-1 mb-3 icon-hover floating-icon">
                   {feature.icon}
@@ -102,7 +117,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Footer Section */}
       {/* Footer Section */}
       <footer className="footer-section">
         <div className="footer-container">
@@ -289,131 +303,44 @@ export default function Home() {
 }
 
 /* ================= RESPONSIVE ================= */
-@media (max-width: 768px) {
+@media (max-width: 992px) {
   .hero-section { height: 75vh; }
-  .hero-title { font-size: 2.2rem; }
-  .hero-subtitle { font-size: 1.05rem; }
+  .hero-title { font-size: 2.5rem; }
 }
 
-@media (max-width: 576px) {
-  .hero-section { height: 70vh; }
-  .hero-title { font-size: 1.9rem; }
-}
-
-/* Additional Mobile Responsive - Home */
 @media (max-width: 768px) {
+  .hero-section { height: 70vh; }
+  .hero-title { font-size: 2rem; }
+  .hero-subtitle { font-size: 1rem; }
   .hero-buttons {
     flex-direction: column;
     align-items: center;
     gap: 12px;
   }
-  
   .hero-buttons .btn {
     width: 200px;
   }
-  
-  .row.g-4 {
-    flex-direction: column;
-  }
-  
-  .row.g-4 .col-md-4 {
-    width: 100%;
-  }
-  
   .feature-card {
     padding: 20px 16px !important;
   }
-  
-  .footer .d-flex {
-    flex-direction: column;
-    gap: 8px;
-  }
 }
 
-/* Desktop */
-@media (min-width: 769px) {
-  .footer-container {
-    max-width: 500px;
-  }
-  
-  .footer-copyright {
-    font-size: 0.85rem;
-  }
-  
-  .footer-link {
-    font-size: 0.85rem;
-  }
-}
-
-/* Tablet */
-@media (max-width: 768px) {
-  .footer-section {
-    padding: 18px 12px;
-  }
-  
-  .footer-container {
-    max-width: 400px;
-    padding: 0 8px;
-  }
-  
-  .footer-copyright {
-    font-size: 0.7rem;
-  }
-  
-  .footer-links {
-    gap: 16px;
-  }
-  
-  .footer-link {
-    font-size: 0.7rem;
-  }
-}
-
-/* Mobile */
-@media (max-width: 480px) {
+@media (max-width: 576px) {
+  .hero-section { height: 65vh; }
+  .hero-title { font-size: 1.6rem; }
   .footer-section {
     padding: 16px 10px;
   }
-  
-  .footer-container {
-    max-width: 320px;
-    padding: 0 6px;
-  }
-  
   .footer-copyright {
     font-size: 0.65rem;
-    margin-bottom: 8px;
   }
-  
+  .footer-link {
+    font-size: 0.65rem;
+  }
   .footer-links {
     gap: 12px;
   }
-  
-  .footer-link {
-    font-size: 0.65rem;
-    white-space: nowrap;
-  }
 }
-
-/* Small Mobile */
-@media (max-width: 380px) {
-  .footer-container {
-    max-width: 280px;
-  }
-  
-  .footer-copyright {
-    font-size: 0.6rem;
-  }
-  
-  .footer-link {
-    font-size: 0.6rem;
-  }
-  
-  .footer-links {
-    gap: 10px;
-  }
-}
-
       `}</style>
     </div>
   );
