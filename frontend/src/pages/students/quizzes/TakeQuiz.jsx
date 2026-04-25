@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
 import api from "../../../services/api";
 import { useParams, useNavigate } from "react-router-dom";
-import Stars from "../../../components/Stars";
-import BackButton from "../../../components/BackButton";
 import Toast from "../../../components/Toast";
+import { 
+  FaArrowLeft, FaSpinner, FaCheckCircle, FaTimesCircle,
+  FaClock, FaChartLine, FaRedo, FaEye
+} from "react-icons/fa";
 
 export default function TakeQuiz() {
   const { id } = useParams();
@@ -13,6 +15,7 @@ export default function TakeQuiz() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [showCorrectOnly, setShowCorrectOnly] = useState(false);
+  const [timeSpent, setTimeSpent] = useState(0);
   const [toast, setToast] = useState({ message: "", type: "success" });
 
   useEffect(() => {
@@ -22,8 +25,7 @@ export default function TakeQuiz() {
   const fetchQuiz = async () => {
     try {
       const res = await api.get(`/quizzes/${id}`);
-      if (!res.data || !res.data.questions)
-        throw new Error("Invalid quiz data");
+      if (!res.data || !res.data.questions) throw new Error("Invalid quiz data");
       setQuiz(res.data);
       setAnswers(new Array(res.data.questions.length).fill(null));
     } catch (err) {
@@ -41,14 +43,14 @@ export default function TakeQuiz() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (answers.some((a) => a === null)) {
-      if (!window.confirm("Some questions unanswered. Submit anyway?")) return;
+    const unansweredCount = answers.filter(a => a === null).length;
+    if (unansweredCount > 0) {
+      if (!window.confirm(`You have ${unansweredCount} unanswered question(s). Submit anyway?`)) return;
     }
     setLoading(true);
     try {
       const res = await api.post(`/quizzes/${id}/submit`, { answers });
       setResult({ ...res.data, userAnswers: [...answers] });
-      setShowCorrectOnly(false);
       setToast({
         message: `Quiz submitted! Score: ${res.data.scorePercent}%`,
         type: "success",
@@ -60,152 +62,537 @@ export default function TakeQuiz() {
     }
   };
 
+  const retakeQuiz = () => {
+    setAnswers(new Array(quiz.questions.length).fill(null));
+    setResult(null);
+    setShowCorrectOnly(false);
+    setTimeSpent(0);
+  };
+
+  const getScoreColor = (percent) => {
+    if (percent >= 80) return "#10b981";
+    if (percent >= 60) return "#f59e0b";
+    return "#ef4444";
+  };
+
   if (!quiz) {
     return (
-      <div className="min-vh-100 quiz-page-bg d-flex align-items-center justify-content-center">
-        <div className="text-light fs-4">Loading quiz...</div>
+      <div className="take-loading">
+        <div className="take-spinner"></div>
+        <p>Loading quiz...</p>
       </div>
     );
   }
 
+  const totalQuestions = quiz.questions?.length || 0;
+  const answeredCount = answers.filter(a => a !== null).length;
+  const progressPercent = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+
   return (
-    <div className="min-vh-100 quiz-page-bg position-relative py-5">
-      <Stars />
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast({ message: "", type: "success" })}
-      />
+    <div className="take-root">
+      {/* Background */}
+      <div className="take-bg" />
+      <div className="take-grid" />
+      <div className="take-orb take-orb-a" />
+      <div className="take-orb take-orb-b" />
 
-      <div className="container">
-        <BackButton to="/quizzes" label="← Back to Quizzes" />
+      {/* Toast */}
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
 
-        <h3 className="text-light fw-bold text-center mb-4">{quiz.topic}</h3>
+      {/* Main Content */}
+      <main className="take-main">
+        <div className="take-container">
+          {/* Back Button */}
+          <button className="take-back" onClick={() => navigate("/quizzes")}>
+            <FaArrowLeft /> Back to Quizzes
+          </button>
 
-        <form onSubmit={handleSubmit}>
-          {quiz.questions.map((q, i) => {
-            const correctAnswer = q.answer ? q.answer.trim() : "";
-            const userAnswer = result ? result.userAnswers[i]?.trim() : "";
-
-            return (
-              <div className="quiz-card mb-4 p-4 shadow-sm" key={i}>
-                <div className="fw-semibold mb-3 text-light">
-                  Q{i + 1}. {q.question}
+          {/* Quiz Header */}
+          <div className="take-header">
+            <div>
+              <h1 className="take-title">{quiz.topic}</h1>
+              <div className="take-meta">
+                <span className="take-questions">{totalQuestions} Questions</span>
+                {!result && (
+                  <span className="take-progress-badge">
+                    {answeredCount} / {totalQuestions} Answered
+                  </span>
+                )}
+              </div>
+            </div>
+            {result && (
+              <div className="take-score-card">
+                <div className="score-circle" style={{ borderColor: getScoreColor(result.scorePercent) }}>
+                  <span className="score-value">{Math.round(result.scorePercent)}%</span>
                 </div>
-                <div className="d-flex flex-column gap-2">
-                  {!showCorrectOnly ? (
-                    q.options.map((opt, idx) => {
+                <div className="score-details">
+                  <span className="score-raw">{result.scoreRaw} / {result.total}</span>
+                  <span className="score-label">Correct Answers</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Progress Bar */}
+          {!result && (
+            <div className="take-progress">
+              <div className="progress-bar-container">
+                <div className="progress-bar" style={{ width: `${progressPercent}%` }}></div>
+              </div>
+              <div className="progress-text">{answeredCount} of {totalQuestions} answered</div>
+            </div>
+          )}
+
+          {/* Result Actions */}
+          {result && (
+            <div className="take-result-actions">
+              <button className="retake-btn" onClick={retakeQuiz}>
+                <FaRedo /> Retake Quiz
+              </button>
+              <button className="show-answers-btn" onClick={() => setShowCorrectOnly(!showCorrectOnly)}>
+                <FaEye /> {showCorrectOnly ? "Hide Correct Answers" : "Show Correct Answers"}
+              </button>
+            </div>
+          )}
+
+          {/* Questions */}
+          <form onSubmit={handleSubmit} className="take-form">
+            {quiz.questions.map((q, i) => {
+              const correctAnswer = q.answer ? q.answer.trim() : "";
+              const userAnswer = result ? result.userAnswers[i]?.trim() : "";
+              const isCorrect = result && userAnswer === correctAnswer;
+              const isIncorrect = result && userAnswer && userAnswer !== correctAnswer;
+              const isUnanswered = result && !userAnswer;
+
+              return (
+                <div key={i} className={`take-question-card ${result ? "completed" : ""}`}>
+                  <div className="question-header">
+                    <span className="question-number">Question {i + 1}</span>
+                    {result && (
+                      <span className={`question-status ${isCorrect ? "correct" : isIncorrect ? "incorrect" : "unanswered"}`}>
+                        {isCorrect && <FaCheckCircle />}
+                        {isIncorrect && <FaTimesCircle />}
+                        {isUnanswered && "❓"}
+                        {isCorrect ? " Correct" : isIncorrect ? " Incorrect" : " Unanswered"}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="question-text">{q.question}</div>
+                  
+                  <div className="options-group">
+                    {q.options.map((opt, idx) => {
                       const optionTrimmed = opt.trim();
-                      let highlightClass = "";
+                      let optionClass = "";
                       let icon = "";
-                      if (result) {
+                      
+                      if (result && !showCorrectOnly) {
                         if (optionTrimmed === correctAnswer) {
-                          highlightClass = "bg-success text-white";
+                          optionClass = "correct-option";
                           icon = "✅";
                         } else if (optionTrimmed === userAnswer) {
-                          highlightClass = "bg-danger text-white";
+                          optionClass = "incorrect-option";
                           icon = "❌";
                         }
+                      } else if (result && showCorrectOnly && optionTrimmed === correctAnswer) {
+                        optionClass = "correct-option";
+                        icon = "✅";
                       }
+                      
                       return (
                         <label
                           key={idx}
-                          className={`option-label p-2 rounded ${highlightClass}`}
+                          className={`option-label ${optionClass} ${answers[i] === opt ? "selected" : ""}`}
                         >
                           <input
                             type="radio"
-                            className="form-check-input me-2"
+                            className="option-radio"
                             name={`q${i}`}
                             checked={answers[i] === opt}
                             disabled={!!result}
                             onChange={() => choose(i, opt)}
                           />
-                          <span>{opt}</span>
-                          {icon && <span className="ms-2">{icon}</span>}
+                          <span className="option-text">{opt}</span>
+                          {icon && <span className="option-icon">{icon}</span>}
                         </label>
                       );
-                    })
-                  ) : (
-                    <div className="correct-answer p-2 bg-success text-white rounded">
-                      Correct Answer: {correctAnswer} ✅
-                    </div>
-                  )}
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
 
-          {!result && (
-            <button
-              type="submit"
-              className="btn btn-gradient w-100 py-2 mb-3"
-              disabled={loading}
-            >
-              {loading ? "Submitting..." : "Submit Quiz"}
-            </button>
-          )}
-        </form>
-
-        {result && (
-          <>
-            <div className="alert alert-info mt-3 text-center">
-              <strong>Score: {result.scorePercent}%</strong> ({result.scoreRaw}/
-              {result.total})
-            </div>
-            <div className="d-flex justify-content-center gap-2 mt-3 flex-wrap">
+            {!result && (
               <button
-                className="btn btn-outline-light"
-                onClick={() => {
-                  setAnswers(new Array(quiz.questions.length).fill(null));
-                  setResult(null);
-                  setShowCorrectOnly(false);
-                }}
+                type="submit"
+                className="take-submit"
+                disabled={loading}
               >
-                Retake Quiz
+                {loading ? (
+                  <>
+                    <FaSpinner className="spinner" /> Submitting...
+                  </>
+                ) : (
+                  <>
+                    Submit Quiz
+                  </>
+                )}
               </button>
-              <button
-                className="btn btn-outline-success"
-                onClick={() => setShowCorrectOnly(true)}
-              >
-                Show Correct Answers
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+            )}
+          </form>
+        </div>
+      </main>
 
       <style>{`
-        .quiz-page-bg {
-          background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #5a77a3 100%);
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+        .take-root {
+          --bg: #0a0c12;
+          --surface: #111318;
+          --border: rgba(88, 130, 255, 0.12);
+          --border-h: rgba(88, 130, 255, 0.28);
+          --accent: #5882ff;
+          --accent2: #20e6d0;
+          --violet: #9b7aff;
+          --text: #edf2ff;
+          --muted: #8e9cc4;
+          --faint: #49587a;
+          --fd: 'Syne', sans-serif;
+          --fb: 'Inter', sans-serif;
+          --success: #10b981;
+          --error: #ef4444;
         }
-        .quiz-card {
-            background: rgba(255, 255, 255, 0.95) !important; /* ✅ Light background */
-  backdrop-filter: blur(12px);
-  border-radius: 20px;
-  color: #1a2a3d !important;
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        .take-root {
+          font-family: var(--fb);
+          background: var(--bg);
+          color: var(--text);
+          min-height: 100vh;
         }
-        .quiz-card .fw-semibold {
-  color: #1a2a3d !important;
-}
+
+        /* Background */
+        .take-bg {
+          position: fixed; inset: 0; z-index: 0;
+          background: radial-gradient(ellipse 60% 45% at 50% -5%, rgba(88, 130, 255, 0.08) 0%, transparent 60%);
+        }
+        .take-grid {
+          position: fixed; inset: 0; z-index: 0;
+          background-image: linear-gradient(rgba(88, 130, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(88, 130, 255, 0.03) 1px, transparent 1px);
+          background-size: 48px 48px;
+        }
+        .take-orb {
+          position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0;
+        }
+        .take-orb-a { width: 400px; height: 400px; top: -100px; left: 50%; transform: translateX(-50%); background: rgba(88, 130, 255, 0.06); animation: orbFloat 12s infinite; }
+        .take-orb-b { width: 250px; height: 250px; bottom: 10%; right: -5%; background: rgba(32, 230, 208, 0.04); animation: orbFloat2 10s infinite; }
+        @keyframes orbFloat { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.1); } }
+        @keyframes orbFloat2 { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+        /* Loading */
+        .take-loading {
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: #0a0c12;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        .take-spinner {
+          width: 50px;
+          height: 50px;
+          border: 3px solid rgba(88, 130, 255, 0.2);
+          border-top-color: #5882ff;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .take-loading p { margin-top: 15px; color: #8e9cc4; }
+
+        /* Main Content */
+        .take-main {
+          position: relative;
+          z-index: 10;
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 90px 2rem 3rem;
+          min-height: 100vh;
+        }
+
+        /* Back Button */
+        .take-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: rgba(88, 130, 255, 0.1);
+          border: 1px solid var(--border);
+          color: var(--accent);
+          padding: 8px 20px;
+          border-radius: 40px;
+          font-size: 0.85rem;
+          cursor: pointer;
+          margin-bottom: 1.5rem;
+          transition: all 0.2s;
+        }
+        .take-back:hover {
+          background: rgba(88, 130, 255, 0.2);
+          transform: translateX(-4px);
+        }
+
+        /* Header */
+        .take-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1.5rem;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+        .take-title {
+          font-family: var(--fd);
+          font-size: 1.6rem;
+          font-weight: 700;
+          margin-bottom: 0.5rem;
+        }
+        .take-meta {
+          display: flex;
+          gap: 1rem;
+          font-size: 0.85rem;
+          color: var(--muted);
+        }
+        .take-progress-badge {
+          background: rgba(88, 130, 255, 0.15);
+          padding: 4px 12px;
+          border-radius: 20px;
+          color: var(--accent);
+        }
+        .take-score-card {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          background: rgba(17, 19, 24, 0.6);
+          padding: 0.75rem 1.5rem;
+          border-radius: 20px;
+          border: 1px solid var(--border);
+        }
+        .score-circle {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          border: 3px solid;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .score-value {
+          font-size: 1.1rem;
+          font-weight: 700;
+        }
+        .score-details {
+          text-align: center;
+        }
+        .score-raw {
+          font-size: 1rem;
+          font-weight: 600;
+          display: block;
+        }
+        .score-label {
+          font-size: 0.7rem;
+          color: var(--muted);
+        }
+
+        /* Progress Bar */
+        .take-progress {
+          margin-bottom: 1.5rem;
+        }
+        .progress-bar-container {
+          background: rgba(255,255,255,0.1);
+          border-radius: 10px;
+          height: 6px;
+          overflow: hidden;
+        }
+        .progress-bar {
+          background: linear-gradient(90deg, var(--accent), var(--accent2));
+          height: 100%;
+          transition: width 0.3s;
+        }
+        .progress-text {
+          text-align: center;
+          font-size: 0.7rem;
+          color: var(--muted);
+          margin-top: 0.5rem;
+        }
+
+        /* Result Actions */
+        .take-result-actions {
+          display: flex;
+          gap: 1rem;
+          margin-bottom: 1.5rem;
+        }
+        .retake-btn, .show-answers-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 20px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border);
+          border-radius: 40px;
+          color: var(--text);
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .retake-btn:hover, .show-answers-btn:hover {
+          background: rgba(88, 130, 255, 0.1);
+          border-color: var(--accent);
+        }
+
+        /* Questions */
+        .take-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+        .take-question-card {
+          background: rgba(17, 19, 24, 0.6);
+          backdrop-filter: blur(12px);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          padding: 1.5rem;
+          transition: all 0.3s;
+        }
+        .take-question-card:hover {
+          border-color: var(--border-h);
+        }
+        .take-question-card.completed {
+          border-left: 3px solid var(--accent);
+        }
+        .question-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 1rem;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .question-number {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--accent);
+        }
+        .question-status {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.7rem;
+          font-weight: 500;
+        }
+        .question-status.correct {
+          color: #34d399;
+        }
+        .question-status.incorrect {
+          color: #f87171;
+        }
+        .question-status.unanswered {
+          color: var(--faint);
+        }
+        .question-text {
+          font-size: 1rem;
+          font-weight: 500;
+          margin-bottom: 1rem;
+          line-height: 1.4;
+        }
+        .options-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
         .option-label {
           display: flex;
           align-items: center;
-          gap: 10px;
-          cursor: pointer;
-          transition: 0.2s;
-          background: rgba(255,255,255,0.05);
+          gap: 12px;
+          padding: 10px 16px;
+          background: rgba(255,255,255,0.03);
+          border: 1px solid var(--border);
           border-radius: 12px;
+          cursor: pointer;
+          transition: all 0.2s;
         }
-          .option-label {
-  background: rgba(0, 0, 0, 0.05) !important;
-  color: #1a2a3d !important;
-}
-  .option-label:hover {
-  background: rgba(0, 0, 0, 0.1) !important;
-}
-        .option-label:hover { transform: scale(1.02); background: rgba(255,255,255,0.15); }
-        .btn-gradient { background: linear-gradient(135deg, #0066ff, #00c6ff); border: none; color: white; font-weight: 600; }
-        @media (max-width: 768px) { .d-flex.gap-2 { flex-direction: column; } .d-flex.gap-2 button { width: 100%; } }
+        .option-label:hover:not(.correct-option):not(.incorrect-option) {
+          background: rgba(88, 130, 255, 0.08);
+          border-color: var(--accent);
+        }
+        .option-label.selected {
+          background: rgba(88, 130, 255, 0.15);
+          border-color: var(--accent);
+        }
+        .option-label.correct-option {
+          background: rgba(16, 185, 129, 0.15);
+          border-color: #10b981;
+        }
+        .option-label.incorrect-option {
+          background: rgba(239, 68, 68, 0.15);
+          border-color: #ef4444;
+        }
+        .option-radio {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          accent-color: var(--accent);
+        }
+        .option-text {
+          flex: 1;
+          font-size: 0.9rem;
+        }
+        .option-icon {
+          font-size: 0.9rem;
+        }
+
+        /* Submit Button */
+        .take-submit {
+          width: 100%;
+          padding: 14px;
+          background: linear-gradient(135deg, var(--success), #059669);
+          border: none;
+          border-radius: 48px;
+          color: white;
+          font-size: 1rem;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          transition: all 0.2s;
+          margin-top: 1rem;
+        }
+        .take-submit:hover:not(:disabled) {
+          transform: translateY(-2px);
+          opacity: 0.9;
+        }
+        .take-submit:disabled {
+          opacity: 0.7;
+          cursor: not-allowed;
+        }
+        .spinner {
+          animation: spin 0.8s linear infinite;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+          .take-main { padding: 80px 1rem 2rem; }
+          .take-title { font-size: 1.3rem; }
+          .take-header { flex-direction: column; align-items: flex-start; }
+          .take-score-card { width: 100%; justify-content: center; }
+          .take-result-actions { flex-direction: column; }
+          .retake-btn, .show-answers-btn { width: 100%; justify-content: center; }
+          .take-question-card { padding: 1rem; }
+          .question-text { font-size: 0.9rem; }
+          .option-text { font-size: 0.85rem; }
+          .option-label { padding: 8px 12px; }
+          .take-back { width: 100%; justify-content: center; }
+        }
       `}</style>
     </div>
   );

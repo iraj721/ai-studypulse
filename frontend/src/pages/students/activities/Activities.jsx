@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import api from "../../../services/api";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ActivityInsightsModal from "../../../components/ActivityInsightsModal";
-import Stars from "../../../components/Stars";
-import BackButton from "../../../components/BackButton";
-import Toast from "../../../components/Toast";
+import Navbar from "../../../components/Navbar";
 import { FaSearch, FaTrash, FaEye, FaCalendarAlt, FaClock } from "react-icons/fa";
 
 export default function Activities() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [activities, setActivities] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState("");
@@ -15,18 +15,44 @@ export default function Activities() {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [toast, setToast] = useState({ message: "", type: "success" });
+  const [loading, setLoading] = useState(true);
+  const toastTimer = useRef(null);
+
+  const showToast = (message, type = "success") => {
+    setToast({ message, type });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast({ message: "", type: "success" }), 5000);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
 
   useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const res = await api.get("/auth/me");
+        setUser(res.data);
+      } catch {
+        localStorage.removeItem("token");
+        navigate("/login");
+      }
+    };
+    fetchUser();
     loadActivities();
   }, []);
 
   const loadActivities = async () => {
+    setLoading(true);
     try {
       const res = await api.get("/activities");
       setActivities(res.data);
       setFiltered(res.data);
     } catch (err) {
-      setToast({ message: "Failed to load activities", type: "error" });
+      showToast("Failed to load activities", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,8 +62,7 @@ export default function Activities() {
     filterData(val, difficulty);
   };
 
-  const handleDifficulty = (e) => {
-    const val = e.target.value;
+  const handleDifficulty = (val) => {
     setDifficulty(val);
     filterData(search, val);
   };
@@ -58,302 +83,454 @@ export default function Activities() {
     if (!window.confirm("Delete this activity?")) return;
     try {
       await api.delete(`/activities/${id}`);
-      setToast({ message: "Activity deleted successfully!", type: "success" });
+      showToast("Activity deleted successfully!", "success");
       loadActivities();
     } catch (err) {
-      setToast({ message: "Failed to delete activity", type: "error" });
+      showToast("Failed to delete activity", "error");
     }
   };
 
   return (
-    <div className="activities-page min-vh-100 py-5 position-relative">
-      <Stars />
-      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
+    <div className="act-page">
+      {/* Background */}
+      <div className="act-bg"></div>
 
-      <div className="container">
-        <BackButton to="/dashboard" label="← Back to Dashboard" />
-
-        <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-          <h3 className="page-title">📚 Your Study Activities</h3>
-          <Link to="/activities/add" className="btn-add-activity">
-            + Add New Activity
-          </Link>
+      {/* Toast */}
+      {toast.message && (
+        <div className={`act-toast act-toast-${toast.type}`}>
+          <span>{toast.type === "success" ? "✓" : "✕"}</span>
+          {toast.message}
         </div>
+      )}
 
-        {/* Filters */}
-        <div className="filters-wrapper mb-4">
-          <div className="search-box">
-            <FaSearch className="search-icon" />
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search by subject or topic..."
-              value={search}
-              onChange={handleSearch}
-            />
-          </div>
-          <select className="difficulty-select" value={difficulty} onChange={handleDifficulty}>
-            <option value="all">All Difficulties</option>
-            <option value="easy">🟢 Easy</option>
-            <option value="medium">🟡 Medium</option>
-            <option value="hard">🔴 Hard</option>
-          </select>
-        </div>
+      {/* Navbar */}
+      <Navbar user={user} onLogout={handleLogout} />
 
-        {/* Activities Grid/Card View */}
-        {filtered.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon">📭</div>
-            <h4>No Activities Found</h4>
-            <p>Start your study journey by adding your first activity!</p>
-            <Link to="/activities/add" className="btn-empty-add">+ Add Activity</Link>
+      {/* Main Content */}
+      <main className="act-main">
+        <div className="act-container">
+          {/* Header */}
+          <div className="act-header">
+            <div>
+              <h1 className="act-title">Study <span className="act-grad">Activities</span></h1>
+              <p className="act-sub">Track and manage all your study sessions</p>
+            </div>
+            <Link to="/activities/add" className="act-add-btn">+ Add New Activity</Link>
           </div>
-        ) : (
-          <div className="activities-grid">
-            {filtered.map((activity) => (
-              <div key={activity._id} className="activity-card">
-                <div className="activity-header">
-                  <div className="activity-subject">{activity.subject}</div>
-                  <div className={`difficulty-badge ${activity.difficulty}`}>
-                    {activity.difficulty === "easy" && "🟢 Easy"}
-                    {activity.difficulty === "medium" && "🟡 Medium"}
-                    {activity.difficulty === "hard" && "🔴 Hard"}
+
+          {/* Search & Filters */}
+          <div className="act-filters">
+            <div className="act-search-box">
+              <FaSearch className="act-search-icon" />
+              <input
+                type="text"
+                placeholder="Search by subject or topic..."
+                value={search}
+                onChange={handleSearch}
+              />
+            </div>
+            <div className="act-filter-btns">
+              <button className={difficulty === "all" ? "active" : ""} onClick={() => handleDifficulty("all")}>All</button>
+              <button className={difficulty === "easy" ? "active easy" : "easy"} onClick={() => handleDifficulty("easy")}>🟢 Easy</button>
+              <button className={difficulty === "medium" ? "active medium" : "medium"} onClick={() => handleDifficulty("medium")}>🟡 Medium</button>
+              <button className={difficulty === "hard" ? "active hard" : "hard"} onClick={() => handleDifficulty("hard")}>🔴 Hard</button>
+            </div>
+          </div>
+
+          {/* Activities Grid */}
+          {loading ? (
+            <div className="act-loading"><div className="act-spinner"></div><p>Loading...</p></div>
+          ) : filtered.length === 0 ? (
+            <div className="act-empty">
+              <div className="act-empty-icon">📭</div>
+              <h3>No Activities Found</h3>
+              <p>Start your study journey by adding your first activity!</p>
+              <Link to="/activities/add" className="act-empty-btn">+ Add Activity</Link>
+            </div>
+          ) : (
+            <div className="act-grid">
+              {filtered.map((activity) => (
+                <div key={activity._id} className="act-card">
+                  <div className="act-card-top">
+                    <h3>{activity.subject}</h3>
+                    <span className={`act-badge ${activity.difficulty}`}>
+                      {activity.difficulty === "easy" && "🟢 Easy"}
+                      {activity.difficulty === "medium" && "🟡 Medium"}
+                      {activity.difficulty === "hard" && "🔴 Hard"}
+                    </span>
+                  </div>
+                  <div className="act-card-topic">{activity.topic}</div>
+                  <div className="act-card-info">
+                    <span><FaClock /> {activity.durationMinutes} min</span>
+                    <span><FaCalendarAlt /> {new Date(activity.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div className="act-card-buttons">
+                    {(activity.insights || []).length > 0 ? (
+                      <button className="act-view-btn" onClick={() => { setSelectedActivity(activity); setShowModal(true); }}>
+                        <FaEye /> View Insights
+                      </button>
+                    ) : (
+                      <span className="act-no-insight">No insights yet</span>
+                    )}
+                    <button className="act-del-btn" onClick={() => handleDelete(activity._id)}>
+                      <FaTrash /> Delete
+                    </button>
                   </div>
                 </div>
-                <div className="activity-topic">{activity.topic}</div>
-                <div className="activity-meta">
-                  <span><FaClock /> {activity.durationMinutes} min</span>
-                  <span><FaCalendarAlt /> {new Date(activity.createdAt).toLocaleDateString()}</span>
-                </div>
-                <div className="activity-actions">
-                  {(activity.insights || []).length > 0 ? (
-                    <button className="insight-btn" onClick={() => { setSelectedActivity(activity); setShowModal(true); }}>
-                      <FaEye /> View Insights
-                    </button>
-                  ) : (
-                    <span className="no-insights">No insights yet</span>
-                  )}
-                  <button className="delete-btn" onClick={() => handleDelete(activity._id)}>
-                    <FaTrash /> Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
 
-        <ActivityInsightsModal show={showModal} onClose={() => setShowModal(false)} activity={selectedActivity} />
-      </div>
+      <ActivityInsightsModal show={showModal} onClose={() => setShowModal(false)} activity={selectedActivity} />
 
       <style>{`
-        .activities-page {
-          background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #1a2a3d 100%);
+        * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
         }
-        .page-title {
-          color: white;
-          font-weight: bold;
+
+        .act-page {
+          font-family: 'Inter', sans-serif;
+          background: #0a0c12;
+          min-height: 100vh;
         }
-        .btn-add-activity {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          border: none;
+
+        .act-bg {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: linear-gradient(135deg, #0a0c12 0%, #111318 50%, #0a0c12 100%);
+          z-index: -1;
+        }
+
+        .act-grad {
+          background: linear-gradient(135deg, #5882ff, #20e6d0);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+
+        /* Toast */
+        .act-toast {
+          position: fixed;
+          top: 80px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 1000;
+          padding: 10px 20px;
+          border-radius: 30px;
+          font-size: 14px;
+          font-weight: 500;
+          background: #111318;
+          border: 1px solid;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .act-toast-success {
+          border-color: #10b981;
+          color: #10b981;
+        }
+        .act-toast-error {
+          border-color: #ef4444;
+          color: #ef4444;
+        }
+
+        /* Main Content */
+        .act-main {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 90px 20px 40px;
+        }
+
+        /* Header */
+        .act-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 30px;
+          flex-wrap: wrap;
+          gap: 15px;
+        }
+        .act-title {
+          font-family: 'Syne', sans-serif;
+          font-size: 28px;
+          font-weight: 700;
+          color: #edf2ff;
+        }
+        .act-sub {
+          color: #8e9cc4;
+          font-size: 14px;
+          margin-top: 5px;
+        }
+        .act-add-btn {
+          background: linear-gradient(135deg, #5882ff, #3a61e0);
           color: white;
           padding: 10px 24px;
           border-radius: 40px;
           text-decoration: none;
+          font-size: 14px;
           font-weight: 600;
-          transition: all 0.3s;
+          transition: all 0.2s;
         }
-        .btn-add-activity:hover {
+        .act-add-btn:hover {
           transform: translateY(-2px);
-          box-shadow: 0 8px 20px rgba(79,70,229,0.4);
-          color: white;
         }
-        .filters-wrapper {
+
+        /* Filters */
+        .act-filters {
           display: flex;
-          gap: 16px;
+          gap: 15px;
+          margin-bottom: 30px;
           flex-wrap: wrap;
-          margin-bottom: 24px;
         }
-        .search-box {
+        .act-search-box {
           flex: 2;
           position: relative;
         }
-        .search-icon {
+        .act-search-icon {
           position: absolute;
-          left: 16px;
+          left: 15px;
           top: 50%;
           transform: translateY(-50%);
-          color: #94a3b8;
+          color: #49587a;
         }
-        .search-input {
+        .act-search-box input {
           width: 100%;
-          padding: 12px 16px 12px 45px;
+          padding: 12px 20px 12px 45px;
+          background: #111318;
+          border: 1px solid rgba(88,130,255,0.15);
           border-radius: 40px;
-          border: 1px solid rgba(255,255,255,0.2);
-          background: rgba(255,255,255,0.1);
-          color: white;
+          color: #edf2ff;
           font-size: 14px;
         }
-        .search-input::placeholder {
-          color: rgba(255,255,255,0.6);
-        }
-        .search-input:focus {
+        .act-search-box input:focus {
           outline: none;
-          background: rgba(255,255,255,0.15);
-          border-color: #4f46e5;
+          border-color: #5882ff;
         }
-        .difficulty-select {
-          padding: 12px 20px;
-          border-radius: 40px;
-          border: 1px solid rgba(255,255,255,0.2);
-          background: rgba(255,255,255,0.1);
-          color: white;
+        .act-search-box input::placeholder {
+          color: #49587a;
+        }
+        .act-filter-btns {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .act-filter-btns button {
+          padding: 8px 18px;
+          border-radius: 30px;
+          background: #111318;
+          border: 1px solid rgba(88,130,255,0.15);
+          color: #8e9cc4;
+          font-size: 13px;
           cursor: pointer;
+          transition: all 0.2s;
         }
-        .difficulty-select option {
-          background: #1e3652;
+        .act-filter-btns button:hover {
+          background: rgba(88,130,255,0.1);
         }
-        .activities-grid {
+        .act-filter-btns button.active {
+          background: #5882ff;
+          color: white;
+          border-color: #5882ff;
+        }
+        .act-filter-btns button.easy.active {
+          background: #10b981;
+          border-color: #10b981;
+        }
+        .act-filter-btns button.medium.active {
+          background: #f59e0b;
+          border-color: #f59e0b;
+        }
+        .act-filter-btns button.hard.active {
+          background: #ef4444;
+          border-color: #ef4444;
+        }
+
+        /* Loading */
+        .act-loading {
+          text-align: center;
+          padding: 60px;
+        }
+        .act-spinner {
+          width: 40px;
+          height: 40px;
+          border: 3px solid rgba(88,130,255,0.2);
+          border-top-color: #5882ff;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+          margin: 0 auto 15px;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+
+        /* Empty */
+        .act-empty {
+          text-align: center;
+          padding: 60px 20px;
+          background: #111318;
+          border-radius: 24px;
+          border: 1px solid rgba(88,130,255,0.1);
+        }
+        .act-empty-icon {
+          font-size: 64px;
+          margin-bottom: 16px;
+          opacity: 0.5;
+        }
+        .act-empty h3 {
+          color: #edf2ff;
+          margin-bottom: 8px;
+        }
+        .act-empty p {
+          color: #8e9cc4;
+          margin-bottom: 20px;
+        }
+        .act-empty-btn {
+          display: inline-block;
+          padding: 10px 24px;
+          background: linear-gradient(135deg, #5882ff, #3a61e0);
+          color: white;
+          text-decoration: none;
+          border-radius: 30px;
+        }
+
+        /* Cards Grid */
+        .act-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
           gap: 20px;
         }
-        .activity-card {
-          background: rgba(255,255,255,0.1);
-          backdrop-filter: blur(10px);
+        .act-card {
+          background: #111318;
+          border: 1px solid rgba(88,130,255,0.1);
           border-radius: 20px;
           padding: 20px;
           transition: all 0.3s;
-          border: 1px solid rgba(255,255,255,0.1);
         }
-        .activity-card:hover {
-          transform: translateY(-5px);
-          background: rgba(255,255,255,0.15);
-          box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+        .act-card:hover {
+          border-color: rgba(88,130,255,0.3);
+          transform: translateY(-4px);
         }
-        .activity-header {
+        .act-card-top {
           display: flex;
           justify-content: space-between;
           align-items: center;
           margin-bottom: 12px;
+          flex-wrap: wrap;
+          gap: 8px;
         }
-        .activity-subject {
+        .act-card-top h3 {
           font-size: 18px;
-          font-weight: bold;
-          color: white;
+          font-weight: 600;
+          color: #edf2ff;
         }
-        .difficulty-badge {
+        .act-badge {
           padding: 4px 12px;
           border-radius: 20px;
           font-size: 11px;
           font-weight: 600;
         }
-        .difficulty-badge.easy {
-          background: #dcfce7;
-          color: #166534;
+        .act-badge.easy {
+          background: rgba(16,185,129,0.15);
+          color: #34d399;
         }
-        .difficulty-badge.medium {
-          background: #fef3c7;
-          color: #92400e;
+        .act-badge.medium {
+          background: rgba(245,158,11,0.15);
+          color: #fbbf24;
         }
-        .difficulty-badge.hard {
-          background: #fee2e2;
-          color: #991b1b;
+        .act-badge.hard {
+          background: rgba(239,68,68,0.15);
+          color: #f87171;
         }
-        .activity-topic {
+        .act-card-topic {
           font-size: 14px;
-          color: rgba(255,255,255,0.8);
-          margin-bottom: 12px;
+          color: #8e9cc4;
+          margin-bottom: 15px;
+          line-height: 1.4;
         }
-        .activity-meta {
+        .act-card-info {
           display: flex;
           gap: 16px;
           font-size: 12px;
-          color: rgba(255,255,255,0.6);
-          margin-bottom: 16px;
-          padding-bottom: 12px;
-          border-bottom: 1px solid rgba(255,255,255,0.1);
+          color: #49587a;
+          margin-bottom: 20px;
+          padding-bottom: 15px;
+          border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        .activity-meta span {
+        .act-card-info span {
           display: flex;
           align-items: center;
           gap: 6px;
         }
-        .activity-actions {
+        .act-card-buttons {
           display: flex;
           gap: 12px;
         }
-        .insight-btn {
-          background: rgba(79,70,229,0.2);
-          border: 1px solid #4f46e5;
-          color: #a5b4fc;
-          padding: 8px 16px;
+        .act-view-btn {
+          background: rgba(88,130,255,0.1);
+          border: 1px solid rgba(88,130,255,0.2);
+          color: #5882ff;
+          padding: 6px 16px;
           border-radius: 30px;
-          cursor: pointer;
           font-size: 12px;
+          cursor: pointer;
           display: flex;
           align-items: center;
           gap: 6px;
           transition: all 0.2s;
         }
-        .insight-btn:hover {
-          background: #4f46e5;
+        .act-view-btn:hover {
+          background: #5882ff;
           color: white;
         }
-        .delete-btn {
-          background: rgba(239,68,68,0.2);
-          border: 1px solid #ef4444;
-          color: #fca5a5;
-          padding: 8px 16px;
+        .act-del-btn {
+          background: rgba(239,68,68,0.1);
+          border: 1px solid rgba(239,68,68,0.2);
+          color: #f87171;
+          padding: 6px 16px;
           border-radius: 30px;
-          cursor: pointer;
           font-size: 12px;
+          cursor: pointer;
           display: flex;
           align-items: center;
           gap: 6px;
           transition: all 0.2s;
         }
-        .delete-btn:hover {
+        .act-del-btn:hover {
           background: #ef4444;
           color: white;
         }
-        .no-insights {
-          padding: 8px 16px;
-          color: rgba(255,255,255,0.4);
+        .act-no-insight {
+          padding: 6px 16px;
+          color: #49587a;
           font-size: 12px;
         }
-        .empty-state {
-          text-align: center;
-          padding: 60px 20px;
-          background: rgba(255,255,255,0.05);
-          border-radius: 24px;
-        }
-        .empty-icon {
-          font-size: 64px;
-          margin-bottom: 16px;
-          opacity: 0.5;
-        }
-        .empty-state h4 {
-          color: white;
-          margin-bottom: 8px;
-        }
-        .empty-state p {
-          color: rgba(255,255,255,0.6);
-          margin-bottom: 20px;
-        }
-        .btn-empty-add {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-          padding: 10px 24px;
-          border-radius: 40px;
-          text-decoration: none;
-          display: inline-block;
-        }
+
+        /* Responsive */
         @media (max-width: 768px) {
-          .filters-wrapper {
+          .act-main {
+            padding: 80px 15px 30px;
+          }
+          .act-title {
+            font-size: 24px;
+          }
+          .act-header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .act-add-btn {
+            width: 100%;
+            text-align: center;
+          }
+          .act-filters {
             flex-direction: column;
           }
-          .activities-grid {
+          .act-grid {
             grid-template-columns: 1fr;
           }
         }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import apiAdmin from "../../services/apiAdmin";
-import BackButton from "../../components/BackButton";
+// import BackButton from "../../components/BackButton";
 import { Line, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,

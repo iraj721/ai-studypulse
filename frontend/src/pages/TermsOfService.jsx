@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
-  FaShieldAlt, FaDatabase, FaRobot, FaLock, FaCookie, 
-  FaServer, FaUserShield, FaChild, FaEdit, FaMailBulk 
+  FaFileContract, FaCheckCircle, FaUserLock, FaShieldAlt, 
+  FaBrain, FaGavel, FaCopyright, FaServer, FaBan, FaBell 
 } from "react-icons/fa";
 
-export default function PrivacyPolicy() {
+export default function TermsOfService() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [focusedCard, setFocusedCard] = useState(null);
@@ -47,7 +47,7 @@ export default function PrivacyPolicy() {
   // Intersection Observer for animations
   useEffect(() => {
     const io = new IntersectionObserver(
-      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("pp-in"); }),
+      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("tos-in"); }),
       { threshold: 0.1 }
     );
     sectionRefs.current.forEach(el => el && io.observe(el));
@@ -55,127 +55,182 @@ export default function PrivacyPolicy() {
   }, []);
 
   const sections = [
-    { icon: <FaDatabase />, title: "Information We Collect", content: "We collect information you provide directly to us, such as when you create an account, submit activities, take quizzes, or communicate with our AI assistant. This may include your name, email address, study preferences, and learning progress data." },
-    { icon: <FaRobot />, title: "How We Use Your Information", content: "We use the information we collect to provide, maintain, and improve our services, to personalize your learning experience, to generate AI-powered insights and quizzes, and to communicate with you about updates and features." },
-    { icon: <FaServer />, title: "AI Data Processing", content: "Your study activities, notes, and quiz responses may be processed by our AI systems to generate personalized insights, recommendations, and learning materials. This processing is done securely and is essential for providing our core features." },
-    { icon: <FaLock />, title: "Data Security", content: "We implement industry-standard security measures to protect your personal information, including encryption, secure servers, and regular security audits. However, no method of transmission over the internet is 100% secure." },
-    { icon: <FaCookie />, title: "Cookies and Tracking", content: "We use cookies and similar tracking technologies to enhance your experience, analyze usage patterns, and remember your preferences. You can control cookie settings through your browser preferences." },
-    { icon: <FaServer />, title: "Third-Party Services", content: "We may use third-party services like MongoDB Atlas, Cloudinary, and AI providers to deliver our services. These providers have their own privacy policies and security measures." },
-    { icon: <FaUserShield />, title: "Your Rights", content: "You have the right to access, correct, or delete your personal information. You can manage your data through your account settings or by contacting our support team." },
-    { icon: <FaChild />, title: "Children's Privacy", content: "Our services are not directed to children under 13. We do not knowingly collect personal information from children under 13. If we become aware of such data, we will delete it promptly." },
-    { icon: <FaEdit />, title: "Changes to This Policy", content: "We may update this privacy policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the effective date." },
-    { icon: <FaMailBulk />, title: "Contact Us", content: "If you have questions about this privacy policy, please contact us at privacy@aistudypulse.com or through our contact form." },
+    { 
+      icon: <FaFileContract />, 
+      title: "1. Acceptance of Terms", 
+      content: "By accessing or using AI StudyPulse, you agree to be bound by these Terms of Service and our Privacy Policy. If you do not agree to these terms, please do not use our services." 
+    },
+    { 
+      icon: <FaUserLock />, 
+      title: "2. Account Registration", 
+      content: "You must provide accurate and complete information when creating an account. You are responsible for maintaining the security of your account credentials and for all activities that occur under your account." 
+    },
+    { 
+      icon: <FaBrain />, 
+      title: "3. AI Services", 
+      content: "Our AI services generate content based on your inputs and learning patterns. While we strive for accuracy, AI-generated content may not always be perfect. You agree to use AI-generated content as a learning aid, not as definitive source material." 
+    },
+    { 
+      icon: <FaShieldAlt />, 
+      title: "4. User Conduct", 
+      content: "You agree not to misuse our services, including but not limited to: attempting to bypass security measures, interfering with service operations, uploading malicious content, or using our services for any illegal activities." 
+    },
+    { 
+      icon: <FaCopyright />, 
+      title: "5. Intellectual Property", 
+      content: "AI StudyPulse and its content, features, and functionality are owned by us and are protected by copyright, trademark, and other intellectual property laws. You retain ownership of your submitted content but grant us a license to use it to provide and improve our services." 
+    },
+    { 
+      icon: <FaServer />, 
+      title: "6. Subscription and Payments", 
+      content: "Certain features may require a paid subscription. Fees are billed in advance and are non-refundable except as required by law. We reserve the right to change pricing with prior notice." 
+    },
+    { 
+      icon: <FaCheckCircle />, 
+      title: "7. Content Moderation", 
+      content: "We reserve the right to review, moderate, and remove any content that violates these terms or applicable laws. We may suspend or terminate accounts that repeatedly violate our content policies." 
+    },
+    { 
+      icon: <FaBan />, 
+      title: "8. Termination", 
+      content: "We may terminate or suspend your account immediately, without prior notice, for conduct that violates these terms or is harmful to other users. You may delete your account at any time through your account settings." 
+    },
+    { 
+      icon: <FaBell />, 
+      title: "9. Disclaimer of Warranties", 
+      content: "Our services are provided 'as is' without warranties of any kind. We do not guarantee that the service will be uninterrupted, error-free, or completely secure. Use of AI-generated content is at your own discretion." 
+    },
+    { 
+      icon: <FaGavel />, 
+      title: "10. Limitation of Liability", 
+      content: "To the maximum extent permitted by law, AI StudyPulse shall not be liable for any indirect, incidental, or consequential damages arising from your use of our services. Our total liability shall not exceed the amount paid by you, if any." 
+    },
+    { 
+      icon: <FaFileContract />, 
+      title: "11. Changes to Terms", 
+      content: "We may modify these terms at any time. We will notify users of significant changes via email or through our platform. Continued use of the service after changes constitutes acceptance of the new terms." 
+    },
+    { 
+      icon: <FaGavel />, 
+      title: "12. Governing Law", 
+      content: "These terms shall be governed by and construed in accordance with the laws of Pakistan, without regard to its conflict of law provisions. Any disputes shall be resolved in the courts of Pakistan." 
+    },
   ];
 
   return (
-    <div className="pp-root">
+    <div className="tos-root">
       {/* Background Elements */}
-      <div className="pp-bg" />
-      <div className="pp-grid" />
-      <div className="pp-orb pp-orb-a" />
-      <div className="pp-orb pp-orb-b" />
-      <div className="pp-orb pp-orb-c" />
+      <div className="tos-bg" />
+      <div className="tos-grid" />
+      <div className="tos-orb tos-orb-a" />
+      <div className="tos-orb tos-orb-b" />
+      <div className="tos-orb tos-orb-c" />
 
       {/* Dark Overlay for Sidebar */}
-      <div className={`pp-overlay ${sidebarOpen ? "pp-overlay--visible" : ""}`} onClick={closeSidebar} />
+      <div className={`tos-overlay ${sidebarOpen ? "tos-overlay--visible" : ""}`} onClick={closeSidebar} />
 
       {/* Sidebar Drawer */}
-      <div className={`pp-sidebar ${sidebarOpen ? "pp-sidebar--open" : ""}`} ref={sidebarRef}>
-        <div className="pp-sidebar-header">
-          <div className="pp-logo">
-            <span className="pp-logo-gem">◈</span>
+      <div className={`tos-sidebar ${sidebarOpen ? "tos-sidebar--open" : ""}`} ref={sidebarRef}>
+        <div className="tos-sidebar-header">
+          <div className="tos-logo">
+            <span className="tos-logo-gem">◈</span>
             StudyPulse
           </div>
-          <button className="pp-sidebar-close" onClick={closeSidebar}>
+          <button className="tos-sidebar-close" onClick={closeSidebar}>
             ✕
           </button>
         </div>
-        <div className="pp-sidebar-links">
-          <button onClick={() => handleNavClick("/")} className="pp-sidebar-link">
-            <span className="pp-sidebar-icon">🏠</span>
+        <div className="tos-sidebar-links">
+          <button onClick={() => handleNavClick("/")} className="tos-sidebar-link">
+            <span className="tos-sidebar-icon">🏠</span>
             Home
           </button>
-          <button onClick={() => handleNavClick("/about")} className="pp-sidebar-link">
-            <span className="pp-sidebar-icon">📖</span>
+          <button onClick={() => handleNavClick("/about")} className="tos-sidebar-link">
+            <span className="tos-sidebar-icon">📖</span>
             About
           </button>
-          <button onClick={() => handleNavClick("/contact")} className="pp-sidebar-link">
-            <span className="pp-sidebar-icon">📧</span>
+          <button onClick={() => handleNavClick("/contact")} className="tos-sidebar-link">
+            <span className="tos-sidebar-icon">📧</span>
             Contact
           </button>
-          <button onClick={() => handleNavClick("/login")} className="pp-sidebar-link">
-            <span className="pp-sidebar-icon">🔐</span>
+          <button onClick={() => handleNavClick("/privacy")} className="tos-sidebar-link">
+            <span className="tos-sidebar-icon">🔒</span>
+            Privacy
+          </button>
+          <button onClick={() => handleNavClick("/login")} className="tos-sidebar-link">
+            <span className="tos-sidebar-icon">🔐</span>
             Sign In
           </button>
-          <button onClick={() => handleNavClick("/register")} className="pp-sidebar-solid">
+          <button onClick={() => handleNavClick("/register")} className="tos-sidebar-solid">
             Get Started
           </button>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="pp-nav">
-        <div className="pp-nav-container">
-          <Link to="/" className="pp-logo">
-            <span className="pp-logo-gem">◈</span>
+      <nav className="tos-nav">
+        <div className="tos-nav-container">
+          <Link to="/" className="tos-logo">
+            <span className="tos-logo-gem">◈</span>
             StudyPulse
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="pp-nav-desktop">
-            <Link to="/" className="pp-nav-link">Home</Link>
-            <Link to="/about" className="pp-nav-link">About</Link>
-            <Link to="/contact" className="pp-nav-link">Contact</Link>
-            <Link to="/login" className="pp-nav-ghost">Sign In</Link>
-            <Link to="/register" className="pp-nav-solid">Get Started</Link>
+          <div className="tos-nav-desktop">
+            <Link to="/" className="tos-nav-link">Home</Link>
+            <Link to="/about" className="tos-nav-link">About</Link>
+            <Link to="/contact" className="tos-nav-link">Contact</Link>
+            <Link to="/privacy" className="tos-nav-link">Privacy</Link>
+            <Link to="/login" className="tos-nav-ghost">Sign In</Link>
+            <Link to="/register" className="tos-nav-solid">Get Started</Link>
           </div>
 
           {/* Hamburger Menu Button */}
-          <button className="pp-hamburger" onClick={openSidebar}>
-            <span className="pp-hamburger-line"></span>
-            <span className="pp-hamburger-line"></span>
-            <span className="pp-hamburger-line"></span>
+          <button className="tos-hamburger" onClick={openSidebar}>
+            <span className="tos-hamburger-line"></span>
+            <span className="tos-hamburger-line"></span>
+            <span className="tos-hamburger-line"></span>
           </button>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="pp-hero">
-        <div className="pp-hero-content">
-          <div className="pp-hero-icon-wrapper">
-            <FaShieldAlt className="pp-hero-icon" />
+      <section className="tos-hero">
+        <div className="tos-hero-content">
+          <div className="tos-hero-icon-wrapper">
+            <FaFileContract className="tos-hero-icon" />
           </div>
-          <div className="pp-hero-eyebrow">Legal</div>
-          <h1 className="pp-hero-title">
-            Privacy <span className="pp-grad">Policy</span>
+          <div className="tos-hero-eyebrow">Legal Agreement</div>
+          <h1 className="tos-hero-title">
+            Terms of <span className="tos-grad">Service</span>
           </h1>
-          <p className="pp-hero-subtitle">
+          <p className="tos-hero-subtitle">
             Last Updated: January 2026
           </p>
         </div>
       </section>
 
       {/* Main Content */}
-      <main className="pp-main">
-        <div className="pp-card">
-          <div className="pp-card-glow" />
+      <main className="tos-main">
+        <div className="tos-card">
+          <div className="tos-card-glow" />
           
-          <div className="pp-intro">
-            <p>At AI StudyPulse, we take your privacy seriously. This policy describes how we collect, use, and protect your personal information.</p>
+          <div className="tos-intro">
+            <p>Welcome to AI StudyPulse. By using our platform, you agree to these Terms of Service. Please read them carefully.</p>
           </div>
 
-          <div className="pp-sections">
+          <div className="tos-sections">
             {sections.map((section, idx) => (
               <div 
                 key={idx} 
-                className="pp-section"
+                className="tos-section"
                 ref={el => (sectionRefs.current[idx] = el)}
                 onMouseEnter={() => setFocusedCard(idx)}
                 onMouseLeave={() => setFocusedCard(null)}
-                style={{ transitionDelay: `${idx * 0.05}s` }}
+                style={{ transitionDelay: `${idx * 0.03}s` }}
               >
-                <div className="pp-section-icon">{section.icon}</div>
-                <div className="pp-section-content">
+                <div className="tos-section-icon">{section.icon}</div>
+                <div className="tos-section-content">
                   <h3>{section.title}</h3>
                   <p>{section.content}</p>
                 </div>
@@ -183,50 +238,50 @@ export default function PrivacyPolicy() {
             ))}
           </div>
 
-          <div className="pp-footer">
-            <p>By using AI StudyPulse, you agree to this Privacy Policy.</p>
+          <div className="tos-footer">
+            <p>By using AI StudyPulse, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.</p>
           </div>
         </div>
       </main>
 
       {/* CTA Section */}
-      <section className="pp-cta-section">
-        <div className="pp-cta-glow" />
-        <div className="pp-cta-content">
-          <div className="pp-eyebrow" style={{ textAlign: "center" }}>Questions?</div>
-          <h2 className="pp-cta-title">
-            Have More Questions
+      <section className="tos-cta-section">
+        <div className="tos-cta-glow" />
+        <div className="tos-cta-content">
+          <div className="tos-eyebrow" style={{ textAlign: "center" }}>Questions?</div>
+          <h2 className="tos-cta-title">
+            Need Clarification
             <br />
-            <span className="pp-grad">About Your Privacy?</span>
+            <span className="tos-grad">About Our Terms?</span>
           </h2>
-          <p className="pp-cta-sub">
-            Our support team is here to help. Reach out anytime for privacy-related concerns.
+          <p className="tos-cta-sub">
+            Our legal team is available to answer your questions about these terms.
           </p>
-          <div className="pp-cta-buttons">
-            <Link to="/contact" className="pp-btn-primary">
+          <div className="tos-cta-buttons">
+            <Link to="/contact" className="tos-btn-primary">
               Contact Us
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                 <path d="M2.5 7h9M8 3.5l3.5 3.5L8 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </Link>
-            <Link to="/" className="pp-btn-secondary">Return Home</Link>
+            <Link to="/" className="tos-btn-secondary">Return Home</Link>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="pp-footer-section">
-        <div className="pp-footer-inner">
-          <div className="pp-logo pp-logo-sm">
-            <span className="pp-logo-gem">◈</span> StudyPulse
+      <footer className="tos-footer-section">
+        <div className="tos-footer-inner">
+          <div className="tos-logo tos-logo-sm">
+            <span className="tos-logo-gem">◈</span> StudyPulse
           </div>
-          <div className="pp-footer-links">
-            <Link to="/about" className="pp-footer-link">About</Link>
-            <Link to="/contact" className="pp-footer-link">Contact</Link>
-            <Link to="/privacy" className="pp-footer-link">Privacy Policy</Link>
-            <Link to="/terms" className="pp-footer-link">Terms of Service</Link>
+          <div className="tos-footer-links">
+            <Link to="/about" className="tos-footer-link">About</Link>
+            <Link to="/contact" className="tos-footer-link">Contact</Link>
+            <Link to="/privacy" className="tos-footer-link">Privacy Policy</Link>
+            <Link to="/terms" className="tos-footer-link">Terms of Service</Link>
           </div>
-          <div className="pp-footer-copy">
+          <div className="tos-footer-copy">
             © 2025 StudyPulse — Built for students who want more.
           </div>
         </div>
@@ -235,7 +290,7 @@ export default function PrivacyPolicy() {
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
-        .pp-root {
+        .tos-root {
           --bg: #0a0c12;
           --surface: #111318;
           --surface2: #181b22;
@@ -256,7 +311,7 @@ export default function PrivacyPolicy() {
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
         html { scroll-behavior: smooth; }
 
-        .pp-root {
+        .tos-root {
           font-family: var(--fb);
           background: var(--bg);
           color: var(--text);
@@ -265,7 +320,7 @@ export default function PrivacyPolicy() {
           -webkit-font-smoothing: antialiased;
         }
 
-        .pp-grad {
+        .tos-grad {
           background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 65%, var(--violet) 100%);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
@@ -273,14 +328,14 @@ export default function PrivacyPolicy() {
         }
 
         /* Background */
-        .pp-bg {
+        .tos-bg {
           position: fixed; inset: 0; z-index: 0;
           background:
             radial-gradient(ellipse 60% 45% at 50% -5%, rgba(88, 130, 255, 0.1) 0%, transparent 60%),
             radial-gradient(ellipse 40% 30% at 90% 70%, rgba(32, 230, 208, 0.05) 0%, transparent 55%),
             radial-gradient(ellipse 40% 30% at 10% 80%, rgba(155, 122, 255, 0.05) 0%, transparent 55%);
         }
-        .pp-grid {
+        .tos-grid {
           position: fixed; inset: 0; z-index: 0;
           background-image:
             linear-gradient(rgba(88, 130, 255, 0.03) 1px, transparent 1px),
@@ -288,22 +343,22 @@ export default function PrivacyPolicy() {
           background-size: 48px 48px;
           mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, black 20%, transparent 80%);
         }
-        .pp-orb {
+        .tos-orb {
           position: fixed; border-radius: 50%; filter: blur(90px);
           pointer-events: none; z-index: 0;
         }
-        .pp-orb-a {
+        .tos-orb-a {
           width: 460px; height: 460px; top: -140px; left: 50%;
           transform: translateX(-50%);
           background: rgba(88, 130, 255, 0.08);
           animation: orbA 9s ease-in-out infinite;
         }
-        .pp-orb-b {
+        .tos-orb-b {
           width: 280px; height: 280px; bottom: 10%; right: -3%;
           background: rgba(32, 230, 208, 0.05);
           animation: orbB 11s 2s ease-in-out infinite;
         }
-        .pp-orb-c {
+        .tos-orb-c {
           width: 240px; height: 240px; top: 30%; left: -4%;
           background: rgba(155, 122, 255, 0.05);
           animation: orbB 10s 4s ease-in-out infinite;
@@ -318,13 +373,13 @@ export default function PrivacyPolicy() {
         }
 
         /* Nav */
-        .pp-nav {
+        .tos-nav {
           position: fixed; top: 0; left: 0; right: 0; z-index: 100;
           background: rgba(10, 12, 18, 0.85);
           backdrop-filter: blur(20px);
           border-bottom: 1px solid var(--border);
         }
-        .pp-nav-container {
+        .tos-nav-container {
           max-width: 1400px;
           margin: 0 auto;
           padding: 0 2rem;
@@ -333,30 +388,30 @@ export default function PrivacyPolicy() {
           align-items: center;
           justify-content: space-between;
         }
-        .pp-logo {
+        .tos-logo {
           font-family: var(--fd); font-size: 1.15rem; font-weight: 700;
           letter-spacing: -0.02em; color: var(--text);
           display: flex; align-items: center; gap: 7px;
           text-decoration: none;
         }
-        .pp-logo-sm { font-size: 1rem; }
-        .pp-logo-gem {
+        .tos-logo-sm { font-size: 1rem; }
+        .tos-logo-gem {
           color: var(--accent);
           filter: drop-shadow(0 0 6px rgba(88, 130, 255, 0.55));
         }
-        .pp-nav-desktop {
+        .tos-nav-desktop {
           display: flex;
           align-items: center;
           gap: 0.75rem;
         }
-        .pp-nav-link {
+        .tos-nav-link {
           font-size: 0.85rem; font-weight: 500;
           color: var(--muted); text-decoration: none;
           transition: color 0.2s;
           padding: 0.5rem 0.75rem;
         }
-        .pp-nav-link:hover { color: var(--text); }
-        .pp-nav-ghost {
+        .tos-nav-link:hover { color: var(--text); }
+        .tos-nav-ghost {
           font-size: 0.85rem; font-weight: 500;
           padding: 0.5rem 1.25rem;
           border-radius: 40px;
@@ -364,11 +419,11 @@ export default function PrivacyPolicy() {
           color: var(--muted); background: transparent;
           text-decoration: none; transition: all 0.2s;
         }
-        .pp-nav-ghost:hover {
+        .tos-nav-ghost:hover {
           color: var(--text);
           background: rgba(88, 130, 255, 0.08);
         }
-        .pp-nav-solid {
+        .tos-nav-solid {
           font-size: 0.85rem; font-weight: 600;
           padding: 0.5rem 1.5rem;
           border-radius: 40px;
@@ -377,13 +432,13 @@ export default function PrivacyPolicy() {
           transition: all 0.2s;
           box-shadow: 0 2px 12px rgba(88, 130, 255, 0.3);
         }
-        .pp-nav-solid:hover {
+        .tos-nav-solid:hover {
           transform: translateY(-1px);
           box-shadow: 0 6px 20px rgba(88, 130, 255, 0.45);
         }
 
         /* Hamburger Menu Button */
-        .pp-hamburger {
+        .tos-hamburger {
           display: none;
           flex-direction: column;
           justify-content: center;
@@ -396,7 +451,7 @@ export default function PrivacyPolicy() {
           cursor: pointer;
           z-index: 110;
         }
-        .pp-hamburger-line {
+        .tos-hamburger-line {
           width: 22px;
           height: 2px;
           background: var(--text);
@@ -405,7 +460,7 @@ export default function PrivacyPolicy() {
         }
 
         /* Sidebar Overlay */
-        .pp-overlay {
+        .tos-overlay {
           position: fixed;
           top: 0;
           left: 0;
@@ -416,13 +471,13 @@ export default function PrivacyPolicy() {
           transition: background 0.3s ease;
           pointer-events: none;
         }
-        .pp-overlay--visible {
+        .tos-overlay--visible {
           background: rgba(0, 0, 0, 0.7);
           pointer-events: auto;
         }
 
         /* Sidebar Drawer */
-        .pp-sidebar {
+        .tos-sidebar {
           position: fixed;
           top: 0;
           right: -100%;
@@ -436,17 +491,17 @@ export default function PrivacyPolicy() {
           display: flex;
           flex-direction: column;
         }
-        .pp-sidebar--open {
+        .tos-sidebar--open {
           right: 0;
         }
-        .pp-sidebar-header {
+        .tos-sidebar-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           padding: 1.25rem 1.5rem;
           border-bottom: 1px solid var(--border);
         }
-        .pp-sidebar-close {
+        .tos-sidebar-close {
           background: transparent;
           border: none;
           color: var(--muted);
@@ -455,16 +510,16 @@ export default function PrivacyPolicy() {
           padding: 0.5rem;
           transition: color 0.2s;
         }
-        .pp-sidebar-close:hover {
+        .tos-sidebar-close:hover {
           color: var(--text);
         }
-        .pp-sidebar-links {
+        .tos-sidebar-links {
           display: flex;
           flex-direction: column;
           padding: 1.5rem;
           gap: 0.75rem;
         }
-        .pp-sidebar-link {
+        .tos-sidebar-link {
           display: flex;
           align-items: center;
           gap: 12px;
@@ -482,13 +537,13 @@ export default function PrivacyPolicy() {
           text-align: left;
           font-family: var(--fb);
         }
-        .pp-sidebar-link:hover {
+        .tos-sidebar-link:hover {
           background: rgba(88, 130, 255, 0.1);
         }
-        .pp-sidebar-icon {
+        .tos-sidebar-icon {
           font-size: 1.1rem;
         }
-        .pp-sidebar-solid {
+        .tos-sidebar-solid {
           font-size: 1rem;
           font-weight: 600;
           text-align: center;
@@ -503,45 +558,45 @@ export default function PrivacyPolicy() {
           cursor: pointer;
           font-family: var(--fb);
         }
-        .pp-sidebar-solid:hover {
+        .tos-sidebar-solid:hover {
           transform: translateY(-2px);
           box-shadow: 0 4px 12px rgba(88, 130, 255, 0.4);
         }
 
         /* Hero */
-        .pp-hero {
+        .tos-hero {
           min-height: 45vh;
           display: flex; align-items: center; justify-content: center;
           text-align: center;
           position: relative;
           padding: 7rem 2rem 4rem;
         }
-        .pp-hero-content {
+        .tos-hero-content {
           position: relative; z-index: 10;
           max-width: 800px; margin: 0 auto;
         }
-        .pp-hero-icon-wrapper {
+        .tos-hero-icon-wrapper {
           margin-bottom: 1rem;
         }
-        .pp-hero-icon {
+        .tos-hero-icon {
           font-size: 3rem;
           color: var(--accent);
           filter: drop-shadow(0 0 12px rgba(88, 130, 255, 0.5));
         }
-        .pp-hero-eyebrow {
+        .tos-hero-eyebrow {
           font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em;
           text-transform: uppercase; color: var(--accent);
           margin-bottom: 1rem;
           animation: fadeUp 0.6s 0.2s both;
         }
-        .pp-hero-title {
+        .tos-hero-title {
           font-family: var(--fd);
           font-size: clamp(2rem, 5vw, 3.5rem);
           font-weight: 800; line-height: 1.15; letter-spacing: -0.03em;
           margin-bottom: 1rem;
           animation: fadeUp 0.6s 0.3s both;
         }
-        .pp-hero-subtitle {
+        .tos-hero-subtitle {
           font-size: clamp(0.9rem, 1.2vw, 1rem);
           color: var(--muted);
           max-width: 550px; margin: 0 auto;
@@ -554,7 +609,7 @@ export default function PrivacyPolicy() {
         }
 
         /* Main Content */
-        .pp-main {
+        .tos-main {
           position: relative;
           z-index: 10;
           max-width: 1000px;
@@ -563,7 +618,7 @@ export default function PrivacyPolicy() {
         }
 
         /* Card */
-        .pp-card {
+        .tos-card {
           background: rgba(17, 19, 24, 0.7);
           backdrop-filter: blur(20px);
           border: 1px solid var(--border);
@@ -572,10 +627,10 @@ export default function PrivacyPolicy() {
           position: relative;
           transition: all 0.3s ease;
         }
-        .pp-card:hover {
+        .tos-card:hover {
           border-color: var(--border-h);
         }
-        .pp-card-glow {
+        .tos-card-glow {
           position: absolute;
           top: -60px;
           left: 50%;
@@ -589,7 +644,7 @@ export default function PrivacyPolicy() {
         }
 
         /* Intro */
-        .pp-intro {
+        .tos-intro {
           font-size: 1rem;
           font-weight: 500;
           color: var(--text);
@@ -600,12 +655,12 @@ export default function PrivacyPolicy() {
         }
 
         /* Sections */
-        .pp-sections {
+        .tos-sections {
           display: flex;
           flex-direction: column;
           gap: 1.5rem;
         }
-        .pp-section {
+        .tos-section {
           display: flex;
           gap: 1rem;
           align-items: flex-start;
@@ -615,57 +670,57 @@ export default function PrivacyPolicy() {
           opacity: 0;
           transform: translateY(15px);
         }
-        .pp-section.pp-in {
+        .tos-section.tos-in {
           opacity: 1;
           transform: translateY(0);
         }
-        .pp-section:hover {
+        .tos-section:hover {
           background: rgba(88, 130, 255, 0.05);
           transform: translateX(5px);
         }
-        .pp-section-icon {
+        .tos-section-icon {
           font-size: 1.5rem;
           color: var(--accent);
           margin-top: 0.25rem;
           flex-shrink: 0;
         }
-        .pp-section-content {
+        .tos-section-content {
           flex: 1;
         }
-        .pp-section-content h3 {
+        .tos-section-content h3 {
           font-family: var(--fd);
           font-size: 1rem;
           font-weight: 700;
           margin-bottom: 0.5rem;
           color: var(--text);
         }
-        .pp-section-content p {
+        .tos-section-content p {
           font-size: 0.85rem;
           color: var(--muted);
           line-height: 1.6;
         }
 
         /* Footer within card */
-        .pp-footer {
+        .tos-footer {
           margin-top: 2rem;
           padding-top: 1.5rem;
           border-top: 1px solid var(--border);
           text-align: center;
         }
-        .pp-footer p {
+        .tos-footer p {
           font-size: 0.85rem;
           color: var(--faint);
         }
 
         /* CTA Section */
-        .pp-cta-section {
+        .tos-cta-section {
           padding: 5rem 2rem;
           text-align: center;
           position: relative;
           border-top: 1px solid var(--border);
           margin-top: 2rem;
         }
-        .pp-cta-glow {
+        .tos-cta-glow {
           position: absolute;
           top: -80px;
           left: 50%;
@@ -676,13 +731,13 @@ export default function PrivacyPolicy() {
           filter: blur(70px);
           pointer-events: none;
         }
-        .pp-cta-content {
+        .tos-cta-content {
           position: relative;
           z-index: 10;
           max-width: 700px;
           margin: 0 auto;
         }
-        .pp-eyebrow {
+        .tos-eyebrow {
           font-size: 0.7rem;
           font-weight: 600;
           letter-spacing: 0.15em;
@@ -690,7 +745,7 @@ export default function PrivacyPolicy() {
           color: var(--accent);
           margin-bottom: 0.8rem;
         }
-        .pp-cta-title {
+        .tos-cta-title {
           font-family: var(--fd);
           font-size: clamp(1.8rem, 4vw, 2.8rem);
           font-weight: 800;
@@ -698,18 +753,18 @@ export default function PrivacyPolicy() {
           letter-spacing: -0.03em;
           margin: 0.8rem 0 1rem;
         }
-        .pp-cta-sub {
+        .tos-cta-sub {
           font-size: 0.95rem;
           color: var(--muted);
           margin-bottom: 2rem;
         }
-        .pp-cta-buttons {
+        .tos-cta-buttons {
           display: flex;
           gap: 16px;
           justify-content: center;
           flex-wrap: wrap;
         }
-        .pp-btn-primary {
+        .tos-btn-primary {
           display: inline-flex;
           align-items: center;
           gap: 10px;
@@ -723,11 +778,11 @@ export default function PrivacyPolicy() {
           transition: all 0.2s;
           box-shadow: 0 4px 20px rgba(88, 130, 255, 0.35);
         }
-        .pp-btn-primary:hover {
+        .tos-btn-primary:hover {
           transform: translateY(-2px);
           box-shadow: 0 10px 28px rgba(88, 130, 255, 0.5);
         }
-        .pp-btn-secondary {
+        .tos-btn-secondary {
           display: inline-flex;
           align-items: center;
           font-size: 0.9rem;
@@ -740,7 +795,7 @@ export default function PrivacyPolicy() {
           text-decoration: none;
           transition: all 0.2s;
         }
-        .pp-btn-secondary:hover {
+        .tos-btn-secondary:hover {
           background: rgba(255, 255, 255, 0.04);
           color: var(--text);
           border-color: rgba(255, 255, 255, 0.22);
@@ -748,14 +803,14 @@ export default function PrivacyPolicy() {
         }
 
         /* Footer Section */
-        .pp-footer-section {
+        .tos-footer-section {
           padding: 2rem 2rem 1.5rem;
           border-top: 1px solid var(--border);
           background: rgba(10, 12, 18, 0.8);
           position: relative;
           z-index: 10;
         }
-        .pp-footer-inner {
+        .tos-footer-inner {
           max-width: 1200px;
           margin: 0 auto;
           display: flex;
@@ -764,21 +819,21 @@ export default function PrivacyPolicy() {
           flex-wrap: wrap;
           gap: 1rem;
         }
-        .pp-footer-links {
+        .tos-footer-links {
           display: flex;
           gap: 1.8rem;
           flex-wrap: wrap;
         }
-        .pp-footer-link {
+        .tos-footer-link {
           font-size: 0.8rem;
           color: var(--faint);
           text-decoration: none;
           transition: color 0.2s;
         }
-        .pp-footer-link:hover {
+        .tos-footer-link:hover {
           color: var(--accent);
         }
-        .pp-footer-copy {
+        .tos-footer-copy {
           font-size: 0.75rem;
           color: var(--faint);
           width: 100%;
@@ -790,63 +845,63 @@ export default function PrivacyPolicy() {
 
         /* Responsive */
         @media (max-width: 768px) {
-          .pp-nav-desktop {
+          .tos-nav-desktop {
             display: none;
           }
-          .pp-hamburger {
+          .tos-hamburger {
             display: flex;
           }
-          .pp-nav-container {
+          .tos-nav-container {
             padding: 0 1.25rem;
             height: 58px;
           }
-          .pp-hero {
+          .tos-hero {
             padding: 6rem 1.25rem 3rem;
           }
-          .pp-main {
+          .tos-main {
             padding: 1rem 1.25rem 3rem;
           }
-          .pp-card {
+          .tos-card {
             padding: 1.5rem;
           }
-          .pp-section {
+          .tos-section {
             flex-direction: column;
             gap: 0.5rem;
             padding: 0.75rem;
           }
-          .pp-section-icon {
+          .tos-section-icon {
             font-size: 1.25rem;
           }
-          .pp-section-content h3 {
+          .tos-section-content h3 {
             font-size: 0.9rem;
           }
-          .pp-section-content p {
+          .tos-section-content p {
             font-size: 0.8rem;
           }
-          .pp-cta-section {
+          .tos-cta-section {
             padding: 4rem 1.25rem;
           }
-          .pp-cta-buttons {
+          .tos-cta-buttons {
             flex-direction: column;
             align-items: center;
           }
-          .pp-btn-primary, .pp-btn-secondary {
+          .tos-btn-primary, .tos-btn-secondary {
             width: 220px;
             justify-content: center;
           }
-          .pp-footer-inner {
+          .tos-footer-inner {
             flex-direction: column;
             text-align: center;
           }
-          .pp-footer-links {
+          .tos-footer-links {
             justify-content: center;
           }
         }
         @media (max-width: 480px) {
-          .pp-card {
+          .tos-card {
             padding: 1.25rem;
           }
-          .pp-intro {
+          .tos-intro {
             font-size: 0.9rem;
           }
         }

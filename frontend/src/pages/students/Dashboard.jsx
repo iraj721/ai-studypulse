@@ -1,37 +1,20 @@
-// src/pages/Dashboard.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import api from "../../services/api";
 import { useNavigate, Link } from "react-router-dom";
 import { Line, Bar } from "react-chartjs-2";
 import Spinner from "../../components/Spinner";
+import Navbar from "../../components/Navbar";
+import MiniTimer from "../../components/MiniTimer"
+import FloatingTimer from "../../components/FloatingTimer"
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
+  Chart as ChartJS, CategoryScale, LinearScale, PointElement,
+  LineElement, BarElement, Title, Tooltip, Legend, Filler,
 } from "chart.js";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import ActivityInsightsModal from "../../components/ActivityInsightsModal";
-import ToastComponent from "../../components/Toast";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, Filler);
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -39,26 +22,32 @@ export default function Dashboard() {
   const [activities, setActivities] = useState([]);
   const [stats, setStats] = useState({
     totalStudyHours: 0,
-    completionRate: 0,
     weeklyGraph: Array(7).fill(0),
     difficultyAnalysis: { easy: 0, medium: 0, hard: 0 },
     lastNote: null,
     lastClass: null,
-    classesCount: 0,
+    classesCount: 0
   });
-  const [weakTopics, setWeakTopics] = useState({
-    weakTopics: [],
-    suggestions: [],
-  });
+  const [weakTopics, setWeakTopics] = useState({ weakTopics: [], suggestions: [] });
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
-  const [generating, setGenerating] = useState(false);
-  const [notifications, setNotifications] = useState([]);
   const [toastMsg, setToastMsg] = useState({ message: "", type: "success" });
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [studyHistory, setStudyHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const toastTimer = useRef(null);
+
+  const showToastMsg = (message, type = "success") => {
+    setToastMsg({ message, type });
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToastMsg({ message: "", type: "success" }), 5000);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -80,13 +69,12 @@ export default function Dashboard() {
     const socket = io(import.meta.env.VITE_API_URL || "http://localhost:5000", {
       transports: ["polling", "websocket"],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 5
     });
     socket.emit("joinUserRoom", user._id);
     socket.on("newNotification", (data) => {
-      setNotifications((prev) => [data, ...prev]);
       toast.info(data.message);
-      setToastMsg({ message: data.message, type: "info" });
+      showToastMsg(data.message, "info");
     });
     return () => socket.disconnect();
   }, [user]);
@@ -100,47 +88,32 @@ export default function Dashboard() {
   }, [user]);
 
   const fetchStats = async () => {
-    let statsData = {};
-    let classData = {};
-
+    let statsData = {}, classData = {};
     try {
       const res = await api.get("/activities/stats");
       statsData = res.data;
-    } catch (err) {
-      console.error("Activities stats fetch error:", err);
+    } catch {
       statsData = {
         totalStudyHours: 0,
-        completionRate: 0,
         weeklyGraph: Array(7).fill(0),
         difficultyAnalysis: { easy: 0, medium: 0, hard: 0 },
         lastNote: null,
-        lastClass: null,
+        lastClass: null
       };
     }
-
     try {
-      const resClass = await api.get("/student/classes/count");
-      classData = resClass.data;
-    } catch (err) {
-      console.error("Classes count fetch error:", err);
+      const res = await api.get("/student/classes/count");
+      classData = res.data;
+    } catch {
       classData = { count: 0, lastClass: null };
     }
-
     setStats({
       totalStudyHours: statsData.totalStudyHours || 0,
-      completionRate: statsData.completionRate || 0,
-      weeklyGraph:
-        statsData.weeklyGraph?.length === 7
-          ? statsData.weeklyGraph
-          : Array(7).fill(0),
-      difficultyAnalysis: statsData.difficultyAnalysis || {
-        easy: 0,
-        medium: 0,
-        hard: 0,
-      },
+      weeklyGraph: statsData.weeklyGraph?.length === 7 ? statsData.weeklyGraph : Array(7).fill(0),
+      difficultyAnalysis: statsData.difficultyAnalysis || { easy: 0, medium: 0, hard: 0 },
       lastNote: statsData.lastNote || null,
       lastClass: classData.lastClass || statsData.lastClass || null,
-      classesCount: classData.count || 0,
+      classesCount: classData.count || 0
     });
   };
 
@@ -168,532 +141,336 @@ export default function Dashboard() {
       const res = await api.get("/activities");
       setStudyHistory(res.data);
       setShowHistoryModal(true);
-    } catch (err) {
-      console.error(err);
-      setToastMsg({ message: "Failed to load study history", type: "error" });
+    } catch {
+      showToastMsg("Failed to load study history", "error");
     } finally {
       setHistoryLoading(false);
     }
   };
 
-  const generateQuiz = async (topic) => {
-    if (!topic) return;
-    setGenerating(true);
-    try {
-      const res = await api.post("/quizzes/generate", { topic });
-      navigate(`/quizzes/${res.data._id}`);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to generate quiz");
-      setToastMsg({ message: "Failed to generate quiz", type: "error" });
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const openInsightsModal = (activity) => {
-    setSelectedActivity(activity);
-    setShowModal(true);
-  };
-
   if (loading) return <Spinner message="Loading dashboard..." />;
 
   const lineData = {
-    labels: ["-6d", "-5d", "-4d", "-3d", "-2d", "-1d", "Today"],
-    datasets: [
-      {
-        data:
-          stats?.weeklyGraph && Array.isArray(stats.weeklyGraph)
-            ? stats.weeklyGraph
-            : Array(7).fill(0),
-        fill: true,
-        backgroundColor: "rgba(13,110,253,0.15)",
-        borderColor: "#0d6efd",
-        tension: 0.4,
-      },
-    ],
+    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    datasets: [{
+      label: "Study Hours",
+      data: stats?.weeklyGraph || Array(7).fill(0),
+      fill: true,
+      backgroundColor: "rgba(88,130,255,0.08)",
+      borderColor: "#5882ff",
+      borderWidth: 2,
+      tension: 0.4,
+      pointBackgroundColor: "#5882ff",
+      pointBorderColor: "#0a0c12",
+      pointBorderWidth: 2,
+      pointRadius: 4,
+      pointHoverRadius: 6
+    }],
   };
 
   const barData = {
     labels: ["Easy", "Medium", "Hard"],
-    datasets: [
-      {
-        data: [
-          stats?.difficultyAnalysis?.easy || 0,
-          stats?.difficultyAnalysis?.medium || 0,
-          stats?.difficultyAnalysis?.hard || 0,
-        ],
-        backgroundColor: ["#22c55e", "#facc15", "#ef4444"],
-        borderRadius: 8,
-      },
-    ],
+    datasets: [{
+      label: "Questions",
+      data: [
+        stats?.difficultyAnalysis?.easy || 0,
+        stats?.difficultyAnalysis?.medium || 0,
+        stats?.difficultyAnalysis?.hard || 0
+      ],
+      backgroundColor: ["rgba(16,185,129,0.7)", "rgba(245,158,11,0.7)", "rgba(239,68,68,0.7)"],
+      borderRadius: 8,
+      barPercentage: 0.6,
+      categoryPercentage: 0.7
+    }],
   };
 
-  const lineOptions = {
+  const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
-      tooltip: { mode: "index", intersect: false },
+      tooltip: {
+        backgroundColor: "#1a1d2e",
+        titleColor: "#edf2ff",
+        bodyColor: "#8e9cc4",
+        padding: 10,
+        cornerRadius: 10,
+        borderColor: "rgba(88,130,255,0.2)",
+        borderWidth: 1
+      }
     },
     scales: {
-      x: { grid: { display: false } },
-      y: { beginAtZero: true, grid: { color: "#e5e7eb" } },
+      x: {
+        grid: { display: false },
+        ticks: { color: "#49587a", font: { size: 11 } },
+        border: { display: false }
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: "rgba(88,130,255,0.06)" },
+        ticks: { color: "#49587a", font: { size: 11 }, stepSize: 1 },
+        border: { display: false }
+      }
     },
   };
 
-  const barOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: { y: { beginAtZero: true, grid: { color: "#e5e7eb" } } },
-  };
+  const featureCards = [
+    { icon: "📚", title: "My Classes", path: "/classes" },
+    { icon: "➕", title: "Join Class", path: "/classes/join" },
+    { icon: "📝", title: "Quizzes", path: "/quizzes" },
+    { icon: "✨", title: "Generate Quiz", path: "/quizzes/generate" },
+    { icon: "📓", title: "Notes", path: "/notes" },
+    { icon: "✏️", title: "Create Note", path: "/notes/create" },
+    { icon: "🃏", title: "Flashcards", path: "/flashcards" },
+    { icon: "👥", title: "Study Groups", path: "/study-groups" },
+    { icon: "🎥", title: "YT Summarizer", path: "/video-summarizer" },
+    { icon: "🔖", title: "Bookmarks", path: "/bookmarks" },
+    { icon: "🤖", title: "AI Chat", path: "/chat" },
+    { icon: "⏱️", title: "Study Timer", path: "/timer" },
+    { icon: "📈", title: "All Activities", path: "/activities" },
+    { icon: "➕", title: "Add Activity", path: "/activities/add" },
+  ];
+
+  const statCards = [
+    {
+      icon: "⏰",
+      label: "Total Study Hours",
+      value: `${Math.floor(stats.totalStudyHours / 60)}h ${Math.round(stats.totalStudyHours % 60)}m`,
+      trend: "This week",
+      color: "db-ic-blue"
+    },
+    {
+      icon: "📊",
+      label: "Classes Enrolled",
+      value: stats.classesCount || 0,
+      trend: "Active",
+      color: "db-ic-teal"
+    },
+    {
+      icon: "🎯",
+      label: "Activities",
+      value: activities.length,
+      trend: "Logged",
+      color: "db-ic-vio"
+    },
+    {
+      icon: "💡",
+      label: "AI Suggestions",
+      value: weakTopics.suggestions?.length || 0,
+      trend: "Personalized",
+      color: "db-ic-grn"
+    },
+  ];
 
   return (
-    <div className="dashboard-page min-vh-100">
-      <ToastComponent
-        message={toastMsg.message}
-        type={toastMsg.type}
-        onClose={() => setToastMsg({ message: "", type: "success" })}
-      />
+    <div className="db-root">
+      <div className="db-grid-bg" />
+      <div className="db-orb db-orb-a" />
+      <div className="db-orb db-orb-b" />
+      <div className="db-orb db-orb-c" />
 
-      {/* HERO SECTION */}
-      <section className="hero-section">
-        <div className="container">
-          <div className="row align-items-center">
-            <div className="col-md-6 text-white">
-              <h1 className="fw-bold display-6">Study Smarter with AI 🚀</h1>
-              <p className="lead">
-                Notes, quizzes, tracking & AI assistant in one dashboard
-              </p>
-              <Link to="/activities/add" className="btn btn-light btn-lg mt-3">
-                Start Studying
-              </Link>
-            </div>
-            <div className="col-md-6 text-center">
-              <img
-                src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png"
-                className="img-fluid hero-img"
-                alt="study"
-              />
-            </div>
-          </div>
+      <Navbar user={user} onLogout={handleLogout} />
+
+      {toastMsg.message && (
+        <div className={`db-toast db-toast-${toastMsg.type}`}>
+          <span className="db-toast-icon">
+            {toastMsg.type === "success" ? "✓" : toastMsg.type === "info" ? "ℹ" : "✕"}
+          </span>
+          {toastMsg.message}
         </div>
-      </section>
+      )}
 
-      {/* ADD ACTIVITY CARD */}
-      <div className="container mb-4">
-        <div className="card add-activity-card shadow-sm p-4 hover-card bg-white text-center">
-          <h4 className="text-success mb-2">📚 Add a New Activity</h4>
-          <p className="text-muted mb-3">
-            Add a new study activity quickly and keep track of your progress
-          </p>
-          <Link to="/activities/add" className="btn btn-success btn-lg">
-            Add Activity
-          </Link>
-        </div>
-      </div>
-
-      {/* MAIN CONTENT */}
-      <div className="container mt-4">
-        {/* SUMMARY CARDS GRID */}
-        <div className="summary-cards-grid mb-4">
-          {/* Total Study Hours */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">⏰</div>
-            <h6>Total Study Hours</h6>
-            {(() => {
-              const hours = Math.floor(stats.totalStudyHours / 60);
-              const minutes = Math.round(stats.totalStudyHours % 60);
-              return (
-                <h3>
-                  {hours}h {minutes}min
-                </h3>
-              );
-            })()}
-            <p className="text-muted small mt-2">
-              You studied {stats?.totalStudyHours || 0} minutes this week
-            </p>
-          </div>
-
-          {/* AI Assistant */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">🤖</div>
-            <h6>AI Assistant</h6>
-            <p className="text-muted small">
-              Chat with your AI assistant in real-time.
-            </p>
-            <Link to="/chat" className="btn btn-outline-success w-100 mt-2">
-              Open AI Assistant
-            </Link>
-          </div>
-
-          {/* Quizzes */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">📝</div>
-            <h6>Quizzes</h6>
-            <p className="text-muted small mb-2">
-              Create and practice with AI-powered quizzes
-            </p>
-            <div className="d-grid gap-2 w-100">
-              <Link
-                to="/quizzes/generate"
-                className="btn btn-sm btn-success w-100"
-              >
+      <main className="db-main">
+        <div className="db-inner">
+          {/* Welcome Section */}
+          <div className="db-welcome-row">
+            <div>
+              <div className="db-eyebrow">Dashboard</div>
+              <h1 className="db-welcome-title">
+                Welcome back, <span className="db-grad">{user?.name?.split(" ")[0] || "Student"}!</span>
+              </h1>
+              <p className="db-welcome-sub">Ready to continue your learning journey?</p>
+            </div>
+            <div className="db-welcome-actions">
+              <Link to="/activities/add" className="db-btn-ghost">Add Activity</Link>
+              <Link to="/quizzes/generate" className="db-btn-primary">
                 Generate Quiz
-              </Link>
-              <Link
-                to="/quizzes"
-                className="btn btn-sm btn-outline-primary w-100"
-              >
-                View My Quizzes
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                  <path d="M2.5 7h9M8 3.5l3.5 3.5L8 10.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
               </Link>
             </div>
           </div>
 
-          {/* Notes */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">📓</div>
-            <h6>Notes</h6>
-            <p className="text-muted small mb-2">
-              Create and manage AI-generated notes
-            </p>
-            <div className="d-grid gap-2 w-100">
-              <Link to="/notes" className="btn btn-sm btn-success w-100">
-                View Notes
-              </Link>
-              <Link
-                to="/notes/create"
-                className="btn btn-sm btn-outline-primary w-100"
-              >
-                Create Notes
-              </Link>
+          {/* Statistics Cards */}
+          <div className="db-stats-grid">
+            {statCards.map((card, index) => (
+              <div key={index} className="db-stat-card">
+                <div className={`db-stat-icon ${card.color}`}>{card.icon}</div>
+                <div className="db-stat-info">
+                  <div className="db-stat-label">{card.label}</div>
+                  <div className="db-stat-value">{card.value}</div>
+                  <div className="db-stat-trend">{card.trend}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Charts Section */}
+          <div className="db-charts-row">
+            <div className="db-card db-chart-card" onClick={fetchStudyHistory} style={{ cursor: "pointer" }}>
+              <div className="db-card-header">
+                <h3 className="db-card-title">Weekly Study Hours</h3>
+                <span className="db-card-badge">Click to expand</span>
+              </div>
+              <div className="db-chart-wrap">
+                <Line data={lineData} options={chartOptions} />
+              </div>
+            </div>
+            <div className="db-card db-chart-card">
+              <div className="db-card-header">
+                <h3 className="db-card-title">Difficulty Analysis</h3>
+              </div>
+              <div className="db-chart-wrap">
+                <Bar data={barData} options={chartOptions} />
+              </div>
             </div>
           </div>
 
-          {/* My Classes */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">🎓</div>
-            <h6>My Classes</h6>
-            <p className="text-muted small mb-2">
-              View all your enrolled classes
-            </p>
-            <Link
-              to="/classes"
-              className="btn btn-sm btn-outline-primary mt-2 w-100"
-            >
-              View Classes
-            </Link>
+          {/* Quick Access Tools */}
+          <div className="db-card db-full-card">
+            <div className="db-card-header">
+              <h3 className="db-card-title">Quick Access</h3>
+              <span className="db-card-badge">{featureCards.length} tools</span>
+            </div>
+            <div className="db-feat-grid">
+              {featureCards.map((tool, index) => (
+                <Link to={tool.path} key={index} className="db-feat-item">
+                  <div className="db-feat-emoji">{tool.icon}</div>
+                  <div className="db-feat-label">{tool.title}</div>
+                </Link>
+              ))}
+            </div>
           </div>
 
-          {/* Join Class */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">➕</div>
-            <h6>Join Class</h6>
-            <p className="text-muted small mb-2">
-              Enter a code to join a new class
-            </p>
-            <Link
-              to="/classes/join"
-              className="btn btn-sm btn-outline-success mt-2 w-100"
-            >
-              Join Class
-            </Link>
-          </div>
+          {/* Bottom Section */}
+          <div className="db-bottom-row">
+            <div className="db-card">
+              <div className="db-card-header">
+                <h3 className="db-card-title">💡 AI Suggestions</h3>
+                <span className="db-card-badge">Personalized</span>
+              </div>
+              <div className="db-suggestions-list">
+                {weakTopics.suggestions?.length > 0 ? (
+                  weakTopics.suggestions.slice(0, 4).map((suggestion, index) => (
+                    <div key={index} className="db-suggestion-item">
+                      <div className="db-sug-dot" />
+                      <span className="db-sug-text">{suggestion}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="db-empty-state">
+                    <div className="db-empty-icon">📭</div>
+                    <p>Complete more activities for personalized suggestions!</p>
+                    <Link to="/activities/add" className="db-btn-primary db-btn-sm">Add Activity</Link>
+                  </div>
+                )}
+              </div>
+            </div>
 
-          {/* Study Timer */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">⏱️</div>
-            <h6>Study Timer</h6>
-            <p className="text-muted small mb-2">
-              Pomodoro timer to boost productivity
-            </p>
-            <Link
-              to="/timer"
-              className="btn btn-sm btn-outline-primary mt-2 w-100"
-            >
-              Open Timer
-            </Link>
-          </div>
-
-          {/* Flashcards */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">🃏</div>
-            <h6>Flashcards</h6>
-            <p className="text-muted small mb-2">
-              Generate AI flashcards from your notes
-            </p>
-            <Link
-              to="/flashcards"
-              className="btn btn-sm btn-outline-primary mt-2 w-100"
-            >
-              View Flashcards
-            </Link>
-          </div>
-
-          {/* Study Groups */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">👥</div>
-            <h6>Study Groups</h6>
-            <p className="text-muted small mb-2">
-              Create or join groups to collaborate
-            </p>
-            <Link
-              to="/study-groups"
-              className="btn btn-sm btn-outline-primary mt-2 w-100"
-            >
-              View Groups
-            </Link>
-          </div>
-
-          {/* YouTube Summarizer */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">🎥</div>
-            <h6>YouTube Summarizer</h6>
-            <p className="text-muted small mb-2">Get AI notes from any video</p>
-            <Link
-              to="/video-summarizer"
-              className="btn btn-sm btn-outline-primary mt-2 w-100"
-            >
-              Summarize Video
-            </Link>
-          </div>
-
-          {/* Bookmarks */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">🔖</div>
-            <h6>Bookmarks</h6>
-            <p className="text-muted small mb-2">
-              Save important notes and quizzes
-            </p>
-            <Link
-              to="/bookmarks"
-              className="btn btn-sm btn-outline-primary mt-2 w-100"
-            >
-              View Bookmarks
-            </Link>
-          </div>
-
-          {/* AI Suggestions Card */}
-          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
-            <div className="fs-3 mb-2">💡</div>
-            <h6>AI Suggestions</h6>
-            <p className="text-muted small mb-2">
-              Personalized study recommendations
-            </p>
-            <div className="mt-2">
-              {weakTopics.suggestions?.length > 0 ? (
-                <div className="small text-start">
-                  {weakTopics.suggestions.slice(0, 2).map((s, i) => (
-                    <div key={i} className="mb-1">
-                      • {s.substring(0, 40)}...
+            <div className="db-card">
+              <div className="db-card-header">
+                <h3 className="db-card-title">📋 Recent Activities</h3>
+                <Link to="/activities" className="db-view-all">View all →</Link>
+              </div>
+              {activities.length > 0 ? (
+                <div className="db-activities-list">
+                  {activities.map((activity) => (
+                    <div key={activity._id} className="db-activity-row">
+                      <div className={`db-act-dot db-act-${activity.difficulty}`} />
+                      <div className="db-act-info">
+                        <div className="db-act-title">{activity.subject} — {activity.topic}</div>
+                        <div className="db-act-meta">
+                          <span>{activity.durationMinutes} min</span>
+                          <span>{new Date(activity.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <span className={`db-diff-badge db-diff-${activity.difficulty}`}>
+                        {activity.difficulty}
+                      </span>
+                      {(activity.insights || []).length > 0 && (
+                        <button
+                          className="db-insight-btn"
+                          onClick={() => {
+                            setSelectedActivity(activity);
+                            setShowModal(true);
+                          }}
+                        >
+                          Insights
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <span className="text-muted small">No suggestions yet</span>
-              )}
-            </div>
-            <Link
-              to="/quizzes/generate"
-              className="btn btn-sm btn-outline-primary mt-2 w-100"
-            >
-              View Suggestions
-            </Link>
-          </div>
-        </div>
-
-        {/* CHARTS & RECENT ACTIVITIES */}
-        <div className="row g-3">
-          <div className="col-md-8">
-            {/* Weekly Study Chart */}
-            <div
-              className="card shadow-sm mb-3 p-3 hover-card bg-white"
-              style={{ cursor: "pointer" }}
-              onClick={fetchStudyHistory}
-            >
-              <h5>Weekly Study (Hours) - Click to view all</h5>
-              <div className="chart-wrapper">
-                <Line data={lineData} options={lineOptions} />
-              </div>
-            </div>
-
-            {/* Difficulty Analysis Chart */}
-            <div className="card shadow-sm mb-3 p-3 hover-card bg-white">
-              <h5>Difficulty Analysis</h5>
-              <div className="chart-wrapper">
-                <Bar data={barData} options={barOptions} />
-              </div>
-            </div>
-
-            {/* Recent Activities - Fully Responsive */}
-            <div className="card shadow-sm mb-3 p-3 hover-card bg-white recent-activities-card">
-              <h5 className="section-title">📋 Recent Activities</h5>
-
-              {activities.length > 0 ? (
-                <>
-                  <div className="table-responsive">
-                    <table className="activities-table">
-                      <thead>
-                        <tr>
-                          <th>Subject</th>
-                          <th>Topic</th>
-                          <th>Duration</th>
-                          <th>Difficulty</th>
-                          <th>Insights</th>
-                          <th>When</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activities.map((a) => (
-                          <tr key={a._id}>
-                            <td data-label="Subject">
-                              <strong>{a.subject}</strong>
-                            </td>
-                            <td data-label="Topic">{a.topic}</td>
-                            <td data-label="Duration">
-                              <span className="fw-medium">
-                                {a.durationMinutes} min
-                              </span>
-                            </td>
-                            <td data-label="Difficulty">
-                              <span
-                                className={`difficulty-badge ${a.difficulty}`}
-                              >
-                                {a.difficulty === "easy" && "🟢 Easy"}
-                                {a.difficulty === "medium" && "🟡 Medium"}
-                                {a.difficulty === "hard" && "🔴 Hard"}
-                              </span>
-                            </td>
-                            <td data-label="Insights">
-                              {(a.insights || []).length > 0 ? (
-                                <button
-                                  className="insight-btn"
-                                  onClick={() => openInsightsModal(a)}
-                                >
-                                  View Insights
-                                </button>
-                              ) : (
-                                <span className="text-muted">—</span>
-                              )}
-                            </td>
-                            <td data-label="When">
-                              <span className="text-muted small">
-                                {new Date(a.createdAt).toLocaleString()}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {activities.length > 0 && (
-                    <div className="text-center mt-3">
-                      <Link to="/activities" className="view-all-btn">
-                        View All Activities →
-                      </Link>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="empty-activities">
-                  <div className="empty-icon">📭</div>
-                  <h6>No Recent Activities</h6>
-                  <p>Start your study journey by adding your first activity!</p>
-                  <Link to="/activities/add" className="btn btn-sm btn-primary">
-                    + Add Activity
-                  </Link>
+                <div className="db-empty-state">
+                  <div className="db-empty-icon">📭</div>
+                  <p>No recent activities yet</p>
+                  <Link to="/activities/add" className="db-btn-primary db-btn-sm">Add First Activity</Link>
                 </div>
               )}
             </div>
           </div>
         </div>
-      </div>
+      </main>
 
-      {/* Modals */}
       <ActivityInsightsModal
         show={showModal}
         onClose={() => setShowModal(false)}
         activity={selectedActivity}
       />
 
-      {/* Study History Modal */}
       {showHistoryModal && (
-        <div
-          className="history-modal-overlay"
-          onClick={() => setShowHistoryModal(false)}
-        >
-          <div
-            className="history-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="history-modal-header">
+        <div className="db-modal-overlay" onClick={() => setShowHistoryModal(false)}>
+          <div className="db-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="db-modal-head">
               <h4>📊 Complete Study History</h4>
-              <button
-                onClick={() => setShowHistoryModal(false)}
-                className="history-modal-close"
-              >
-                ×
-              </button>
+              <button className="db-modal-close" onClick={() => setShowHistoryModal(false)}>✕</button>
             </div>
-            <div className="history-modal-body">
+            <div className="db-modal-body">
               {historyLoading ? (
-                <div className="text-center py-4">Loading...</div>
+                <div className="db-modal-loading">Loading...</div>
               ) : studyHistory.length === 0 ? (
-                <div className="text-center py-4">
-                  No study activities yet. Start studying!
-                </div>
+                <div className="db-modal-empty">No study activities yet. Start studying!</div>
               ) : (
                 <>
-                  <div className="table-responsive">
-                    <table className="table table-striped">
-                      <thead>
-                        <tr>
-                          <th>Date</th>
-                          <th>Subject</th>
-                          <th>Topic</th>
-                          <th>Duration</th>
-                          <th>Difficulty</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {studyHistory.map((activity, idx) => (
-                          <tr key={idx}>
-                            <td>
-                              {new Date(
-                                activity.createdAt,
-                              ).toLocaleDateString()}
-                            </td>
-                            <td>{activity.subject}</td>
-                            <td>{activity.topic}</td>
-                            <td>{activity.durationMinutes} min</td>
-                            <td>
-                              <span
-                                className={`badge ${activity.difficulty === "easy" ? "bg-success" : activity.difficulty === "medium" ? "bg-warning" : "bg-danger"}`}
-                              >
-                                {activity.difficulty}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="db-history-table">
+                    <div className="db-history-head">
+                      <span>Date</span>
+                      <span>Subject</span>
+                      <span className="db-col-hide-sm">Topic</span>
+                      <span>Duration</span>
+                      <span className="db-col-hide-sm">Difficulty</span>
+                    </div>
+                    {studyHistory.map((activity, index) => (
+                      <div key={index} className="db-history-row">
+                        <span>{new Date(activity.createdAt).toLocaleDateString()}</span>
+                        <span>{activity.subject}</span>
+                        <span className="db-col-hide-sm">{activity.topic}</span>
+                        <span>{activity.durationMinutes} min</span>
+                        <span className="db-col-hide-sm">
+                          <span className={`db-diff-badge db-diff-${activity.difficulty}`}>
+                            {activity.difficulty}
+                          </span>
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="history-summary mt-3">
-                    <strong>Total Study Time: </strong>
-                    {Math.floor(
-                      studyHistory.reduce(
-                        (sum, a) => sum + (a.durationMinutes || 0),
-                        0,
-                      ) / 60,
-                    )}{" "}
-                    hours{" "}
-                    {studyHistory.reduce(
-                      (sum, a) => sum + (a.durationMinutes || 0),
-                      0,
-                    ) % 60}{" "}
-                    minutes
+                  <div className="db-history-total">
+                    Total: <strong>
+                      {Math.floor(studyHistory.reduce((sum, a) => sum + (a.durationMinutes || 0), 0) / 60)}h{" "}
+                      {studyHistory.reduce((sum, a) => sum + (a.durationMinutes || 0), 0) % 60}m
+                    </strong>
                   </div>
                 </>
               )}
@@ -702,331 +479,875 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* STYLES */}
       <style>{`
-        .dashboard-page { background-color: #5a77a3ff; }
-        .hero-section {
-          background: linear-gradient(180deg, #080e18ff 0%, #122138ff 25%, #1e3652ff 50%, #28507eff 75%, #5a77a3ff 100%);
-          min-height: 85vh;
+        *, *::before, *::after {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+        }
+
+        /* KEY FIX: prevent horizontal overflow at root level */
+        html, body {
+          overflow-x: hidden;
+          max-width: 100%;
+        }
+
+        :root {
+          --bg: #0a0c12;
+          --s1: #111318;
+          --s2: #181b24;
+          --acc: #5882ff;
+          --acc2: #20e6d0;
+          --vio: #9b7aff;
+          --tx: #edf2ff;
+          --mu: #8e9cc4;
+          --fa: #49587a;
+          --bd: rgba(88, 130, 255, 0.1);
+          --bdh: rgba(88, 130, 255, 0.25);
+          --fd: 'Syne', sans-serif;
+          --fb: 'Inter', sans-serif;
+        }
+
+        body {
+          font-family: var(--fb);
+          background: var(--bg);
+          color: var(--tx);
+          -webkit-font-smoothing: antialiased;
+        }
+
+        .db-grad {
+          background: linear-gradient(135deg, var(--acc), var(--acc2), var(--vio));
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        /* KEY FIX: db-root must not overflow */
+        .db-root {
+          min-height: 100vh;
+          position: relative;
+          overflow-x: hidden;
+          width: 100%;
+        }
+
+        .db-grid-bg {
+          position: fixed;
+          inset: 0;
+          z-index: 0;
+          pointer-events: none;
+          background-image: 
+            linear-gradient(rgba(88, 130, 255, 0.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(88, 130, 255, 0.025) 1px, transparent 1px);
+          background-size: 48px 48px;
+          -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent);
+          mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent);
+        }
+
+        .db-orb {
+          position: fixed;
+          border-radius: 50%;
+          filter: blur(90px);
+          pointer-events: none;
+          z-index: 0;
+        }
+
+        .db-orb-a {
+          width: 600px;
+          height: 350px;
+          top: -120px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(88, 130, 255, 0.07);
+          animation: dbOrb 12s ease-in-out infinite;
+        }
+
+        .db-orb-b {
+          width: 250px;
+          height: 250px;
+          bottom: 5%;
+          right: -60px;
+          background: rgba(32, 230, 208, 0.04);
+          animation: dbOrb2 10s ease-in-out infinite;
+        }
+
+        .db-orb-c {
+          width: 200px;
+          height: 200px;
+          top: 40%;
+          left: -60px;
+          background: rgba(155, 122, 255, 0.04);
+          animation: dbOrb2 14s 2s ease-in-out infinite;
+        }
+
+        @keyframes dbOrb {
+          0%, 100% { transform: translateX(-50%) scale(1); }
+          50% { transform: translateX(-50%) scale(1.06); }
+        }
+
+        @keyframes dbOrb2 {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+
+        .db-toast {
+          position: fixed;
+          top: 82px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 400;
           display: flex;
           align-items: center;
-          padding: 0 60px;
-          margin-bottom: 40px;
-        }
-        .hero-img { max-height: 350px; }
-        .add-activity-card {
-          transition: transform 0.25s ease, box-shadow 0.25s ease;
-          cursor: pointer;
-          background: linear-gradient(145deg, #ebf1f4ff, rgb(219, 234, 247));
-        }
-        .add-activity-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 15px 35px rgba(0,0,0,0.15); }
-        
-        .summary-cards-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 1rem;
-        }
-        .summary-card {
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          border-radius: 14px;
-          padding: 20px;
-          min-height: 200px;
-          transition: transform 0.2s ease;
-          box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-          background: linear-gradient(145deg, #ebf1f4ff, rgb(219, 234, 247));
-        }
-        .summary-card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px rgba(0,0,0,0.12); }
-        .summary-card h6 { font-weight: 600; margin-bottom: 5px; }
-        .summary-card h3 { font-weight: 700; margin: 0; font-size: 1.5rem; }
-        .summary-card .btn { font-size: 0.75rem; margin-top: auto; }
-        
-        .chart-wrapper { width: 100%; height: 350px; }
-        .section-title { color: #1e3a8a; font-weight: 700; }
-        
-        .empty-activities, .empty-suggestions {
-          text-align: center;
-          padding: 40px 20px;
-          background: #f8f9fa;
-          border-radius: 16px;
-          margin: 10px 0;
-        }
-        .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
-        
-        .history-modal-overlay {
-          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-          background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1100;
-        }
-        .history-modal-content {
-          background: white; border-radius: 20px; width: 90%; max-width: 800px; max-height: 80vh; overflow: hidden;
-          animation: modalFadeIn 0.3s ease;
-        }
-        @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        .history-modal-header {
-          display: flex; justify-content: space-between; align-items: center; padding: 16px 20px;
-          background: linear-gradient(135deg, #4f46e5, #6366f1); color: white;
-        }
-        .history-modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: white; }
-        .history-modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
-        .history-summary { padding: 12px; background: #f3f4f6; border-radius: 8px; text-align: center; }
-        
-        /* Recent Activities Table - Fully Responsive */
-        .recent-activities-card {
-          overflow-x: auto;
-        }
-        .activities-table {
-          width: 100%;
-          border-collapse: collapse;
-        }
-        .activities-table thead tr {
-          background: #f8fafc;
-          border-bottom: 2px solid #e2e8f0;
-        }
-        .activities-table th {
-          padding: 12px 16px;
-          text-align: left;
-          font-weight: 600;
-          color: #1e293b;
+          gap: 10px;
+          padding: 10px 22px;
+          border-radius: 40px;
           font-size: 13px;
+          background: var(--s1);
+          backdrop-filter: blur(12px);
+          animation: dbToastIn 0.3s ease;
+          white-space: nowrap;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+          max-width: calc(100vw - 32px);
+          white-space: normal;
+          text-align: center;
         }
-        .activities-table td {
-          padding: 12px 16px;
-          border-bottom: 1px solid #e2e8f0;
-          vertical-align: middle;
+
+        .db-toast-success { border: 1px solid rgba(16, 185, 129, 0.4); color: #34d399; }
+        .db-toast-error { border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; }
+        .db-toast-info { border: 1px solid rgba(88, 130, 255, 0.4); color: var(--acc); }
+
+        @keyframes dbToastIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+          to { opacity: 1; transform: translateX(-50%) translateY(0); }
         }
-        .difficulty-badge {
-          display: inline-block;
-          padding: 4px 10px;
+
+        .db-main {
+          position: relative;
+          z-index: 10;
+          padding-top: 82px;
+          padding-bottom: 3rem;
+          /* KEY FIX */
+          overflow-x: hidden;
+          width: 100%;
+        }
+
+        .db-inner {
+          max-width: 1400px;
+          margin: 0 auto;
+          padding: 2rem;
+          /* KEY FIX */
+          width: 100%;
+          min-width: 0;
+        }
+
+        /* Welcome Section */
+        .db-welcome-row {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 2rem;
+          flex-wrap: wrap;
+        }
+
+        .db-eyebrow {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: var(--acc);
+          margin-bottom: 6px;
+        }
+
+        .db-welcome-title {
+          font-family: var(--fd);
+          font-size: clamp(1.4rem, 4vw, 2.2rem);
+          font-weight: 800;
+          letter-spacing: -0.03em;
+          line-height: 1.2;
+          margin-bottom: 6px;
+          /* KEY FIX: prevent long names from overflowing */
+          word-break: break-word;
+        }
+
+        .db-welcome-sub {
+          font-size: 14px;
+          color: var(--mu);
+        }
+
+        .db-welcome-actions {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          flex-shrink: 0;
+          flex-wrap: wrap;
+        }
+
+        /* Buttons */
+        .db-btn-primary {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 24px;
+          border-radius: 40px;
+          background: linear-gradient(135deg, var(--acc), #3a61e0);
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          border: none;
+          cursor: pointer;
+          text-decoration: none;
+          transition: all 0.2s;
+          box-shadow: 0 4px 16px rgba(88, 130, 255, 0.3);
+          white-space: nowrap;
+        }
+
+        .db-btn-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(88, 130, 255, 0.45);
+        }
+
+        .db-btn-ghost {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 10px 24px;
+          border-radius: 40px;
+          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: var(--mu);
+          font-size: 13px;
+          font-weight: 500;
+          cursor: pointer;
+          text-decoration: none;
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
+
+        .db-btn-ghost:hover {
+          background: rgba(255, 255, 255, 0.04);
+          color: var(--tx);
+          border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .db-btn-sm {
+          padding: 7px 18px;
+          font-size: 12px;
+          margin-top: 12px;
+        }
+
+        /* Stats Grid */
+        .db-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr)); /* KEY FIX: minmax(0,1fr) */
+          gap: 1px;
+          background: var(--bd);
+          border: 1px solid var(--bd);
           border-radius: 20px;
+          overflow: hidden;
+          margin-bottom: 1.75rem;
+          width: 100%; /* KEY FIX */
+        }
+
+        .db-stat-card {
+          background: var(--s1);
+          padding: 20px 18px;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          transition: background 0.2s;
+          min-width: 0; /* KEY FIX */
+        }
+
+        .db-stat-card:hover {
+          background: rgba(88, 130, 255, 0.06);
+        }
+
+        .db-stat-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 13px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          flex-shrink: 0;
+        }
+
+        .db-ic-blue { background: rgba(88, 130, 255, 0.12); border: 1px solid rgba(88, 130, 255, 0.2); }
+        .db-ic-teal { background: rgba(32, 230, 208, 0.1); border: 1px solid rgba(32, 230, 208, 0.2); }
+        .db-ic-vio { background: rgba(155, 122, 255, 0.1); border: 1px solid rgba(155, 122, 255, 0.2); }
+        .db-ic-grn { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); }
+
+        .db-stat-info {
+          flex: 1;
+          min-width: 0; /* KEY FIX */
+          overflow: hidden;
+        }
+
+        .db-stat-label {
+          font-size: 11px;
+          color: var(--mu);
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          margin-bottom: 4px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .db-stat-value {
+          font-family: var(--fd);
+          font-size: clamp(1.1rem, 2.5vw, 1.5rem); /* KEY FIX: clamp instead of fixed */
+          font-weight: 800;
+          letter-spacing: -0.02em;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .db-stat-trend {
+          font-size: 11px;
+          color: var(--fa);
+          margin-top: 4px;
+        }
+
+        /* Cards */
+        .db-card {
+          background: var(--s1);
+          border: 1px solid var(--bd);
+          border-radius: 20px;
+          padding: 20px;
+          backdrop-filter: blur(12px);
+          transition: border-color 0.2s;
+          min-width: 0; /* KEY FIX */
+          width: 100%;
+        }
+
+        .db-card:hover {
+          border-color: var(--bdh);
+        }
+
+        .db-card-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 18px;
+          flex-wrap: wrap;
+          gap: 8px;
+          min-width: 0;
+        }
+
+        .db-card-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: var(--tx);
+          min-width: 0;
+        }
+
+        .db-card-badge {
+          font-size: 11px;
+          color: var(--mu);
+          background: rgba(88, 130, 255, 0.08);
+          border: 1px solid var(--bd);
+          padding: 3px 10px;
+          border-radius: 20px;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+
+        /* Charts */
+        .db-charts-row {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr)); /* KEY FIX */
+          gap: 20px;
+          margin-bottom: 1.75rem;
+          width: 100%;
+        }
+
+        .db-chart-wrap {
+          height: 200px;
+          position: relative;
+          width: 100%; /* KEY FIX */
+          min-width: 0;
+        }
+
+        /* Feature Grid */
+        .db-full-card {
+          margin-bottom: 1.75rem;
+        }
+
+        .db-feat-grid {
+          display: grid;
+          grid-template-columns: repeat(7, minmax(0, 1fr)); /* KEY FIX */
+          gap: 12px;
+          width: 100%;
+        }
+
+        .db-feat-item {
+          background: rgba(88, 130, 255, 0.04);
+          border: 1px solid var(--bd);
+          border-radius: 14px;
+          padding: 16px 8px; /* KEY FIX: reduced horizontal padding */
+          text-align: center;
+          text-decoration: none;
+          transition: all 0.2s;
+          cursor: pointer;
+          min-width: 0;
+        }
+
+        .db-feat-item:hover {
+          border-color: var(--acc);
+          background: rgba(88, 130, 255, 0.1);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 20px rgba(88, 130, 255, 0.15);
+        }
+
+        .db-feat-emoji {
+          font-size: 24px;
+          margin-bottom: 8px;
+        }
+
+        .db-feat-label {
           font-size: 11px;
           font-weight: 500;
+          color: var(--mu);
+          line-height: 1.3;
+          word-break: break-word;
         }
-        .difficulty-badge.easy {
-          background: #dcfce7;
-          color: #166534;
+
+        .db-feat-item:hover .db-feat-label {
+          color: var(--tx);
         }
-        .difficulty-badge.medium {
-          background: #fef3c7;
-          color: #92400e;
+
+        /* Bottom Row */
+        .db-bottom-row {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr)); /* KEY FIX */
+          gap: 20px;
+          width: 100%;
         }
-        .difficulty-badge.hard {
-          background: #fee2e2;
-          color: #991b1b;
+
+        /* Suggestions */
+        .db-suggestions-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
         }
-        .insight-btn {
-          background: none;
-          border: 1px solid #3b82f6;
-          color: #3b82f6;
+
+        .db-suggestion-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          padding: 12px 14px;
+          background: rgba(88, 130, 255, 0.04);
+          border: 1px solid transparent;
+          border-radius: 12px;
+          transition: border-color 0.2s;
+        }
+
+        .db-suggestion-item:hover {
+          border-color: var(--bdh);
+        }
+
+        .db-sug-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--acc);
+          margin-top: 7px;
+          flex-shrink: 0;
+        }
+
+        .db-sug-text {
+          font-size: 13px;
+          color: var(--mu);
+          line-height: 1.5;
+          word-break: break-word;
+        }
+
+        /* Activities */
+        .db-activities-list {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .db-activity-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          transition: background 0.2s;
+          cursor: default;
+          flex-wrap: wrap;
+          min-width: 0;
+        }
+
+        .db-activity-row:hover {
+          background: rgba(88, 130, 255, 0.05);
+        }
+
+        .db-act-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          flex-shrink: 0;
+        }
+
+        .db-act-easy { background: #10b981; }
+        .db-act-medium { background: #f59e0b; }
+        .db-act-hard { background: #ef4444; }
+
+        .db-act-info {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .db-act-title {
+          font-size: 13px;
+          font-weight: 500;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .db-act-meta {
+          font-size: 11px;
+          color: var(--fa);
+          display: flex;
+          gap: 10px;
+          margin-top: 2px;
+          flex-wrap: wrap;
+        }
+
+        .db-diff-badge {
+          font-size: 11px;
+          font-weight: 500;
+          padding: 3px 10px;
+          border-radius: 20px;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+
+        .db-diff-easy { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .db-diff-medium { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .db-diff-hard { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+        .db-insight-btn {
+          background: transparent;
+          border: 1px solid var(--bd);
+          color: var(--acc);
           padding: 4px 12px;
           border-radius: 20px;
           font-size: 11px;
           cursor: pointer;
           transition: all 0.2s;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
-        .insight-btn:hover {
-          background: #3b82f6;
-          color: white;
+
+        .db-insight-btn:hover {
+          background: rgba(88, 130, 255, 0.1);
+          border-color: var(--acc);
         }
-        .view-all-btn {
-          display: inline-block;
-          margin-top: 16px;
-          color: #3b82f6;
+
+        .db-view-all {
+          font-size: 12px;
+          color: var(--acc);
           text-decoration: none;
-          font-size: 13px;
-          font-weight: 500;
+          flex-shrink: 0;
         }
-        .view-all-btn:hover {
+
+        .db-view-all:hover {
           text-decoration: underline;
         }
-        
-        /* Mobile View for Activities Table */
-        @media (max-width: 768px) {
-          .activities-table thead {
-            display: none;
-          }
-          .activities-table tbody tr {
-            display: block;
-            margin-bottom: 16px;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 12px;
-            background: white;
-          }
-          .activities-table td {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border: none;
-            gap: 10px;
-          }
-          .activities-table td::before {
-            content: attr(data-label);
-            font-weight: 600;
-            color: #64748b;
-            font-size: 12px;
-            min-width: 90px;
-          }
-          .difficulty-badge {
-            display: inline-block;
-          }
+
+        /* Empty State */
+        .db-empty-state {
+          text-align: center;
+          padding: 2rem 1rem;
+          color: var(--mu);
+          font-size: 13px;
         }
-        
-        /* Small Mobile */
-        @media (max-width: 480px) {
-          .activities-table td {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 4px;
-          }
-          .activities-table td::before {
-            margin-bottom: 4px;
-          }
+
+        .db-empty-icon {
+          font-size: 2.5rem;
+          margin-bottom: 10px;
+          opacity: 0.5;
         }
-        
-        /* Responsive Breakpoints */
-        @media (max-width: 992px) {
-          .hero-section { min-height: 75vh; padding: 0 30px; text-align: center; }
-          .hero-img { max-height: 260px; margin-top: 20px; }
-          .summary-cards-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        @media (max-width: 768px) {
-          .hero-section { min-height: 70vh; padding: 0 20px; }
-          .hero-section h1 { font-size: 1.8rem; }
-          .summary-cards-grid { grid-template-columns: 1fr; }
-          .chart-wrapper { height: 250px; }
-        }
-        @media (max-width: 576px) {
-          .hero-section { min-height: 65vh; padding: 0 15px; }
-          .hero-section h1 { font-size: 1.6rem; }
-          .hero-img { max-height: 180px; }
-          .summary-card { padding: 12px; min-height: auto; }
-          .summary-card h3 { font-size: 1.2rem; }
-          .chart-wrapper { height: 200px; }
-        }
-        
-        /* Insights Modal Styles */
-        .modal-overlay {
+
+        /* Modal */
+        .db-modal-overlay {
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0,0,0,0.7);
+          inset: 0;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 2000;
-          backdrop-filter: blur(4px);
+          z-index: 500;
+          padding: 1rem;
         }
-        .insights-modal {
-          background: white;
+
+        .db-modal {
+          background: var(--s1);
+          border: 1px solid var(--bdh);
           border-radius: 24px;
-          width: 90%;
-          max-width: 550px;
-          max-height: 80vh;
+          width: 100%;
+          max-width: 900px;
+          max-height: 85vh;
           overflow: hidden;
-          animation: modalSlideIn 0.3s ease;
-          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
         }
-        @keyframes modalSlideIn {
-          from { opacity: 0; transform: scale(0.95) translateY(20px); }
-          to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        .insights-modal-header {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          padding: 20px 24px;
-          color: white;
+
+        .db-modal-head {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          padding: 18px 24px;
+          background: rgba(88, 130, 255, 0.06);
+          border-bottom: 1px solid var(--bd);
         }
-        .insights-modal-header h3 { margin: 0; font-size: 1.35rem; font-weight: 600; }
-        .insights-modal-close {
-          background: rgba(255,255,255,0.2);
+
+        .db-modal-head h4 {
+          font-size: 15px;
+          font-weight: 700;
+        }
+
+        .db-modal-close {
+          background: none;
           border: none;
-          color: white;
-          font-size: 24px;
+          color: var(--mu);
+          font-size: 18px;
           cursor: pointer;
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+          padding: 4px 8px;
+          border-radius: 8px;
           transition: all 0.2s;
         }
-        .insights-modal-close:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
-        .insights-modal-body { padding: 24px; max-height: 60vh; overflow-y: auto; }
-        .activity-info-card {
-          background: #f8fafc;
-          border-radius: 16px;
-          padding: 16px;
-          margin-bottom: 20px;
-          border-left: 4px solid #4f46e5;
+
+        .db-modal-close:hover {
+          color: var(--tx);
+          background: rgba(255, 255, 255, 0.06);
         }
-        .activity-info-title {
-          font-size: 14px;
-          font-weight: 600;
-          color: #4f46e5;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-          margin-bottom: 12px;
+
+        .db-modal-body {
+          padding: 20px 24px;
+          max-height: calc(85vh - 70px);
+          overflow-y: auto;
+          overflow-x: hidden; /* KEY FIX */
         }
-        .activity-info-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-        }
-        .activity-info-item {
+
+        .db-modal-loading,
+        .db-modal-empty {
           text-align: center;
-          padding: 8px;
-          background: white;
+          padding: 3rem;
+          color: var(--mu);
+        }
+
+        /* History Table */
+        .db-history-table {
+          width: 100%;
+          overflow-x: auto; /* KEY FIX: scroll on table itself */
+        }
+
+        .db-history-head,
+        .db-history-row {
+          display: grid;
+          grid-template-columns: 95px 120px 1fr 80px 90px;
+          gap: 10px;
+          padding: 10px 8px;
+          font-size: 12px;
+          min-width: 0;
+        }
+
+        .db-history-head {
+          font-weight: 600;
+          color: var(--mu);
+          border-bottom: 1px solid var(--bd);
+          margin-bottom: 8px;
+        }
+
+        .db-history-row {
+          border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+          transition: background 0.15s;
+        }
+
+        .db-history-row:hover {
+          background: rgba(88, 130, 255, 0.04);
+          border-radius: 8px;
+        }
+
+        .db-history-row span,
+        .db-history-head span {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          min-width: 0;
+        }
+
+        .db-history-total {
+          margin-top: 20px;
+          padding: 12px 16px;
+          background: rgba(88, 130, 255, 0.06);
           border-radius: 12px;
+          text-align: center;
+          font-size: 13px;
+          color: var(--mu);
         }
-        .activity-info-label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
-        .activity-info-value { font-size: 16px; font-weight: 700; color: #1e293b; }
-        .insights-list { display: flex; flex-direction: column; gap: 12px; }
-        .insight-item {
-          background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
-          border-radius: 14px;
-          padding: 16px;
-          border-left: 4px solid #f59e0b;
-          transition: all 0.2s;
+
+        .db-history-total strong {
+          color: var(--tx);
         }
-        .insight-item:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-        .insight-bullet { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
-        .bullet-point { color: #f59e0b; font-weight: bold; font-size: 16px; }
-        .bullet-text { flex: 1; color: #92400e; line-height: 1.5; font-size: 14px; }
-        .insights-empty { text-align: center; padding: 40px 20px; }
-        .insights-empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
-        .insights-modal-footer {
-          padding: 16px 24px;
-          border-top: 1px solid #e2e8f0;
-          display: flex;
-          justify-content: flex-end;
-          background: #f8fafc;
+
+        /* ========== RESPONSIVE ========== */
+
+        @media (max-width: 1200px) {
+          .db-feat-grid {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+          }
         }
-        .insights-modal-footer .btn-close-modal {
-          background: #e2e8f0;
-          border: none;
-          padding: 8px 20px;
-          border-radius: 40px;
-          font-size: 14px;
-          font-weight: 500;
-          color: #475569;
-          cursor: pointer;
-          transition: all 0.2s;
+
+        @media (max-width: 992px) {
+          .db-inner {
+            padding: 1.5rem;
+          }
+          .db-feat-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+          }
         }
-        .insights-modal-footer .btn-close-modal:hover { background: #cbd5e1; }
-        .insights-modal-body::-webkit-scrollbar { width: 6px; }
-        .insights-modal-body::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
-        .insights-modal-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        @media (max-width: 640px) {
-          .activity-info-grid { grid-template-columns: 1fr; gap: 8px; }
-          .insights-modal { width: 95%; }
-          .insights-modal-header h3 { font-size: 1.1rem; }
+
+        @media (max-width: 768px) {
+          .db-inner {
+            padding: 1rem;
+          }
+          .db-welcome-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 16px;
+          }
+          .db-welcome-actions {
+            width: 100%;
+          }
+          .db-btn-primary,
+          .db-btn-ghost {
+            width: 100%;
+            justify-content: center;
+          }
+          /* KEY FIX: 2-column stats on tablet */
+          .db-stats-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            border-radius: 16px;
+          }
+          .db-stat-value {
+            font-size: 1.2rem;
+          }
+          /* Charts stack on mobile */
+          .db-charts-row {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+          .db-chart-wrap {
+            height: 180px;
+          }
+          /* Feature grid 3 cols on tablet */
+          .db-feat-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+          }
+          .db-feat-item {
+            padding: 12px 6px;
+          }
+          .db-feat-emoji {
+            font-size: 22px;
+          }
+          /* Bottom row stacks */
+          .db-bottom-row {
+            grid-template-columns: 1fr;
+            gap: 16px;
+          }
+          /* History table simplified */
+          .db-history-head,
+          .db-history-row {
+            grid-template-columns: 85px 1fr 70px;
+          }
+          .db-col-hide-sm {
+            display: none;
+          }
+        }
+
+        @media (max-width: 576px) {
+          .db-inner {
+            padding: 0.75rem;
+          }
+          /* Stats go 1 col on small mobile */
+          .db-stats-grid {
+            grid-template-columns: 1fr;
+          }
+          .db-stat-card {
+            flex-direction: row;
+            gap: 12px;
+          }
+          /* Feature grid 2 cols on small mobile */
+          .db-feat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+          }
+          .db-feat-item {
+            padding: 14px 8px;
+          }
+          .db-feat-emoji {
+            font-size: 22px;
+          }
+          .db-feat-label {
+            font-size: 11px;
+          }
+          .db-card {
+            padding: 14px;
+          }
+          .db-modal-body {
+            padding: 14px;
+          }
+          .db-modal-head {
+            padding: 12px 16px;
+          }
+          /* History table even simpler */
+          .db-history-head,
+          .db-history-row {
+            grid-template-columns: 75px 1fr 60px;
+            font-size: 11px;
+            gap: 6px;
+          }
+        }
+
+        @media (max-width: 400px) {
+          .db-feat-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
+          }
+          .db-stat-value {
+            font-size: 1rem;
+          }
+          .db-card-title {
+            font-size: 13px;
+          }
+          .db-card-badge {
+            font-size: 10px;
+            padding: 2px 8px;
+          }
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .db-card,
+        .db-stat-card,
+        .db-feat-item {
+          animation: fadeIn 0.4s ease-out forwards;
         }
       `}</style>
     </div>

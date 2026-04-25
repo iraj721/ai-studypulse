@@ -12,11 +12,13 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "axios": "^1.13.2",
     "bootstrap": "^5.3.8",
     "chart.js": "^4.5.1",
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.19",
+    "framer-motion": "^12.38.0",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.14.0",
     "jspdf": "^3.0.4",

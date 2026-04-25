@@ -4,43 +4,72 @@ import { Link, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import Stars from "../../../components/Stars";
-import BackButton from "../../../components/BackButton";
 import Toast from "../../../components/Toast";
 import ExportNotes from "../../../components/ExportNotes";
-import { FaBookmark, FaRegBookmark } from "react-icons/fa";
+import { 
+  FaArrowLeft, FaPlus, FaSearch, FaEdit, FaTrash, 
+  FaFilePdf, FaBookmark, FaRegBookmark, FaEye, FaTimes,
+  FaSpinner
+} from "react-icons/fa";
 
 export default function Notes() {
   const navigate = useNavigate();
   const [notes, setNotes] = useState([]);
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState({ message: "", type: "success" });
   const [bookmarkStatus, setBookmarkStatus] = useState({});
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState(null);
 
   useEffect(() => {
     fetchNotes();
   }, []);
 
   const fetchNotes = async () => {
+    setLoading(true);
     try {
       const res = await api.get("/notes");
       setNotes(res.data);
+      // Check bookmark status for notes
+      try {
+        const bookmarksRes = await api.get("/student/bookmarks");
+        const bookmarkedIds = bookmarksRes.data
+          .filter(b => b.type === "note")
+          .map(b => b.itemId);
+        const status = {};
+        res.data.forEach(note => {
+          status[note._id] = bookmarkedIds.includes(note._id);
+        });
+        setBookmarkStatus(status);
+      } catch (err) {
+        console.error("Failed to fetch bookmarks:", err);
+      }
     } catch (err) {
       setToast({ message: "Failed to load notes", type: "error" });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const deleteNote = async (id) => {
-    if (!window.confirm("Delete note?")) return;
+  const deleteNote = async () => {
+    if (!noteToDelete) return;
     try {
-      await api.delete(`/notes/${id}`);
-      if (selected?._id === id) setSelected(null);
+      await api.delete(`/notes/${noteToDelete}`);
+      if (selected?._id === noteToDelete) setSelected(null);
       setToast({ message: "Note deleted successfully!", type: "success" });
       fetchNotes();
+      setShowDeleteModal(false);
+      setNoteToDelete(null);
     } catch (err) {
       setToast({ message: "Failed to delete note", type: "error" });
     }
+  };
+
+  const openDeleteModal = (noteId) => {
+    setNoteToDelete(noteId);
+    setShowDeleteModal(true);
   };
 
   const downloadPDF = async (note) => {
@@ -83,19 +112,27 @@ export default function Notes() {
 
   const handleBookmark = async (note) => {
     try {
-      await api.post("/student/bookmarks", {
-        type: "note",
-        itemId: note._id,
-        collectionName: "Notes",
-      });
-      setToast({ message: "Note bookmarked successfully!", type: "success" });
-      setBookmarkStatus({ ...bookmarkStatus, [note._id]: true });
-    } catch (err) {
-      if (err.response?.data?.message === "Already bookmarked") {
-        setToast({ message: "Already bookmarked!", type: "info" });
+      if (bookmarkStatus[note._id]) {
+        // Find and delete bookmark
+        const bookmarksRes = await api.get("/student/bookmarks");
+        const bookmark = bookmarksRes.data.find(b => b.itemId === note._id && b.type === 'note');
+        if (bookmark) {
+          await api.delete(`/student/bookmarks/${bookmark._id}`);
+          setToast({ message: "Bookmark removed", type: "success" });
+        }
       } else {
-        setToast({ message: "Failed to bookmark", type: "error" });
+        await api.post("/student/bookmarks", {
+          type: "note",
+          itemId: note._id,
+          collectionName: "Notes",
+          title: `${note.subject} - ${note.topic}`,
+          subtitle: note.subject
+        });
+        setToast({ message: "Bookmarked successfully!", type: "success" });
       }
+      setBookmarkStatus(prev => ({ ...prev, [note._id]: !prev[note._id] }));
+    } catch (err) {
+      setToast({ message: "Failed to bookmark", type: "error" });
     }
   };
 
@@ -105,170 +142,569 @@ export default function Notes() {
       n.topic.toLowerCase().includes(search.toLowerCase()),
   );
 
+  if (loading) {
+    return (
+      <div className="notes-loading">
+        <div className="notes-spinner"></div>
+        <p>Loading your notes...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="notes-bg min-vh-100 py-5 position-relative">
-      <Stars />
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast({ message: "", type: "success" })}
-      />
+    <div className="notes-root">
+      {/* Background */}
+      <div className="notes-bg" />
+      <div className="notes-grid" />
+      <div className="notes-orb notes-orb-a" />
+      <div className="notes-orb notes-orb-b" />
 
-      <div className="container">
-        <BackButton to="/dashboard" label="← Back to Dashboard" />
+      {/* Toast */}
+      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: "", type: "success" })} />
 
-        <div className="notes-header mb-4">
-          <div>
-            <h2 className="fw-bold text-light">📝 My Notes</h2>
-            <p className="text-light-opacity">Manage your AI-generated notes</p>
-          </div>
-          <Link to="/notes/create" className="btn btn-gradient">
-            ➕ Create Note
-          </Link>
-        </div>
-
-        <div className="row g-4">
-          {/* LEFT LIST */}
-          <div className="col-md-4">
-            <input
-              className="form-control search-input mb-3"
-              placeholder="🔍 Search notes..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <div className="notes-list">
-              {filtered.map((note) => (
-                <div
-                  key={note._id}
-                  className={`note-tile ${selected?._id === note._id ? "active" : ""}`}
-                  onClick={() => setSelected(note)}
-                >
-                  <div>
-                    <h6 className="mb-0">{note.subject}</h6>
-                    <small className="note-topic">{note.topic}</small>
-                  </div>
-                  <button
-                    className="btn btn-sm btn-outline-danger"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteNote(note._id);
-                    }}
-                  >
-                    🗑
-                  </button>
+      {/* Main Content */}
+      <main className="notes-main">
+        <div className="notes-container">
+          {/* Delete Confirmation Modal */}
+          {showDeleteModal && (
+            <div className="delete-modal-overlay" onClick={() => setShowDeleteModal(false)}>
+              <div className="delete-modal-content" onClick={(e) => e.stopPropagation()}>
+                <div className="delete-modal-icon">⚠️</div>
+                <h3>Delete Note?</h3>
+                <p>Are you sure you want to delete this note?</p>
+                <p className="delete-warning">This action cannot be undone.</p>
+                <div className="delete-modal-actions">
+                  <button className="delete-cancel" onClick={() => setShowDeleteModal(false)}>Cancel</button>
+                  <button className="delete-confirm" onClick={deleteNote}>Delete Permanently</button>
                 </div>
-              ))}
-              {filtered.length === 0 && (
-                <div className="text-center text-light-opacity py-4">
-                  No notes found
+              </div>
+            </div>
+          )}
+
+          {/* Header */}
+          <div className="notes-header">
+            <div>
+              <h1 className="notes-title">My <span className="notes-grad">Notes</span></h1>
+              <p className="notes-subtitle">Manage your AI-generated notes</p>
+            </div>
+            <Link to="/notes/create" className="notes-create-btn">
+              <FaPlus /> Create Note
+            </Link>
+          </div>
+
+          <div className="notes-layout">
+            {/* Left Sidebar */}
+            <div className="notes-sidebar">
+              <div className="notes-search">
+                <FaSearch className="search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search notes..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="notes-list">
+                {filtered.length === 0 ? (
+                  <div className="notes-empty-list">
+                    <p>No notes found</p>
+                  </div>
+                ) : (
+                  filtered.map((note) => (
+                    <div
+                      key={note._id}
+                      className={`note-item ${selected?._id === note._id ? "active" : ""}`}
+                      onClick={() => setSelected(note)}
+                    >
+                      <div className="note-item-info">
+                        <div className="note-item-subject">{note.subject}</div>
+                        <div className="note-item-topic">{note.topic}</div>
+                      </div>
+                      <button
+                        className="note-item-delete"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openDeleteModal(note._id);
+                        }}
+                        title="Delete note"
+                      >
+                        <FaTrash />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Right Content */}
+            <div className="notes-content">
+              {selected ? (
+                <div className="note-view">
+                  <div className="note-view-header">
+                    <div>
+                      <h2>{selected.subject}</h2>
+                      <p>{selected.topic}</p>
+                    </div>
+                    <button className="note-view-close" onClick={() => setSelected(null)}>
+                      <FaTimes />
+                    </button>
+                  </div>
+
+                  <div className="note-view-actions">
+                    <button className="action-btn edit" onClick={() => navigate(`/notes/edit/${selected._id}`)}>
+                      <FaEdit /> Edit
+                    </button>
+                    <button className="action-btn pdf" onClick={() => downloadPDF(selected)}>
+                      <FaFilePdf /> PDF
+                    </button>
+                    <ExportNotes note={selected} onExport={handleExport} />
+                    <button 
+                      className={`action-btn bookmark ${bookmarkStatus[selected._id] ? "active" : ""}`}
+                      onClick={() => handleBookmark(selected)}
+                    >
+                      {bookmarkStatus[selected._id] ? <FaBookmark /> : <FaRegBookmark />} 
+                      {bookmarkStatus[selected._id] ? "Bookmarked" : "Bookmark"}
+                    </button>
+                    <button className="action-btn delete" onClick={() => openDeleteModal(selected._id)}>
+                      <FaTrash /> Delete
+                    </button>
+                  </div>
+
+                  <div className="note-view-content">
+                    <ReactMarkdown>{selected.content}</ReactMarkdown>
+                  </div>
+                </div>
+              ) : (
+                <div className="notes-empty-state">
+                  <div className="empty-icon">📓</div>
+                  <h3>No Note Selected</h3>
+                  <p>Select a note from the sidebar to view its content</p>
                 </div>
               )}
             </div>
           </div>
-
-          {/* RIGHT VIEW */}
-          <div className="col-md-8">
-            {selected ? (
-              <div className="card note-view shadow-lg border-0">
-                <div className="note-view-header">
-                  <div>
-                    <h4>{selected.subject}</h4>
-                    <span>{selected.topic}</span>
-                  </div>
-                  <button
-                    className="btn-close btn-close-white"
-                    onClick={() => setSelected(null)}
-                  />
-                </div>
-                <div className="note-actions">
-                  <button
-                    className="btn btn-sm btn-outline-primary"
-                    onClick={() => navigate(`/notes/edit/${selected._id}`)}
-                  >
-                    ✏️ Edit
-                  </button>
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={() => downloadPDF(selected)}
-                  >
-                    📄 PDF
-                  </button>
-                  <ExportNotes note={selected} onExport={handleExport} />
-                  <button
-                    className="btn btn-sm btn-outline-warning"
-                    onClick={() => handleBookmark(selected)}
-                  >
-                    {bookmarkStatus[selected._id] ? <FaBookmark /> : <FaRegBookmark />} Bookmark
-                  </button>
-                  <button
-                    className="btn btn-sm btn-outline-danger"
-                    onClick={() => deleteNote(selected._id)}
-                  >
-                    ❌ Delete
-                  </button>
-                </div>
-                <div className="note-content">
-                  <ReactMarkdown>{selected.content}</ReactMarkdown>
-                </div>
-              </div>
-            ) : (
-              <div className="empty-state">
-                <h5>📖 Select a Note</h5>
-                <p>Choose a note from the left to view its content</p>
-              </div>
-            )}
-          </div>
         </div>
-      </div>
+      </main>
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+        .notes-root {
+          --bg: #0a0c12;
+          --surface: #111318;
+          --border: rgba(88, 130, 255, 0.12);
+          --border-h: rgba(88, 130, 255, 0.28);
+          --accent: #5882ff;
+          --accent2: #20e6d0;
+          --violet: #9b7aff;
+          --text: #edf2ff;
+          --muted: #8e9cc4;
+          --faint: #49587a;
+          --fd: 'Syne', sans-serif;
+          --fb: 'Inter', sans-serif;
+          --success: #10b981;
+          --error: #ef4444;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        .notes-root {
+          font-family: var(--fb);
+          background: var(--bg);
+          color: var(--text);
+          min-height: 100vh;
+        }
+
+        .notes-grad {
+          background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 65%, var(--violet) 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        /* Background */
         .notes-bg {
-          background: linear-gradient(180deg, #080e18 0%, #122138 25%, #1e3652 50%, #28507e 75%, #5a77a3 100%);
+          position: fixed; inset: 0; z-index: 0;
+          background: radial-gradient(ellipse 60% 45% at 50% -5%, rgba(88, 130, 255, 0.08) 0%, transparent 60%);
         }
-        .text-light-opacity { color: rgba(255,255,255,0.8); }
-        .notes-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
-        .search-input { 
-          border-radius: 20px; 
-          padding: 10px 14px;
-          background: rgba(255,255,255,0.1);
-          border: 1px solid rgba(255,255,255,0.2);
-          color: white;
+        .notes-grid {
+          position: fixed; inset: 0; z-index: 0;
+          background-image: linear-gradient(rgba(88, 130, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(88, 130, 255, 0.03) 1px, transparent 1px);
+          background-size: 48px 48px;
         }
-        .search-input::placeholder { color: rgba(255,255,255,0.6); }
-        .notes-list { max-height: 70vh; overflow-y: auto; }
-        .note-tile {
-          background: linear-gradient(145deg, #fdfdfd, #f5f5f5);
-          padding: 14px;
-          border-radius: 14px;
-          margin-bottom: 10px;
+        .notes-orb {
+          position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0;
+        }
+        .notes-orb-a { width: 400px; height: 400px; top: -100px; left: 50%; transform: translateX(-50%); background: rgba(88, 130, 255, 0.06); animation: orbFloat 12s infinite; }
+        .notes-orb-b { width: 250px; height: 250px; bottom: 10%; right: -5%; background: rgba(32, 230, 208, 0.04); animation: orbFloat2 10s infinite; }
+        @keyframes orbFloat { 0%,100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.1); } }
+        @keyframes orbFloat2 { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+
+        /* Loading */
+        .notes-loading {
+          position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+          background: #0a0c12;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        .notes-spinner {
+          width: 50px;
+          height: 50px;
+          border: 3px solid rgba(88, 130, 255, 0.2);
+          border-top-color: #5882ff;
+          border-radius: 50%;
+          animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .notes-loading p { margin-top: 15px; color: #8e9cc4; }
+
+        /* Main Content */
+        .notes-main {
+          position: relative;
+          z-index: 10;
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 90px 2rem 3rem;
+          min-height: 100vh;
+        }
+
+        /* Header */
+        .notes-header {
           display: flex;
           justify-content: space-between;
           align-items: center;
+          margin-bottom: 2rem;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+        .notes-title {
+          font-family: var(--fd);
+          font-size: 1.8rem;
+          font-weight: 700;
+          margin-bottom: 0.25rem;
+        }
+        .notes-subtitle {
+          color: var(--muted);
+          font-size: 0.85rem;
+        }
+        .notes-create-btn {
+          background: linear-gradient(135deg, var(--accent), #3a61e0);
+          color: white;
+          padding: 10px 24px;
+          border-radius: 40px;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-weight: 600;
+          font-size: 0.85rem;
+          transition: all 0.2s;
+        }
+        .notes-create-btn:hover {
+          transform: translateY(-2px);
+          opacity: 0.9;
+        }
+
+        /* Layout */
+        .notes-layout {
+          display: grid;
+          grid-template-columns: 300px 1fr;
+          gap: 1.5rem;
+          min-height: 500px;
+        }
+
+        /* Sidebar */
+        .notes-sidebar {
+          background: rgba(17, 19, 24, 0.6);
+          backdrop-filter: blur(12px);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          overflow: hidden;
+        }
+        .notes-search {
+          position: relative;
+          padding: 1rem;
+          border-bottom: 1px solid var(--border);
+        }
+        .search-icon {
+          position: absolute;
+          left: 1.8rem;
+          top: 50%;
+          transform: translateY(-50%);
+          color: var(--faint);
+        }
+        .notes-search input {
+          width: 100%;
+          padding: 10px 10px 10px 35px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid var(--border);
+          border-radius: 40px;
+          color: var(--text);
+          font-size: 0.85rem;
+        }
+        .notes-search input:focus {
+          outline: none;
+          border-color: var(--accent);
+        }
+        .notes-list {
+          max-height: 500px;
+          overflow-y: auto;
+          padding: 0.5rem;
+        }
+        .note-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0.75rem;
+          margin-bottom: 0.5rem;
+          background: rgba(255,255,255,0.02);
+          border-radius: 12px;
           cursor: pointer;
-          transition: 0.3s;
+          transition: all 0.2s;
         }
-        .note-tile:hover { transform: translateY(-2px); }
-        .note-tile.active { background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; }
-        .note-topic { color: rgba(0,0,0,0.6); }
-        .note-tile.active .note-topic { color: rgba(255,255,255,0.8); }
-        .note-view { border-radius: 18px; overflow: hidden; background: white; }
+        .note-item:hover {
+          background: rgba(88, 130, 255, 0.08);
+        }
+        .note-item.active {
+          background: rgba(88, 130, 255, 0.15);
+          border-left: 3px solid var(--accent);
+        }
+        .note-item-info {
+          flex: 1;
+          overflow: hidden;
+        }
+        .note-item-subject {
+          font-weight: 600;
+          font-size: 0.85rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .note-item-topic {
+          font-size: 0.7rem;
+          color: var(--muted);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .note-item-delete {
+          background: none;
+          border: none;
+          color: var(--faint);
+          cursor: pointer;
+          padding: 6px;
+          border-radius: 6px;
+          opacity: 0;
+          transition: all 0.2s;
+        }
+        .note-item:hover .note-item-delete {
+          opacity: 1;
+        }
+        .note-item-delete:hover {
+          color: #f87171;
+          background: rgba(239,68,68,0.1);
+        }
+        .notes-empty-list {
+          text-align: center;
+          padding: 2rem;
+          color: var(--muted);
+          font-size: 0.85rem;
+        }
+
+        /* Content Area */
+        .notes-content {
+          background: rgba(17, 19, 24, 0.6);
+          backdrop-filter: blur(12px);
+          border: 1px solid var(--border);
+          border-radius: 20px;
+          overflow: hidden;
+        }
+        .note-view {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+        }
         .note-view-header {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-          padding: 16px;
           display: flex;
           justify-content: space-between;
-          align-items: center;
+          align-items: flex-start;
+          padding: 1.5rem;
+          background: rgba(88, 130, 255, 0.05);
+          border-bottom: 1px solid var(--border);
         }
-        .note-actions { padding: 12px; display: flex; gap: 10px; background: #f8f9fa; border-bottom: 1px solid #e5e7eb; flex-wrap: wrap; }
-        .note-content { padding: 20px; line-height: 1.7; }
-        .empty-state { height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: white; border-radius: 18px; }
-        .btn-gradient { background: linear-gradient(135deg, #4f46e5, #6366f1); border: none; color: white; }
+        .note-view-header h2 {
+          font-size: 1.3rem;
+          font-weight: 600;
+          margin-bottom: 0.25rem;
+        }
+        .note-view-header p {
+          color: var(--muted);
+          font-size: 0.85rem;
+        }
+        .note-view-close {
+          background: none;
+          border: none;
+          color: var(--muted);
+          cursor: pointer;
+          font-size: 1.2rem;
+          transition: color 0.2s;
+        }
+        .note-view-close:hover {
+          color: #f87171;
+        }
+        .note-view-actions {
+          display: flex;
+          gap: 0.5rem;
+          padding: 1rem 1.5rem;
+          border-bottom: 1px solid var(--border);
+          flex-wrap: wrap;
+        }
+        .action-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 14px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border);
+          border-radius: 30px;
+          font-size: 0.75rem;
+          cursor: pointer;
+          transition: all 0.2s;
+          color: var(--muted);
+        }
+        .action-btn:hover {
+          background: rgba(88, 130, 255, 0.1);
+          color: var(--text);
+        }
+        .action-btn.edit:hover { border-color: var(--accent); color: var(--accent); }
+        .action-btn.pdf:hover { border-color: #ef4444; color: #ef4444; }
+        .action-btn.bookmark:hover { border-color: #f59e0b; color: #f59e0b; }
+        .action-btn.bookmark.active { background: rgba(245,158,11,0.2); color: #fbbf24; border-color: #f59e0b; }
+        .action-btn.delete:hover { border-color: #f87171; color: #f87171; }
+        .note-view-content {
+          padding: 1.5rem;
+          max-height: 500px;
+          overflow-y: auto;
+          line-height: 1.6;
+        }
+        .note-view-content h1, .note-view-content h2, .note-view-content h3 {
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        .note-view-content p {
+          margin-bottom: 0.75rem;
+          color: var(--muted);
+        }
+        .note-view-content pre {
+          background: rgba(0,0,0,0.3);
+          padding: 1rem;
+          border-radius: 12px;
+          overflow-x: auto;
+        }
+        .notes-empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          padding: 3rem;
+          text-align: center;
+        }
+        .empty-icon {
+          font-size: 4rem;
+          margin-bottom: 1rem;
+          opacity: 0.5;
+        }
+        .notes-empty-state h3 {
+          margin-bottom: 0.5rem;
+        }
+        .notes-empty-state p {
+          color: var(--muted);
+        }
+
+        /* Delete Modal */
+        .delete-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        .delete-modal-content {
+          background: var(--surface);
+          border-radius: 24px;
+          padding: 2rem;
+          width: 90%;
+          max-width: 400px;
+          text-align: center;
+          border: 1px solid var(--border);
+          animation: modalPop 0.3s ease;
+        }
+        @keyframes modalPop {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .delete-modal-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        .delete-modal-content h3 {
+          margin-bottom: 0.5rem;
+        }
+        .delete-modal-content p {
+          color: var(--muted);
+          margin-bottom: 0.5rem;
+        }
+        .delete-warning {
+          color: #f87171;
+          font-size: 0.8rem;
+        }
+        .delete-modal-actions {
+          display: flex;
+          gap: 1rem;
+          margin-top: 1.5rem;
+        }
+        .delete-cancel {
+          flex: 1;
+          padding: 10px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border);
+          border-radius: 40px;
+          color: var(--text);
+          cursor: pointer;
+        }
+        .delete-confirm {
+          flex: 1;
+          padding: 10px;
+          background: #ef4444;
+          border: none;
+          border-radius: 40px;
+          color: white;
+          cursor: pointer;
+        }
+        .delete-confirm:hover {
+          background: #dc2626;
+        }
+
+        /* Responsive */
         @media (max-width: 768px) {
-          .notes-header { flex-direction: column; text-align: center; }
-          .row.g-4 { flex-direction: column; }
-          .notes-list { max-height: 300px; }
-          .note-actions { justify-content: center; }
+          .notes-main { padding: 80px 1rem 2rem; }
+          .notes-title { font-size: 1.5rem; }
+          .notes-header { flex-direction: column; align-items: flex-start; }
+          .notes-create-btn { width: 100%; justify-content: center; }
+          .notes-layout { grid-template-columns: 1fr; }
+          .notes-sidebar { max-height: 300px; overflow-y: auto; }
+          .notes-list { max-height: 200px; }
+          .note-view-actions { justify-content: center; }
         }
       `}</style>
     </div>

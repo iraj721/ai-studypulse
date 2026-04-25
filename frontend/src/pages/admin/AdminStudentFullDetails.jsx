@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiAdmin from "../../services/apiAdmin";
-import Stars from "../../components/Stars";
-import BackButton from "../../components/BackButton";
+// import Stars from "../../components/Stars";
+// import BackButton from "../../components/BackButton";
 import Toast from "../../components/Toast";
 import { 
   FaBook, FaClipboardList, FaBrain, FaVideo, FaBookmark, 

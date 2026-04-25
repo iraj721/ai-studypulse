@@ -164,7 +164,13 @@
 .dark-card h6 {
   color: white;
 }
-
+/* ==================== GLOBAL STYLES ==================== */
+html, body, #root {
+  background-color: #0a0c12 !important;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
 /* Responsive */
 @media (max-width: 768px) {
   .back-button {

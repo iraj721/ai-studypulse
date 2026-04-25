@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import apiAdmin from "../../services/apiAdmin";
-import Stars from "../../components/Stars";
-import BackButton from "../../components/BackButton";
+// import Stars from "../../components/Stars";
+// import BackButton from "../../components/BackButton";
 import Toast from "../../components/Toast";
 import { FaPlus, FaTrash, FaEnvelope, FaUserGraduate } from "react-icons/fa";
 

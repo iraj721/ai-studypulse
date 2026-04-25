@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import api from "../../../services/api";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
+import Navbar from "../../../components/Navbar";
 import {
   FaMoon,
   FaSun,
@@ -13,8 +14,6 @@ import {
   FaPlus,
   FaPaperPlane,
   FaRobot,
-  FaUser,
-  FaEdit,
   FaCopy,
   FaCheck,
   FaComment,
@@ -22,9 +21,7 @@ import {
 import dayjs from "dayjs";
 import calendar from "dayjs/plugin/calendar";
 import relativeTime from "dayjs/plugin/relativeTime";
-import BackButton from "../../../components/BackButton";
 
-// Extend dayjs
 dayjs.extend(calendar);
 dayjs.extend(relativeTime);
 
@@ -49,7 +46,6 @@ export default function AIChat() {
   const chatContainerRef = useRef(null);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
 
-  // Check if mobile
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -64,15 +60,13 @@ export default function AIChat() {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // Load dark mode preference
   useEffect(() => {
-    const savedDarkMode = localStorage.getItem("darkMode") === "true";
+    const savedDarkMode = localStorage.getItem("chatDarkMode") === "true";
     setDarkMode(savedDarkMode);
   }, []);
 
-  // Save dark mode preference
   useEffect(() => {
-    localStorage.setItem("darkMode", darkMode);
+    localStorage.setItem("chatDarkMode", darkMode);
   }, [darkMode]);
 
   const adjustTextareaHeight = () => {
@@ -84,12 +78,15 @@ export default function AIChat() {
   };
   useEffect(() => adjustTextareaHeight(), [text]);
 
-  // Fetch chat sessions
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/login");
+  };
+
   const fetchSessions = async () => {
     try {
       const res = await api.get("/chat/sessions");
       setSessions(res.data);
-      // ✅ If there are sessions, load the first one
       if (res.data.length > 0 && !currentSessionId) {
         fetchSession(res.data[0]._id);
       }
@@ -98,7 +95,6 @@ export default function AIChat() {
     }
   };
 
-  // Fetch specific session
   const fetchSession = async (sessionId) => {
     try {
       const res = await api.get(`/chat/sessions/${sessionId}`);
@@ -124,7 +120,6 @@ export default function AIChat() {
     fetchUser();
   }, [navigate]);
 
-  // Create new chat session
   const createNewChat = async () => {
     try {
       const res = await api.post("/chat/sessions", { title: "New Chat" });
@@ -138,24 +133,20 @@ export default function AIChat() {
     }
   };
 
-  // Open delete confirmation modal
   const openDeleteModal = (sessionId, e) => {
     e.stopPropagation();
     setSessionToDelete(sessionId);
     setShowDeleteModal(true);
   };
 
-  // Confirm delete session
   const confirmDeleteSession = async () => {
     if (!sessionToDelete) return;
-
     try {
       await api.delete(`/chat/sessions/${sessionToDelete}`);
       setSessions((prev) => prev.filter((s) => s._id !== sessionToDelete));
-
       if (currentSessionId === sessionToDelete) {
         const remainingSessions = sessions.filter(
-          (s) => s._id !== sessionToDelete,
+          (s) => s._id !== sessionToDelete
         );
         if (remainingSessions.length > 0) {
           fetchSession(remainingSessions[0]._id);
@@ -171,13 +162,10 @@ export default function AIChat() {
     }
   };
 
-  // Send message
   const handleSend = async (e) => {
     e.preventDefault();
     if (!text.trim() || loadingAI) return;
-
     const messageText = text.trim();
-
     if (!currentSessionId) {
       try {
         const res = await api.post("/chat/sessions", {
@@ -195,11 +183,9 @@ export default function AIChat() {
     }
   };
 
-  // Send message to a session
   const sendMessageToSession = async (sessionId, messageText) => {
     setText("");
     adjustTextareaHeight();
-
     const tempUserMessage = {
       _id: Date.now(),
       role: "user",
@@ -208,22 +194,14 @@ export default function AIChat() {
     };
     setMessages((prev) => [...prev, tempUserMessage]);
     scrollToBottom();
-
     setLoadingAI(true);
-
+    const tempAiId = Date.now() + 1;
     try {
-      const tempAiId = Date.now() + 1;
       setMessages((prev) => [
         ...prev,
-        {
-          _id: tempAiId,
-          role: "assistant",
-          text: "",
-          createdAt: new Date(),
-        },
+        { _id: tempAiId, role: "assistant", text: "", createdAt: new Date() },
       ]);
       scrollToBottom();
-
       const response = await fetch(
         `${import.meta.env.VITE_API_URL}/api/chat/sessions/${sessionId}/message`,
         {
@@ -233,20 +211,16 @@ export default function AIChat() {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
           body: JSON.stringify({ text: messageText }),
-        },
+        }
       );
-
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullResponse = "";
-
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         const chunk = decoder.decode(value);
         const lines = chunk.split("\n");
-
         for (const line of lines) {
           if (line.startsWith("data: ")) {
             try {
@@ -255,8 +229,8 @@ export default function AIChat() {
                 fullResponse += data.content;
                 setMessages((prev) =>
                   prev.map((msg) =>
-                    msg._id === tempAiId ? { ...msg, text: fullResponse } : msg,
-                  ),
+                    msg._id === tempAiId ? { ...msg, text: fullResponse } : msg
+                  )
                 );
                 scrollToBottom();
               } else if (data.type === "done") {
@@ -273,19 +247,15 @@ export default function AIChat() {
       setMessages((prev) =>
         prev.map((msg) =>
           msg._id === tempAiId
-            ? {
-                ...msg,
-                text: "Sorry, I'm having trouble responding. Please try again.",
-              }
-            : msg,
-        ),
+            ? { ...msg, text: "Sorry, I'm having trouble responding. Please try again." }
+            : msg
+        )
       );
     } finally {
       setLoadingAI(false);
     }
   };
 
-  // Copy message to clipboard
   const copyToClipboard = async (text, id) => {
     await navigator.clipboard.writeText(text);
     setCopiedId(id);
@@ -307,7 +277,6 @@ export default function AIChat() {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const toggleDarkMode = () => setDarkMode((prev) => !prev);
 
-  // Group messages by date
   const groupedMessages = [];
   let lastDate = null;
   messages.forEach((m) => {
@@ -319,139 +288,627 @@ export default function AIChat() {
     groupedMessages.push({ type: "message", ...m });
   });
 
+  /* ─── NAVBAR_HEIGHT CSS variable ─── */
+  const NAVBAR = 64; // px — must match your Navbar height
+
   return (
-    <div className={`ai-chat-container ${darkMode ? "dark" : ""}`}>
-      {/* Sidebar Toggle Button (Mobile) */}
-      <button className="sidebar-toggle-btn-new" onClick={toggleSidebar}>
-        {isSidebarOpen ? <FaTimes /> : <FaBars />}
-      </button>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
-      {/* Sidebar */}
-      <div className={`chat-sidebar-new ${isSidebarOpen ? "open" : ""}`}>
-        <div className="sidebar-header-new">
-          <div className="logo">
-            <FaRobot className="logo-icon" />
-            <span>StudyPulse AI</span>
-          </div>
-          <button className="new-chat-btn-new" onClick={createNewChat}>
-            <FaPlus /> New Chat
-          </button>
-        </div>
+        /* ── GLOBAL RESET ── */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-        <div className="sessions-list-new">
-          {sessions.length === 0 ? (
-            <div className="no-sessions-new">
-              <FaComment className="no-sessions-icon" />
-              <p>No conversations yet</p>
-              <button onClick={createNewChat}>Start a new chat</button>
+        /* KEY FIX: kill page-level scroll so only the messages pane scrolls */
+        html, body {
+          height: 100%;
+          overflow: hidden;
+        }
+
+        /* ── TOKENS ── */
+        .cr {
+          --bg:      #0a0c12;
+          --surface: #111318;
+          --border:  rgba(88,130,255,0.12);
+          --border-h:rgba(88,130,255,0.28);
+          --accent:  #5882ff;
+          --accent2: #20e6d0;
+          --violet:  #9b7aff;
+          --text:    #edf2ff;
+          --muted:   #8e9cc4;
+          --faint:   #49587a;
+          --nb:      ${NAVBAR}px;   /* navbar height */
+          font-family: 'Inter', sans-serif;
+          color: var(--text);
+        }
+        .cr.dark { --bg: #0a0c12; --surface: #0f172a; }
+
+        /* ── ROOT: full viewport minus navbar ── */
+        .cr {
+          position: fixed;          /* KEY: fixed so it never pushes body */
+          top: var(--nb);
+          left: 0;
+          right: 0;
+          bottom: 0;
+          display: flex;
+          background: var(--bg);
+          overflow: hidden;         /* no scrollbar on the shell itself */
+        }
+
+        /* ── DECORATIVE BACKGROUND ── */
+        .cr-bg {
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
+          background: radial-gradient(ellipse 60% 45% at 50% -5%, rgba(88,130,255,0.08) 0%, transparent 60%);
+        }
+        .cr-grid {
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
+          background-image:
+            linear-gradient(rgba(88,130,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(88,130,255,0.03) 1px, transparent 1px);
+          background-size: 48px 48px;
+        }
+        .cr-orb {
+          position: absolute; border-radius: 50%;
+          filter: blur(80px); pointer-events: none; z-index: 0;
+        }
+        .cr-orb-a {
+          width: 400px; height: 400px; top: -100px; left: 50%;
+          transform: translateX(-50%);
+          background: rgba(88,130,255,0.06);
+          animation: orbA 12s ease-in-out infinite;
+        }
+        .cr-orb-b {
+          width: 250px; height: 250px; bottom: 10%; right: -5%;
+          background: rgba(32,230,208,0.04);
+          animation: orbB 10s ease-in-out infinite;
+        }
+        @keyframes orbA { 0%,100%{transform:translateX(-50%) scale(1)} 50%{transform:translateX(-50%) scale(1.1)} }
+        @keyframes orbB { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+
+        /* ── SIDEBAR ── */
+        .cr-sidebar {
+          width: 280px;
+          flex-shrink: 0;
+          display: flex;
+          flex-direction: column;
+          background: rgba(17,19,24,0.97);
+          border-right: 1px solid var(--border);
+          z-index: 10;
+          /* KEY: sidebar scrolls internally, not the page */
+          overflow: hidden;
+          transition: width 0.3s ease;
+        }
+
+        .cr-sidebar-head {
+          padding: 20px;
+          border-bottom: 1px solid var(--border);
+          flex-shrink: 0;
+        }
+        .cr-logo {
+          display: flex; align-items: center; gap: 10px;
+          font-size: 1.05rem; font-weight: 700; color: var(--accent);
+          margin-bottom: 16px;
+        }
+        .cr-logo svg { font-size: 22px; }
+        .cr-new-btn {
+          width: 100%; padding: 10px;
+          background: linear-gradient(135deg, var(--accent), #3a61e0);
+          color: #fff; border: none; border-radius: 40px;
+          cursor: pointer; display: flex; align-items: center;
+          justify-content: center; gap: 8px;
+          font-weight: 600; font-size: 0.85rem;
+          transition: opacity 0.2s, transform 0.2s;
+        }
+        .cr-new-btn:hover { opacity: 0.88; transform: scale(1.02); }
+
+        /* sessions list — ONLY this div scrolls inside sidebar */
+        .cr-sessions {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding: 10px;
+        }
+        .cr-sessions::-webkit-scrollbar { width: 4px; }
+        .cr-sessions::-webkit-scrollbar-thumb { background: rgba(88,130,255,0.2); border-radius: 4px; }
+
+        .cr-session {
+          display: flex; align-items: center;
+          justify-content: space-between;
+          padding: 10px 12px; border-radius: 12px;
+          cursor: pointer; margin-bottom: 4px;
+          transition: background 0.2s;
+          min-width: 0;
+        }
+        .cr-session:hover { background: rgba(88,130,255,0.08); }
+        .cr-session.active { background: rgba(88,130,255,0.15); color: var(--accent); }
+
+        .cr-session-info { flex: 1; min-width: 0; overflow: hidden; }
+        .cr-session-title {
+          display: flex; align-items: center; gap: 8px;
+          font-size: 0.83rem; font-weight: 500;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .cr-session-time { font-size: 0.65rem; opacity: 0.5; margin-top: 3px; }
+        .cr-session-del {
+          background: none; border: none; color: #94a3b8;
+          cursor: pointer; opacity: 0; padding: 6px; border-radius: 6px;
+          flex-shrink: 0; transition: all 0.2s;
+        }
+        .cr-session:hover .cr-session-del { opacity: 1; }
+        .cr-session-del:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+        .cr-no-sessions { text-align: center; padding: 40px 20px; opacity: 0.6; }
+        .cr-no-sessions svg { font-size: 36px; margin-bottom: 12px; }
+        .cr-no-sessions p { font-size: 0.83rem; margin-bottom: 12px; }
+        .cr-no-sessions button {
+          background: none; border: 1px solid var(--border);
+          color: var(--accent); padding: 8px 16px; border-radius: 20px;
+          cursor: pointer; font-size: 0.8rem;
+        }
+
+        .cr-sidebar-foot {
+          padding: 14px 20px;
+          border-top: 1px solid var(--border);
+          flex-shrink: 0;
+          display: flex; align-items: center; gap: 10px;
+        }
+        .cr-avatar {
+          width: 32px; height: 32px;
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          font-weight: 700; font-size: 0.8rem;
+          flex-shrink: 0;
+        }
+        .cr-avatar-sm {
+          width: 36px; height: 36px; border-radius: 50%;
+          background: linear-gradient(135deg,#10b981,#059669);
+          display: flex; align-items: center; justify-content: center;
+          font-weight: 700; flex-shrink: 0;
+        }
+        .cr-ai-avatar {
+          width: 36px; height: 36px; border-radius: 50%;
+          background: linear-gradient(135deg, var(--accent), var(--accent2));
+          display: flex; align-items: center; justify-content: center;
+          font-size: 18px; flex-shrink: 0;
+        }
+
+        /* ── MAIN PANEL ── */
+        .cr-main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;        /* KEY: prevent flex blowout */
+          position: relative;
+          background: rgba(10,12,18,0.5);
+          z-index: 5;
+          /* KEY: main panel fills height, never overflows */
+          overflow: hidden;
+        }
+
+        /* Header — fixed height, no shrink */
+        .cr-header {
+          display: flex; justify-content: space-between; align-items: center;
+          padding: 14px 22px;
+          background: rgba(17,19,24,0.92);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid var(--border);
+          flex-shrink: 0;       /* KEY */
+          z-index: 10;
+        }
+        .cr-header-left { display: flex; align-items: center; gap: 14px; }
+        .cr-header h2 { font-size: 1.05rem; margin: 0; }
+        .cr-model-badge { font-size: 0.68rem; color: var(--accent); margin: 0; }
+
+        .cr-icon-btn {
+          background: none; border: none; font-size: 18px; cursor: pointer;
+          padding: 8px; border-radius: 50%; color: var(--text);
+          transition: background 0.2s;
+          display: flex; align-items: center; justify-content: center;
+        }
+        .cr-icon-btn:hover { background: rgba(255,255,255,0.08); }
+
+        /* ── MESSAGES — THIS is the only scroll container ── */
+        .cr-messages {
+          flex: 1;              /* takes remaining height */
+          overflow-y: auto;    /* KEY: scroll here, not on page */
+          overflow-x: hidden;
+          padding: 24px;
+          min-height: 0;       /* KEY: flex child must be 0 to allow shrink */
+        }
+        .cr-messages::-webkit-scrollbar { width: 5px; }
+        .cr-messages::-webkit-scrollbar-thumb { background: rgba(88,130,255,0.2); border-radius: 4px; }
+
+        /* Welcome */
+        .cr-welcome {
+          text-align: center;
+          padding: 48px 20px;
+          max-width: 680px;
+          margin: 0 auto;
+        }
+        .cr-welcome-icon { font-size: 60px; color: var(--accent); margin-bottom: 20px; }
+        .cr-welcome h2 { font-size: clamp(20px, 4vw, 28px); margin-bottom: 10px; }
+        .cr-welcome p { opacity: 0.65; margin-bottom: 28px; font-size: 0.9rem; }
+        .cr-suggestions {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          gap: 10px;
+        }
+        .cr-suggestions button {
+          background: rgba(17,19,24,0.8);
+          border: 1px solid var(--border);
+          padding: 12px 14px;
+          border-radius: 12px;
+          cursor: pointer;
+          text-align: left;
+          font-size: 0.83rem;
+          color: var(--text);
+          transition: all 0.2s;
+          font-family: inherit;
+        }
+        .cr-suggestions button:hover {
+          background: var(--accent); color: #fff; transform: translateY(-2px);
+        }
+
+        /* Date divider */
+        .cr-date-div {
+          text-align: center; margin: 20px 0;
+        }
+        .cr-date-div span {
+          background: rgba(255,255,255,0.05);
+          padding: 4px 12px; border-radius: 20px;
+          font-size: 0.68rem; color: var(--muted);
+        }
+
+        /* Messages */
+        .cr-msg {
+          display: flex; gap: 14px; margin-bottom: 22px;
+          animation: fadeUp 0.3s ease;
+        }
+        @keyframes fadeUp {
+          from { opacity:0; transform:translateY(8px); }
+          to   { opacity:1; transform:translateY(0); }
+        }
+        .cr-msg.user { flex-direction: row-reverse; }
+        .cr-msg-body { max-width: 75%; min-width: 0; }
+        .cr-msg.user .cr-msg-body { display:flex; flex-direction:column; align-items:flex-end; }
+
+        .cr-msg-meta {
+          display: flex; align-items: baseline; gap: 10px; margin-bottom: 5px;
+        }
+        .cr-msg-sender { font-weight: 600; font-size: 0.83rem; }
+        .cr-msg-time   { font-size: 0.68rem; opacity: 0.45; }
+
+        .cr-bubble {
+          padding: 12px 16px; border-radius: 18px;
+          background: rgba(17,19,24,0.85);
+          border: 1px solid var(--border);
+          line-height: 1.55; font-size: 0.88rem;
+          word-break: break-word;        /* KEY: long words don't cause horizontal scroll */
+          overflow-wrap: break-word;
+        }
+        .cr-msg.user .cr-bubble {
+          background: linear-gradient(135deg, var(--accent), #3a61e0);
+          color: #fff; border-color: transparent;
+        }
+        .cr-bubble p  { margin: 0 0 8px; }
+        .cr-bubble p:last-child { margin-bottom: 0; }
+        .cr-bubble pre {
+          background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px;
+          overflow-x: auto; font-size: 0.8rem; margin: 8px 0;
+        }
+        .cr-bubble code { font-family: monospace; font-size: 0.82rem; }
+
+        .cr-thinking {
+          display: flex; align-items: center; gap: 10px;
+          color: var(--muted); font-size: 0.85rem;
+        }
+        .cr-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .cr-actions {
+          margin-top: 5px; display:flex; gap:8px;
+          opacity: 0; transition: opacity 0.2s;
+        }
+        .cr-msg:hover .cr-actions { opacity: 1; }
+        .cr-copy-btn {
+          background: none; border: 1px solid var(--border);
+          font-size: 11px; padding: 3px 10px; border-radius: 20px;
+          cursor: pointer; display:flex; align-items:center; gap:5px;
+          color: var(--muted); font-family: inherit;
+          transition: all 0.2s;
+        }
+        .cr-copy-btn:hover { background: rgba(88,130,255,0.1); color: var(--accent); }
+
+        /* Input — fixed height, no shrink */
+        .cr-input-wrap {
+          flex-shrink: 0;      /* KEY */
+          padding: 16px 22px;
+          background: rgba(17,19,24,0.92);
+          backdrop-filter: blur(12px);
+          border-top: 1px solid var(--border);
+        }
+        .cr-input-row {
+          display: flex; gap: 10px; align-items: flex-end;
+        }
+        .cr-input-row textarea {
+          flex: 1;
+          padding: 11px 16px;
+          border: 1px solid var(--border);
+          border-radius: 24px;
+          resize: none;
+          font-family: inherit;
+          font-size: 0.88rem;
+          background: rgba(0,0,0,0.22);
+          color: var(--text);
+          transition: border-color 0.2s, box-shadow 0.2s;
+          max-height: 200px;
+          min-height: 44px;
+          line-height: 1.5;
+        }
+        .cr-input-row textarea::placeholder { color: var(--faint); }
+        .cr-input-row textarea:focus {
+          outline: none;
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px rgba(88,130,255,0.1);
+        }
+        .cr-input-row textarea:disabled { opacity: 0.5; }
+
+        .cr-send {
+          width: 44px; height: 44px; border-radius: 50%;
+          border: none; flex-shrink: 0;
+          background: linear-gradient(135deg, var(--accent), #3a61e0);
+          color: #fff; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: opacity 0.2s, transform 0.2s;
+        }
+        .cr-send:hover:not(:disabled) { transform: scale(1.06); opacity: 0.9; }
+        .cr-send:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .cr-hint {
+          font-size: 0.62rem; opacity: 0.4; margin-top: 6px; text-align: center;
+        }
+
+        /* Scroll-to-bottom button */
+        .cr-scroll-btn {
+          position: absolute;
+          bottom: 90px; right: 24px;
+          width: 38px; height: 38px; border-radius: 50%;
+          background: var(--accent); color: #fff; border: none;
+          cursor: pointer; display: flex; align-items: center; justify-content: center;
+          z-index: 20; transition: transform 0.2s;
+          box-shadow: 0 4px 16px rgba(88,130,255,0.35);
+        }
+        .cr-scroll-btn:hover { transform: scale(1.08); }
+
+        /* Mobile sidebar toggle */
+        .cr-toggle {
+          display: none;
+          position: fixed;
+          top: calc(var(--nb) + 12px);
+          left: 14px;
+          z-index: 100;
+          width: 38px; height: 38px; border-radius: 50%;
+          background: var(--accent); color: #fff; border: none;
+          cursor: pointer; font-size: 16px;
+          align-items: center; justify-content: center;
+          box-shadow: 0 4px 14px rgba(88,130,255,0.4);
+        }
+
+        /* Modal */
+        .cr-overlay {
+          position: fixed; inset: 0;
+          background: rgba(0,0,0,0.72);
+          backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 200;
+          padding: 1rem;
+        }
+        .cr-modal {
+          background: var(--surface);
+          border: 1px solid var(--border-h);
+          border-radius: 24px;
+          padding: 30px 28px;
+          width: 100%; max-width: 380px;
+          text-align: center;
+        }
+        .cr-modal-icon {
+          width: 60px; height: 60px;
+          background: rgba(239,68,68,0.1);
+          border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          margin: 0 auto 18px; color: #ef4444;
+        }
+        .cr-modal h3 { font-size: 1.1rem; margin-bottom: 8px; }
+        .cr-modal p  { font-size: 0.82rem; opacity: 0.65; margin-bottom: 22px; }
+        .cr-modal-btns { display: flex; gap: 10px; justify-content: center; }
+        .cr-cancel {
+          padding: 10px 22px;
+          background: rgba(255,255,255,0.05);
+          border: 1px solid var(--border);
+          border-radius: 12px; cursor: pointer;
+          color: var(--text); font-family: inherit;
+          transition: background 0.2s;
+        }
+        .cr-cancel:hover { background: rgba(255,255,255,0.1); }
+        .cr-confirm {
+          padding: 10px 22px;
+          background: #ef4444; border: none;
+          border-radius: 12px; color: #fff;
+          cursor: pointer; font-family: inherit;
+          transition: background 0.2s;
+        }
+        .cr-confirm:hover { background: #dc2626; }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 768px) {
+          .cr {
+            --nb: 58px;
+          }
+          .cr-toggle { display: flex; }
+
+          /* sidebar becomes an overlay drawer */
+          .cr-sidebar {
+            position: fixed;
+            top: 58px;
+            left: 0;
+            bottom: 0;
+            width: 280px;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: 60;
+          }
+          .cr-sidebar.open { transform: translateX(0); }
+
+          /* backdrop when sidebar open */
+          .cr-backdrop {
+            display: block !important;
+          }
+
+          .cr-msg-body { max-width: 88%; }
+          .cr-messages { padding: 14px; }
+          .cr-header { padding: 10px 14px; }
+          .cr-input-wrap { padding: 10px 14px; }
+          .cr-suggestions { grid-template-columns: 1fr; }
+          .cr-welcome { padding: 32px 12px; }
+        }
+
+        @media (max-width: 480px) {
+          .cr-msg-body { max-width: 94%; }
+          .cr-modal { padding: 22px 18px; }
+        }
+
+        /* Sidebar backdrop (mobile) */
+        .cr-backdrop {
+          display: none;
+          position: fixed; inset: 0;
+          background: rgba(0,0,0,0.5);
+          z-index: 55;
+        }
+      `}</style>
+
+      {/* Navbar rendered outside so it occupies top of page normally */}
+      <Navbar user={user} onLogout={handleLogout} />
+
+      {/* Chat shell — fixed below navbar */}
+      <div className={`cr ${darkMode ? "dark" : ""}`}>
+        <div className="cr-bg" />
+        <div className="cr-grid" />
+        <div className="cr-orb cr-orb-a" />
+        <div className="cr-orb cr-orb-b" />
+
+        {/* Mobile toggle */}
+        <button className="cr-toggle" onClick={toggleSidebar}>
+          {isSidebarOpen ? <FaTimes /> : <FaBars />}
+        </button>
+
+        {/* Backdrop for mobile sidebar */}
+        {isMobile && isSidebarOpen && (
+          <div className="cr-backdrop" onClick={() => setIsSidebarOpen(false)} />
+        )}
+
+        {/* ── SIDEBAR ── */}
+        <div className={`cr-sidebar ${isSidebarOpen ? "open" : ""}`}>
+          <div className="cr-sidebar-head">
+            <div className="cr-logo">
+              <FaRobot />
+              <span>StudyPulse AI</span>
             </div>
-          ) : (
-            sessions.map((session) => (
-              <div
-                key={session._id}
-                className={`session-item-new ${currentSessionId === session._id ? "active" : ""}`}
-                onClick={() => fetchSession(session._id)}
-              >
-                <div className="session-info-new">
-                  <div className="session-title-new">
-                    <FaComment className="session-icon" />
-                    <span>{session.title}</span>
+            <button className="cr-new-btn" onClick={createNewChat}>
+              <FaPlus /> New Chat
+            </button>
+          </div>
+
+          <div className="cr-sessions">
+            {sessions.length === 0 ? (
+              <div className="cr-no-sessions">
+                <FaComment style={{ fontSize: 36, marginBottom: 12, display: "block", margin: "0 auto 12px" }} />
+                <p>No conversations yet</p>
+                <button onClick={createNewChat}>Start a new chat</button>
+              </div>
+            ) : (
+              sessions.map((session) => (
+                <div
+                  key={session._id}
+                  className={`cr-session ${currentSessionId === session._id ? "active" : ""}`}
+                  onClick={() => {
+                    fetchSession(session._id);
+                    if (isMobile) setIsSidebarOpen(false);
+                  }}
+                >
+                  <div className="cr-session-info">
+                    <div className="cr-session-title">
+                      <FaComment style={{ fontSize: 11, opacity: 0.6, flexShrink: 0 }} />
+                      <span>{session.title}</span>
+                    </div>
+                    <div className="cr-session-time">{dayjs(session.updatedAt).fromNow()}</div>
                   </div>
-                  <div className="session-time-new">
-                    {dayjs(session.updatedAt).fromNow()}
-                  </div>
+                  <button
+                    className="cr-session-del"
+                    onClick={(e) => openDeleteModal(session._id, e)}
+                    title="Delete chat"
+                  >
+                    <FaTrash />
+                  </button>
                 </div>
-                <button
-                  className="delete-session-new"
-                  onClick={(e) => openDeleteModal(session._id, e)}
-                  title="Delete chat"
-                >
-                  <FaTrash />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="sidebar-footer">
-          <div className="user-info">
-            <div className="user-avatar-mini">
-              {user?.name?.charAt(0) || "U"}
-            </div>
-            <span>{user?.name?.split(" ")[0] || "User"}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Chat Area */}
-      <div
-        className={`chat-main-area-new ${isSidebarOpen ? "sidebar-open" : "sidebar-closed"}`}
-      >
-        <div className="chat-header-new">
-          <div className="header-left">
-            {!isSidebarOpen && (
-              <button className="open-sidebar-btn-new" onClick={toggleSidebar}>
-                <FaBars />
-              </button>
+              ))
             )}
-            <div className="chat-header-info">
-              <h2>AI Study Assistant</h2>
-              <p className="model-badge">Powered by Groq Llama 3.1</p>
-            </div>
           </div>
-          <button
-            className="dark-mode-btn-new"
-            onClick={toggleDarkMode}
-            title={darkMode ? "Light mode" : "Dark mode"}
-          >
-            {darkMode ? <FaSun /> : <FaMoon />}
-          </button>
+
+          <div className="cr-sidebar-foot">
+            <div className="cr-avatar">{user?.name?.charAt(0) || "U"}</div>
+            <span style={{ fontSize: "0.85rem", fontWeight: 500 }}>
+              {user?.name?.split(" ")[0] || "User"}
+            </span>
+          </div>
         </div>
 
-        <div
-          className="chat-messages-area-new"
-          ref={chatContainerRef}
-          onScroll={handleScroll}
-        >
-          {messages.length === 0 ? (
-            <div className="welcome-screen-new">
-              <div className="welcome-icon-new">
-                <FaRobot />
-              </div>
-              <h2>Hello, {user?.name?.split(" ")[0] || "Student"}! 👋</h2>
-              <p>How can I help you with your studies today?</p>
-              <div className="suggestions-grid">
-                <button
-                  onClick={() =>
-                    setText("Explain quantum computing in simple terms")
-                  }
-                >
-                  🔬 Explain quantum computing
+        {/* ── MAIN ── */}
+        <div className="cr-main">
+          {/* Header */}
+          <div className="cr-header">
+            <div className="cr-header-left">
+              {(!isSidebarOpen || isMobile) && !isMobile && (
+                <button className="cr-icon-btn" onClick={toggleSidebar}>
+                  <FaBars />
                 </button>
-                <button
-                  onClick={() =>
-                    setText("Help me understand calculus derivatives")
-                  }
-                >
-                  📐 Help me understand calculus
-                </button>
-                <button
-                  onClick={() => setText("Create a study plan for finals")}
-                >
-                  📅 Create a study plan
-                </button>
-                <button
-                  onClick={() => setText("Explain machine learning basics")}
-                >
-                  🤖 Machine learning basics
-                </button>
+              )}
+              <div>
+                <h2>AI Study Assistant</h2>
+                <p className="cr-model-badge">Powered by Groq Llama 3.1</p>
               </div>
             </div>
-          ) : (
-            <>
-              {groupedMessages.map((item, i) =>
+            <button className="cr-icon-btn" onClick={toggleDarkMode} title={darkMode ? "Light mode" : "Dark mode"}>
+              {darkMode ? <FaSun /> : <FaMoon />}
+            </button>
+          </div>
+
+          {/* Messages — only scroll area */}
+          <div className="cr-messages" ref={chatContainerRef} onScroll={handleScroll}>
+            {messages.length === 0 ? (
+              <div className="cr-welcome">
+                <div className="cr-welcome-icon"><FaRobot /></div>
+                <h2>Hello, {user?.name?.split(" ")[0] || "Student"}! 👋</h2>
+                <p>How can I help you with your studies today?</p>
+                <div className="cr-suggestions">
+                  <button onClick={() => setText("Explain quantum computing in simple terms")}>
+                    🔬 Explain quantum computing
+                  </button>
+                  <button onClick={() => setText("Help me understand calculus derivatives")}>
+                    📐 Help me understand calculus
+                  </button>
+                  <button onClick={() => setText("Create a study plan for finals")}>
+                    📅 Create a study plan
+                  </button>
+                  <button onClick={() => setText("Explain machine learning basics")}>
+                    🤖 Machine learning basics
+                  </button>
+                </div>
+              </div>
+            ) : (
+              groupedMessages.map((item, i) =>
                 item.type === "date" ? (
-                  <div key={i} className="date-divider-new">
+                  <div key={i} className="cr-date-div">
                     <span>
                       {dayjs(item.date).calendar(null, {
                         sameDay: "[Today]",
@@ -462,970 +919,102 @@ export default function AIChat() {
                     </span>
                   </div>
                 ) : (
-                  <div
-                    key={i}
-                    className={`message-row-new ${item.role === "user" ? "user" : "assistant"}`}
-                  >
-                    <div className="message-avatar-new">
+                  <div key={i} className={`cr-msg ${item.role === "user" ? "user" : "assistant"}`}>
+                    <div className="cr-msg-avatar">
                       {item.role === "user" ? (
-                        <div className="user-avatar">
-                          {user?.name?.charAt(0) || "U"}
-                        </div>
+                        <div className="cr-avatar-sm">{user?.name?.charAt(0) || "U"}</div>
                       ) : (
-                        <div className="ai-avatar">
-                          <FaRobot />
-                        </div>
+                        <div className="cr-ai-avatar"><FaRobot /></div>
                       )}
                     </div>
-                    <div className="message-content-new">
-                      <div className="message-header-new">
-                        <span className="message-sender">
-                          {item.role === "user"
-                            ? user?.name?.split(" ")[0] || "You"
-                            : "StudyPulse AI"}
+                    <div className="cr-msg-body">
+                      <div className="cr-msg-meta">
+                        <span className="cr-msg-sender">
+                          {item.role === "user" ? user?.name?.split(" ")[0] || "You" : "StudyPulse AI"}
                         </span>
-                        <span className="message-time-new">
-                          {dayjs(item.createdAt).format("h:mm A")}
-                        </span>
+                        <span className="cr-msg-time">{dayjs(item.createdAt).format("h:mm A")}</span>
                       </div>
-                      <div className="message-bubble-new">
+                      <div className="cr-bubble">
                         <ReactMarkdown>{item.text}</ReactMarkdown>
                       </div>
-                      <div className="message-actions-new">
-                        {item.role === "assistant" && (
-                          <button
-                            onClick={() => copyToClipboard(item.text, item._id)}
-                            className="action-btn copy"
-                            title="Copy response"
-                          >
+                      {item.role === "assistant" && (
+                        <div className="cr-actions">
+                          <button className="cr-copy-btn" onClick={() => copyToClipboard(item.text, item._id)}>
                             {copiedId === item._id ? <FaCheck /> : <FaCopy />}
                             {copiedId === item._id ? "Copied!" : "Copy"}
                           </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                ),
-              )}
-            </>
-          )}
+                )
+              )
+            )}
 
-          {loadingAI && (
-            <div className="message-row-new assistant">
-              <div className="message-avatar-new">
-                <div className="ai-avatar">
-                  <FaRobot />
+            {loadingAI && (
+              <div className="cr-msg assistant">
+                <div className="cr-ai-avatar"><FaRobot /></div>
+                <div className="cr-msg-body">
+                  <div className="cr-bubble cr-thinking">
+                    <FaSpinner className="cr-spin" />
+                    <span>Thinking...</span>
+                  </div>
                 </div>
               </div>
-              <div className="message-content-new">
-                <div className="message-bubble-new thinking">
-                  <FaSpinner className="spinner" />
-                  <span>Thinking...</span>
-                </div>
-              </div>
-            </div>
-          )}
+            )}
+            <div ref={messagesEndRef} />
+          </div>
 
-          <div ref={messagesEndRef} />
-        </div>
-
-        {showScrollBtn && (
-          <button className="scroll-to-bottom-new" onClick={scrollToBottom}>
-            <FaArrowDown />
-          </button>
-        )}
-
-        <form className="chat-input-form-new" onSubmit={handleSend}>
-          <div className="input-container">
-            <textarea
-              ref={textAreaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Ask me anything..."
-              rows={1}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend(e);
-                }
-              }}
-              disabled={loadingAI}
-            />
-            <button
-              type="submit"
-              disabled={loadingAI || !text.trim()}
-              className="send-btn"
-            >
-              {loadingAI ? <FaSpinner className="spinner" /> : <FaPaperPlane />}
+          {showScrollBtn && (
+            <button className="cr-scroll-btn" onClick={scrollToBottom}>
+              <FaArrowDown />
             </button>
-          </div>
-          <p className="input-hint">
-            Press Enter to send, Shift + Enter for new line
-          </p>
-        </form>
-      </div>
+          )}
 
-      {/* Beautiful Delete Modal */}
-      {showDeleteModal && (
-        <div
-          className="delete-modal-overlay"
-          onClick={() => setShowDeleteModal(false)}
-        >
-          <div
-            className="delete-modal-container"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="delete-modal-icon">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3>Delete Conversation?</h3>
-            <p>
-              This action cannot be undone. All messages in this conversation
-              will be permanently removed.
-            </p>
-            <div className="delete-modal-actions">
-              <button
-                className="delete-cancel-btn"
-                onClick={() => setShowDeleteModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="delete-confirm-btn"
-                onClick={confirmDeleteSession}
-              >
-                Delete Permanently
+          {/* Input */}
+          <form className="cr-input-wrap" onSubmit={handleSend}>
+            <div className="cr-input-row">
+              <textarea
+                ref={textAreaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Ask me anything..."
+                rows={1}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend(e);
+                  }
+                }}
+                disabled={loadingAI}
+              />
+              <button type="submit" disabled={loadingAI || !text.trim()} className="cr-send">
+                {loadingAI ? <FaSpinner className="cr-spin" /> : <FaPaperPlane />}
               </button>
             </div>
-          </div>
+            <p className="cr-hint">Enter to send · Shift+Enter for new line</p>
+          </form>
         </div>
-      )}
 
-      <style>{`
-        /* Container */
-        .ai-chat-container {
-          display: flex;
-          position: fixed;
-          top: 70px;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          width: 100%;
-          height: calc(100vh - 70px);
-          background: #f9fafb;
-          overflow: hidden;
-        }
-        .ai-chat-container.dark {
-          background: #0f172a;
-        }
-
-        @media (max-width: 768px) {
-          .ai-chat-container {
-            top: 60px;
-            height: calc(100vh - 60px);
-          }
-        }
-
-        /* Sidebar */
-        .chat-sidebar-new {
-          width: 280px;
-          background: white;
-          border-right: 1px solid #e2e8f0;
-          display: flex;
-          flex-direction: column;
-          transition: transform 0.3s ease;
-          z-index: 100;
-        }
-        .dark .chat-sidebar-new {
-          background: #1e293b;
-          border-right-color: #334155;
-        }
-        .sidebar-header-new {
-          padding: 20px;
-          border-bottom: 1px solid #e2e8f0;
-        }
-        .dark .sidebar-header-new {
-          border-bottom-color: #334155;
-        }
-        .logo {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 1.2rem;
-          font-weight: 700;
-          margin-bottom: 20px;
-          color: #4f46e5;
-        }
-        .logo-icon {
-          font-size: 24px;
-        }
-        .new-chat-btn-new {
-          width: 100%;
-          padding: 12px;
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-          border: none;
-          border-radius: 12px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          font-weight: 600;
-          transition: all 0.2s;
-        }
-        .new-chat-btn-new:hover {
-          transform: scale(1.02);
-          box-shadow: 0 4px 12px rgba(79,70,229,0.3);
-        }
-        .sessions-list-new {
-          flex: 1;
-          overflow-y: auto;
-          padding: 12px;
-        }
-        .session-item-new {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 12px;
-          border-radius: 12px;
-          cursor: pointer;
-          margin-bottom: 6px;
-          transition: all 0.2s;
-        }
-        .session-item-new:hover {
-          background: #f1f5f9;
-        }
-        .dark .session-item-new:hover {
-          background: #334155;
-        }
-        .session-item-new.active {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-        }
-        .session-info-new {
-          flex: 1;
-          overflow: hidden;
-        }
-        .session-title-new {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 0.9rem;
-          font-weight: 500;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .session-icon {
-          font-size: 12px;
-          opacity: 0.7;
-        }
-        .session-time-new {
-          font-size: 0.7rem;
-          opacity: 0.6;
-          margin-top: 4px;
-        }
-        .delete-session-new {
-          background: none;
-          border: none;
-          color: #94a3b8;
-          cursor: pointer;
-          opacity: 0;
-          transition: all 0.2s;
-          padding: 6px;
-          border-radius: 6px;
-        }
-        .delete-session-new:hover {
-          background: rgba(239,68,68,0.1);
-          color: #ef4444;
-        }
-        .session-item-new:hover .delete-session-new {
-          opacity: 1;
-        }
-        .no-sessions-new {
-          text-align: center;
-          padding: 40px 20px;
-        }
-        .no-sessions-icon {
-          font-size: 40px;
-          opacity: 0.5;
-          margin-bottom: 15px;
-        }
-        .no-sessions-new p {
-          opacity: 0.7;
-          margin-bottom: 15px;
-        }
-        .no-sessions-new button {
-          background: none;
-          border: 1px solid;
-          padding: 8px 16px;
-          border-radius: 20px;
-          cursor: pointer;
-        }
-        .sidebar-footer {
-          padding: 16px 20px;
-          border-top: 1px solid #e2e8f0;
-        }
-        .dark .sidebar-footer {
-          border-top-color: #334155;
-        }
-        .user-info {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .user-avatar-mini {
-          width: 32px;
-          height: 32px;
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-          color: white;
-        }
-
-        /* Main Chat Area */
-        .chat-main-area-new {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          transition: margin-left 0.3s ease;
-        }
-        .chat-header-new {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 16px 24px;
-          background: white;
-          border-bottom: 1px solid #e2e8f0;
-          z-index: 10;
-        }
-        .dark .chat-header-new {
-          background: #1e293b;
-          border-bottom-color: #334155;
-        }
-        .header-left {
-          display: flex;
-          align-items: center;
-          gap: 15px;
-        }
-        .chat-header-info h2 {
-          font-size: 1.2rem;
-          margin: 0;
-        }
-        .model-badge {
-          font-size: 0.7rem;
-          color: #4f46e5;
-          margin: 0;
-        }
-        .dark .model-badge {
-          color: #a5b4fc;
-        }
-        .open-sidebar-btn-new {
-          background: none;
-          border: none;
-          font-size: 20px;
-          cursor: pointer;
-          display: none;
-          padding: 8px;
-          border-radius: 8px;
-        }
-        .dark-mode-btn-new {
-          background: none;
-          border: none;
-          font-size: 18px;
-          cursor: pointer;
-          padding: 8px;
-          border-radius: 50%;
-          transition: all 0.2s;
-        }
-        .dark-mode-btn-new:hover {
-          background: rgba(0,0,0,0.05);
-        }
-
-        /* Messages Area */
-        .chat-messages-area-new {
-          flex: 1;
-          overflow-y: auto;
-          padding: 24px;
-        }
-        .welcome-screen-new {
-          text-align: center;
-          padding: 60px 20px;
-          max-width: 700px;
-          margin: 0 auto;
-        }
-        .welcome-icon-new {
-          font-size: 64px;
-          color: #4f46e5;
-          margin-bottom: 24px;
-        }
-        .welcome-screen-new h2 {
-          font-size: 28px;
-          margin-bottom: 12px;
-        }
-        .welcome-screen-new p {
-          opacity: 0.7;
-          margin-bottom: 32px;
-        }
-        .suggestions-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: 12px;
-        }
-        .suggestions-grid button {
-          background: white;
-          border: 1px solid #e2e8f0;
-          padding: 12px 16px;
-          border-radius: 12px;
-          cursor: pointer;
-          text-align: left;
-          transition: all 0.2s;
-          font-size: 0.85rem;
-        }
-        .dark .suggestions-grid button {
-          background: #1e293b;
-          border-color: #334155;
-          color: white;
-        }
-        .suggestions-grid button:hover {
-          background: #4f46e5;
-          color: white;
-          border-color: #4f46e5;
-          transform: translateY(-2px);
-        }
-        .date-divider-new {
-          text-align: center;
-          margin: 24px 0;
-          position: relative;
-        }
-        .date-divider-new span {
-          background: #e2e8f0;
-          padding: 4px 12px;
-          border-radius: 20px;
-          font-size: 0.75rem;
-          color: #475569;
-        }
-        .dark .date-divider-new span {
-          background: #334155;
-          color: #94a3b8;
-        }
-        .message-row-new {
-          display: flex;
-          gap: 16px;
-          margin-bottom: 24px;
-          animation: fadeIn 0.3s ease;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .message-row-new.user {
-          flex-direction: row-reverse;
-        }
-        .message-avatar-new {
-          flex-shrink: 0;
-        }
-        .user-avatar, .ai-avatar {
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: bold;
-        }
-        .user-avatar {
-          background: #10b981;
-          color: white;
-        }
-        .ai-avatar {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-        }
-        .message-content-new {
-          max-width: 75%;
-          flex: 1;
-        }
-        .message-row-new.user .message-content-new {
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-        }
-        .message-header-new {
-          display: flex;
-          align-items: baseline;
-          gap: 12px;
-          margin-bottom: 6px;
-        }
-        .message-sender {
-          font-weight: 600;
-          font-size: 0.85rem;
-        }
-        .message-time-new {
-          font-size: 0.7rem;
-          opacity: 0.5;
-        }
-        .message-bubble-new {
-          padding: 12px 16px;
-          border-radius: 18px;
-          background: white;
-          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-          line-height: 1.5;
-        }
-        .dark .message-bubble-new {
-          background: #1e293b;
-          color: #e2e8f0;
-        }
-        .message-row-new.user .message-bubble-new {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-        }
-        .message-bubble-new.thinking {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .message-actions-new {
-          margin-top: 6px;
-          display: flex;
-          gap: 8px;
-          opacity: 0;
-          transition: opacity 0.2s;
-        }
-        .message-row-new:hover .message-actions-new {
-          opacity: 1;
-        }
-        .action-btn {
-          background: none;
-          border: none;
-          font-size: 11px;
-          padding: 4px 8px;
-          border-radius: 6px;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-        }
-        .action-btn.copy {
-          color: #64748b;
-        }
-        .action-btn.copy:hover {
-          background: #f1f5f9;
-        }
-
-        /* Input Form */
-        .chat-input-form-new {
-          padding: 20px 24px;
-          background: white;
-          border-top: 1px solid #e2e8f0;
-        }
-        .dark .chat-input-form-new {
-          background: #1e293b;
-          border-top-color: #334155;
-        }
-        .input-container {
-          display: flex;
-          gap: 12px;
-          align-items: flex-end;
-        }
-        .input-container textarea {
-          flex: 1;
-          padding: 12px 16px;
-          border: 1px solid #e2e8f0;
-          border-radius: 24px;
-          resize: none;
-          font-family: inherit;
-          font-size: 0.9rem;
-          background: white;
-          transition: all 0.2s;
-          max-height: 200px;
-        }
-        .dark .input-container textarea {
-          background: #0f172a;
-          border-color: #334155;
-          color: white;
-        }
-        .input-container textarea:focus {
-          outline: none;
-          border-color: #4f46e5;
-          box-shadow: 0 0 0 3px rgba(79,70,229,0.1);
-        }
-        .send-btn {
-          width: 48px;
-          height: 48px;
-          border-radius: 50%;
-          border: none;
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s;
-        }
-        .send-btn:hover:not(:disabled) {
-          transform: scale(1.05);
-          box-shadow: 0 4px 12px rgba(79,70,229,0.3);
-        }
-        .send-btn:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .input-hint {
-          font-size: 0.7rem;
-          opacity: 0.5;
-          margin-top: 8px;
-          text-align: center;
-        }
-        .scroll-to-bottom-new {
-          position: absolute;
-          bottom: 100px;
-          right: 30px;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background: #4f46e5;
-          color: white;
-          border: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-          z-index: 10;
-          transition: all 0.2s;
-        }
-        .scroll-to-bottom-new:hover {
-          transform: scale(1.05);
-        }
-        .sidebar-toggle-btn-new {
-          display: none;
-          position: fixed;
-          top: 80px;
-          left: 15px;
-          z-index: 200;
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-          background: #4f46e5;
-          color: white;
-          border: none;
-          cursor: pointer;
-          font-size: 18px;
-        }
-        .spinner {
-          animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-
-        /* Beautiful Delete Modal */
-        .delete-modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background: rgba(0, 0, 0, 0.6);
-          backdrop-filter: blur(4px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          animation: fadeIn 0.2s ease;
-        }
-
-        .delete-modal-container {
-          background: white;
-          border-radius: 24px;
-          padding: 32px;
-          width: 90%;
-          max-width: 400px;
-          text-align: center;
-          animation: slideUp 0.3s ease;
-          box-shadow: 0 20px 35px rgba(0, 0, 0, 0.2);
-        }
-
-        .dark .delete-modal-container {
-          background: #1e293b;
-          color: #f1f5f9;
-        }
-
-        @keyframes slideUp {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .delete-modal-icon {
-          width: 64px;
-          height: 64px;
-          background: #fee2e2;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 20px;
-          color: #ef4444;
-        }
-
-        .dark .delete-modal-icon {
-          background: #7f1d1d;
-        }
-
-        .delete-modal-container h3 {
-          font-size: 1.3rem;
-          font-weight: 600;
-          margin-bottom: 10px;
-        }
-
-        .delete-modal-container p {
-          font-size: 0.9rem;
-          opacity: 0.7;
-          margin-bottom: 24px;
-          line-height: 1.5;
-        }
-
-        .delete-modal-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: center;
-        }
-
-        .delete-cancel-btn {
-          padding: 10px 24px;
-          background: #f1f5f9;
-          border: none;
-          border-radius: 12px;
-          cursor: pointer;
-          font-weight: 500;
-          transition: all 0.2s;
-        }
-
-        .delete-cancel-btn:hover {
-          background: #e2e8f0;
-        }
-
-        .dark .delete-cancel-btn {
-          background: #334155;
-          color: white;
-        }
-
-        .dark .delete-cancel-btn:hover {
-          background: #475569;
-        }
-
-        .delete-confirm-btn {
-          padding: 10px 24px;
-          background: #ef4444;
-          border: none;
-          border-radius: 12px;
-          color: white;
-          cursor: pointer;
-          font-weight: 500;
-          transition: all 0.2s;
-        }
-
-        .delete-confirm-btn:hover {
-          background: #dc2626;
-          transform: scale(1.02);
-        }
-
-        /* Dark Mode Text Fixes */
-        .ai-chat-container.dark .message-bubble-new {
-          background: #1e293b;
-          color: #f1f5f9;
-        }
-
-        .ai-chat-container.dark .message-row-new.user .message-bubble-new {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-        }
-
-        .ai-chat-container.dark .message-header-new .message-sender,
-        .ai-chat-container.dark .message-header-new .message-time-new {
-          color: #cbd5e1;
-        }
-
-        .ai-chat-container.dark .welcome-screen-new h2,
-        .ai-chat-container.dark .welcome-screen-new p {
-          color: #f1f5f9;
-        }
-
-        .ai-chat-container.dark .suggestions-grid button {
-          background: #1e293b;
-          border-color: #475569;
-          color: #e2e8f0;
-        }
-
-        .ai-chat-container.dark .suggestions-grid button:hover {
-          background: #4f46e5;
-          color: white;
-        }
-
-        .ai-chat-container.dark .date-divider-new span {
-          background: #334155;
-          color: #94a3b8;
-        }
-
-        .ai-chat-container.dark .action-btn.copy {
-          color: #94a3b8;
-        }
-
-        .ai-chat-container.dark .action-btn.copy:hover {
-          background: #334155;
-          color: white;
-        }
-
-        /* Chat input dark mode */
-        .ai-chat-container.dark .chat-header-new,
-        .ai-chat-container.dark .chat-input-form-new {
-          background: #1e293b;
-          border-color: #334155;
-        }
-
-        .ai-chat-container.dark .chat-header-info h2 {
-          color: #f1f5f9;
-        }
-
-        .ai-chat-container.dark .input-container textarea {
-          background: #0f172a;
-          border-color: #334155;
-          color: #f1f5f9;
-        }
-
-        .ai-chat-container.dark .input-container textarea::placeholder {
-          color: #64748b;
-        }
-
-        .ai-chat-container.dark .input-hint {
-          color: #64748b;
-        }
-
-        /* Sidebar dark mode */
-        .ai-chat-container.dark .chat-sidebar-new {
-          background: #1e293b;
-        }
-
-        .ai-chat-container.dark .sidebar-header-new {
-          border-bottom-color: #334155;
-        }
-
-        .ai-chat-container.dark .logo span {
-          color: #f1f5f9;
-        }
-
-        .ai-chat-container.dark .session-item-new {
-          color: #cbd5e1;
-        }
-
-        .ai-chat-container.dark .session-item-new:hover {
-          background: #334155;
-        }
-
-        .ai-chat-container.dark .session-item-new.active {
-          background: linear-gradient(135deg, #4f46e5, #6366f1);
-          color: white;
-        }
-
-        .ai-chat-container.dark .sidebar-footer {
-          border-top-color: #334155;
-        }
-
-        .ai-chat-container.dark .user-info span {
-          color: #f1f5f9;
-        }
-
-        /* Code block dark mode */
-        .ai-chat-container.dark .message-bubble-new pre {
-          background: #0f172a;
-        }
-
-        .ai-chat-container.dark .message-bubble-new code {
-          color: #e2e8f0;
-        }
-
-        /* Mobile Responsive */
-        @media (max-width: 768px) {
-          .sidebar-toggle-btn-new {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-          .chat-sidebar-new {
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-            width: 280px;
-            transform: translateX(-100%);
-            z-index: 150;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-          }
-          .chat-sidebar-new.open {
-            transform: translateX(0);
-          }
-          .open-sidebar-btn-new {
-            display: flex !important;
-          }
-          .message-content-new {
-            max-width: 85%;
-          }
-          .suggestions-grid {
-            grid-template-columns: 1fr;
-          }
-          .chat-messages-area-new {
-            padding: 16px;
-          }
-          .chat-header-new {
-            padding: 12px 16px;
-          }
-          .chat-input-form-new {
-            padding: 12px 16px;
-          }
-          .delete-modal-container {
-            padding: 24px;
-            width: 85%;
-          }
-          .delete-modal-container h3 {
-            font-size: 1.1rem;
-          }
-        }
-
-        @media (min-width: 769px) {
-          .sidebar-toggle-btn-new {
-            display: none;
-          }
-          .chat-main-area-new.sidebar-closed {
-            margin-left: 0;
-          }
-        }
-      `}</style>
-    </div>
+        {/* Delete Modal */}
+        {showDeleteModal && (
+          <div className="cr-overlay" onClick={() => setShowDeleteModal(false)}>
+            <div className="cr-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="cr-modal-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h3>Delete Conversation?</h3>
+              <p>This action cannot be undone. All messages will be permanently removed.</p>
+              <div className="cr-modal-btns">
+                <button className="cr-cancel" onClick={() => setShowDeleteModal(false)}>Cancel</button>
+                <button className="cr-confirm" onClick={confirmDeleteSession}>Delete</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
