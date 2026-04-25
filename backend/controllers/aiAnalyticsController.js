@@ -4,14 +4,14 @@ const User = require("../models/User");
 // AI Limits Configuration - CORRECTED
 const AI_LIMITS = {
   groq: {
-    dailyTokens: 14400,        // 14,400 tokens per day
-    monthlyTokens: 432000,     // 30 days × 14400 = 432,000 tokens per month
+    dailyTokens: 14400,
+    monthlyTokens: 432000, 
     perMinuteRequests: 30,
     tokensPerRequest: 500
   },
   huggingFace: {
-    dailyTokens: 30000,        // 30,000 tokens per day
-    monthlyTokens: 900000,     // 30 days × 30000 = 900,000 tokens per month
+    dailyTokens: 30000,     
+    monthlyTokens: 900000,
     perMinuteRequests: 30
   }
 };
