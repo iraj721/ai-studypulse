@@ -153,6 +153,7 @@ async function createQuizRecommendation(userId, weakTopics) {
 }
 
 // Send group email notification with direct group link
+// Send group email notification with direct group link
 async function sendGroupEmailNotification(
   userEmail,
   userName,
@@ -175,10 +176,37 @@ async function sendGroupEmailNotification(
 
     const title = typeLabels[type] || "Group Update";
     
-    // Create direct link to the group (with group ID in URL)
+    // 🔥 FIX: Get FRONTEND_URL with multiple fallbacks
+    let frontendUrl = process.env.FRONTEND_URL;
+    
+    // Log for debugging
+    console.log("📧 Sending email - FRONTEND_URL from env:", frontendUrl);
+    
+    // Fallback URLs based on environment
+    if (!frontendUrl) {
+      // Check if running in production
+      if (process.env.NODE_ENV === "production") {
+        // Try to get from different env var names
+        frontendUrl = process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}`
+          : process.env.RENDER_EXTERNAL_URL
+          ? process.env.RENDER_EXTERNAL_URL
+          : null;
+      }
+      
+      // Final fallback
+      if (!frontendUrl) {
+        frontendUrl = "http://localhost:5173";
+        console.log("⚠️ Using fallback URL:", frontendUrl);
+      }
+    }
+    
+    // Create direct link to the group
     const groupLink = groupId 
-      ? `${process.env.FRONTEND_URL}/study-groups?group=${groupId}`
-      : `${process.env.FRONTEND_URL}/study-groups`;
+      ? `${frontendUrl}/study-groups?group=${groupId}`
+      : `${frontendUrl}/study-groups`;
+
+    console.log("📧 Group link generated:", groupLink);
 
     await transporter.sendMail({
       from: `"StudyPulse AI" <${process.env.EMAIL_USER}>`,
@@ -224,6 +252,7 @@ async function sendGroupEmailNotification(
         </html>
       `,
     });
+    console.log(`✅ Email sent to ${userEmail} with group link: ${groupLink}`);
     return true;
   } catch (err) {
     console.error("Group email send error:", err);
