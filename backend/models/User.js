@@ -18,13 +18,12 @@ const UserSchema = new mongoose.Schema({
   emailVerified: { type: Boolean, default: false },
   verificationCode: { type: String },
   verificationCodeExpires: { type: Date },
-  resetPasswordToken: String,
-  resetPasswordExpire: Date,
+  totalTokensUsed: { type: Number, default: 0 },  // ✅ ADD THIS FIELD
 });
 
 UserSchema.methods.generateVerificationCode = function() {
   // Generate 6-digit code
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const code = Math.floor(100000 + Math.random()  * 900000).toString();
   this.verificationCode = code;
   this.verificationCodeExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
   return code;
