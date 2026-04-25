@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import apiAdmin from "../../services/apiAdmin";
-import Stars from "../../components/Stars";
 import BackButton from "../../components/BackButton";
-import { Line, Bar, Doughnut } from "react-chartjs-2";
+import { Line, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -34,10 +33,14 @@ export default function AdminAIAnalytics() {
   const [loading, setLoading] = useState(true);
   const [analytics, setAnalytics] = useState(null);
   const [hourlyData, setHourlyData] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
+  const [userAnalytics, setUserAnalytics] = useState(null);
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     fetchAnalytics();
     fetchHourlyData();
+    fetchUsers();
   }, []);
 
   const fetchAnalytics = async () => {
@@ -60,9 +63,34 @@ export default function AdminAIAnalytics() {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const res = await apiAdmin.get("/admin/users");
+      setUsers(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const fetchUserAnalytics = async () => {
+    if (!selectedUserId) return;
+    try {
+      const res = await apiAdmin.get(`/admin/analytics/user/${selectedUserId}`);
+      setUserAnalytics(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedUserId) {
+      fetchUserAnalytics();
+    }
+  }, [selectedUserId]);
+
   if (loading) {
     return (
-      <div className="bg-dark min-vh-100 py-5">
+      <div className="admin-analytics-page min-vh-100 py-5">
         <div className="container text-center">
           <div className="spinner-border text-primary" role="status"></div>
           <p className="text-white mt-3">Loading analytics...</p>
@@ -73,19 +101,19 @@ export default function AdminAIAnalytics() {
 
   // Chart Data
   const featureChartData = {
-    labels: analytics?.usageByFeature?.map(f => f.feature) || [],
+    labels: analytics?.usageByFeature?.map(f => f.feature?.toUpperCase()) || [],
     datasets: [
       {
         label: 'Requests',
         data: analytics?.usageByFeature?.map(f => f.requests) || [],
-        backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+        backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'],
         borderRadius: 8,
       }
     ]
   };
 
   const dailyChartData = {
-    labels: analytics?.dailyUsage?.map(d => d.date.slice(5)) || [],
+    labels: analytics?.dailyUsage?.map(d => d.date?.slice(5)) || [],
     datasets: [
       {
         label: 'Requests',
@@ -126,92 +154,90 @@ export default function AdminAIAnalytics() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'bottom' },
+      legend: { position: 'bottom', labels: { color: '#fff' } },
       tooltip: { mode: 'index', intersect: false }
+    },
+    scales: {
+      y: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+      x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }
     }
   };
 
   return (
     <div className="admin-analytics-page min-vh-100 py-5">
-      <Stars />
       <div className="container">
         <BackButton to="/admin/dashboard" label="← Back to Dashboard" />
         
         <h2 className="text-white fw-bold mb-4">🤖 AI Usage Analytics</h2>
 
-        {/* Stats Cards */}
+        {/* Token Usage Cards */}
         <div className="row g-3 mb-4">
-          <div className="col-md-3">
+          <div className="col-md-4">
             <div className="stats-card">
               <div className="stats-icon">📊</div>
               <div className="stats-info">
-                <div className="stats-value">{analytics?.todayUsage?.totalRequests || 0}</div>
-                <div className="stats-label">Today's Requests</div>
+                <div className="stats-value">{analytics?.overallTotal || 0}</div>
+                <div className="stats-label">Total Tokens Used (All Time)</div>
               </div>
             </div>
           </div>
-          <div className="col-md-3">
+          <div className="col-md-4">
             <div className="stats-card">
               <div className="stats-icon">📅</div>
               <div className="stats-info">
-                <div className="stats-value">{analytics?.monthlyUsage?.totalRequests || 0}</div>
-                <div className="stats-label">This Month</div>
+                <div className="stats-value">{analytics?.todayUsage?.totalTokens || 0}</div>
+                <div className="stats-label">Today's Tokens Used</div>
               </div>
             </div>
           </div>
-          <div className="col-md-3">
+          <div className="col-md-4">
             <div className="stats-card">
-              <div className="stats-icon">🎯</div>
+              <div className="stats-icon">📆</div>
               <div className="stats-info">
-                <div className="stats-value">{analytics?.limits?.groq?.daily || 14400}</div>
-                <div className="stats-label">Daily Limit (Groq)</div>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3">
-            <div className="stats-card">
-              <div className="stats-icon">⚡</div>
-              <div className="stats-info">
-                <div className="stats-value">{analytics?.limits?.groq?.perMinute || 30}</div>
-                <div className="stats-label">Per Minute Limit</div>
+                <div className="stats-value">{analytics?.monthlyUsage?.totalTokens || 0}</div>
+                <div className="stats-label">This Month's Tokens</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Usage Remaining */}
+        {/* Remaining Tokens Cards */}
         <div className="row g-3 mb-4">
           <div className="col-md-6">
             <div className="usage-card">
-              <h5>📈 Daily Usage Remaining</h5>
+              <h5>📈 Daily Tokens Remaining</h5>
               <div className="progress-container">
                 <div className="progress-label">
-                  <span>Used: {analytics?.todayUsage?.totalRequests || 0}</span>
-                  <span>Left: {Math.max(0, (analytics?.limits?.groq?.daily || 14400) - (analytics?.todayUsage?.totalRequests || 0))}</span>
+                  <span>Used: {analytics?.remaining?.daily?.used || 0}</span>
+                  <span>Remaining: {analytics?.remaining?.daily?.remaining || 0}</span>
+                  <span>Limit: {analytics?.remaining?.daily?.limit || 14400}</span>
                 </div>
                 <div className="progress-bar-custom">
                   <div 
-                    className="progress-fill" 
-                    style={{ width: `${Math.min(100, ((analytics?.todayUsage?.totalRequests || 0) / (analytics?.limits?.groq?.daily || 14400)) * 100)}%` }}
+                    className={`progress-fill ${(analytics?.remaining?.daily?.percentUsed || 0) > 80 ? 'warning' : ''}`}
+                    style={{ width: `${Math.min(100, analytics?.remaining?.daily?.percentUsed || 0)}%` }}
                   ></div>
                 </div>
+                <div className="progress-percent mt-2">{analytics?.remaining?.daily?.percentUsed || 0}% used</div>
               </div>
             </div>
           </div>
           <div className="col-md-6">
             <div className="usage-card">
-              <h5>⏱️ Per Minute Usage</h5>
+              <h5>📆 Monthly Tokens Remaining</h5>
               <div className="progress-container">
                 <div className="progress-label">
-                  <span>Current: {analytics?.hourlyRequests || 0}/min</span>
-                  <span>Limit: {analytics?.limits?.groq?.perMinute || 30}/min</span>
+                  <span>Used: {analytics?.remaining?.monthly?.used || 0}</span>
+                  <span>Remaining: {analytics?.remaining?.monthly?.remaining || 0}</span>
+                  <span>Limit: {analytics?.remaining?.monthly?.limit || 30000}</span>
                 </div>
                 <div className="progress-bar-custom">
                   <div 
-                    className="progress-fill warning" 
-                    style={{ width: `${Math.min(100, ((analytics?.hourlyRequests || 0) / (analytics?.limits?.groq?.perMinute || 30)) * 100)}%` }}
+                    className={`progress-fill ${(analytics?.remaining?.monthly?.percentUsed || 0) > 80 ? 'warning' : ''}`}
+                    style={{ width: `${Math.min(100, analytics?.remaining?.monthly?.percentUsed || 0)}%` }}
                   ></div>
                 </div>
+                <div className="progress-percent mt-2">{analytics?.remaining?.monthly?.percentUsed || 0}% used</div>
               </div>
             </div>
           </div>
@@ -257,17 +283,78 @@ export default function AdminAIAnalytics() {
           </div>
         </div>
 
+        {/* User Specific Analytics */}
+        <div className="table-card mb-4">
+          <h5>🔍 Specific User Analytics</h5>
+          <div className="row g-3">
+            <div className="col-md-6">
+              <select 
+                className="form-select user-select"
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+              >
+                <option value="">Select a user...</option>
+                {users.map(user => (
+                  <option key={user._id} value={user._id}>{user.name} ({user.email})</option>
+                ))}
+              </select>
+            </div>
+            <div className="col-md-6">
+              <button className="btn btn-primary" onClick={fetchUserAnalytics}>
+                View Usage
+              </button>
+            </div>
+          </div>
+          
+          {userAnalytics && (
+            <div className="user-analytics mt-4">
+              <h6>📊 {userAnalytics.user?.name}'s Usage</h6>
+              <div className="row g-3 mt-2">
+                <div className="col-md-4">
+                  <div className="user-stat-card">
+                    <div className="user-stat-value">{userAnalytics.totalTokensUsed || 0}</div>
+                    <div className="user-stat-label">Total Tokens Used</div>
+                  </div>
+                </div>
+                <div className="col-md-4">
+                  <div className="user-stat-card">
+                    <div className="user-stat-value">{userAnalytics.todayUsage?.totalTokens || 0}</div>
+                    <div className="user-stat-label">Today's Tokens</div>
+                  </div>
+                </div>
+                <div className="col-md-4">
+                  <div className="user-stat-card">
+                    <div className="user-stat-value">{userAnalytics.todayUsage?.totalRequests || 0}</div>
+                    <div className="user-stat-label">Today's Requests</div>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-3">
+                <strong>Usage by Feature:</strong>
+                <div className="user-feature-badges mt-2">
+                  {userAnalytics.usageByFeature?.map((f, idx) => (
+                    <span key={idx} className="feature-badge">
+                      {f.feature}: {f.requests} req ({f.tokens} tokens)
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Top Users Table */}
         <div className="table-card">
-          <h5>👥 Top Users by Usage</h5>
+          <h5>👥 Top Users by Tokens</h5>
           <div className="table-responsive">
             <table className="analytics-table">
               <thead>
-                <tr><th>User</th><th>Email</th><th>Requests</th><th>Tokens Used</th></tr>
+                <tr><th>#</th><th>User</th><th>Email</th><th>Requests</th><th>Tokens Used</th></tr>
               </thead>
               <tbody>
                 {analytics?.userWiseUsage?.map((u, idx) => (
                   <tr key={idx}>
+                    <td>{idx + 1}</td>
                     <td>{u.user?.name || "Unknown"}</td>
                     <td>{u.user?.email || "unknown"}</td>
                     <td><strong>{u.totalRequests}</strong></td>
@@ -283,6 +370,7 @@ export default function AdminAIAnalytics() {
       <style>{`
         .admin-analytics-page {
           background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+          min-height: 100vh;
         }
         .stats-card, .usage-card, .chart-card, .table-card {
           background: rgba(255,255,255,0.1);
@@ -331,6 +419,11 @@ export default function AdminAIAnalytics() {
         .progress-fill.warning {
           background: linear-gradient(90deg, #f59e0b, #ef4444);
         }
+        .progress-percent {
+          font-size: 11px;
+          text-align: right;
+          opacity: 0.7;
+        }
         .chart-container {
           margin-top: 15px;
         }
@@ -347,6 +440,49 @@ export default function AdminAIAnalytics() {
         .analytics-table th {
           color: #a5b4fc;
           font-weight: 600;
+        }
+        .user-select {
+          background: rgba(255,255,255,0.1);
+          border: 1px solid rgba(255,255,255,0.2);
+          color: white;
+          border-radius: 12px;
+          padding: 10px;
+        }
+        .user-select option {
+          background: #1e293b;
+        }
+        .user-stat-card {
+          background: rgba(255,255,255,0.08);
+          border-radius: 12px;
+          padding: 15px;
+          text-align: center;
+        }
+        .user-stat-value {
+          font-size: 24px;
+          font-weight: bold;
+          color: #a5b4fc;
+        }
+        .user-stat-label {
+          font-size: 11px;
+          opacity: 0.7;
+          margin-top: 5px;
+        }
+        .user-feature-badges {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .feature-badge {
+          background: rgba(79, 70, 229, 0.3);
+          padding: 5px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+        }
+        .btn-primary {
+          background: linear-gradient(135deg, #4f46e5, #6366f1);
+          border: none;
+          border-radius: 12px;
+          padding: 10px 20px;
         }
         @media (max-width: 768px) {
           .stats-value { font-size: 24px; }

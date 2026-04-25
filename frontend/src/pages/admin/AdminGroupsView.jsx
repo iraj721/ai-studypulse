@@ -1,20 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import apiAdmin from "../../services/apiAdmin";
-import Stars from "../../components/Stars";
 import BackButton from "../../components/BackButton";
+import Toast from "../../components/Toast";
+import { FaArrowLeft } from "react-icons/fa";
 
 export default function AdminGroupsView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [toast, setToast] = useState({ message: "", type: "success" });
 
   useEffect(() => {
     fetchGroups();
-  }, []);
+  }, [id]);
 
   const fetchGroups = async () => {
     try {
@@ -22,43 +22,67 @@ export default function AdminGroupsView() {
       setGroups(res.data);
     } catch (err) {
       console.error(err);
+      setToast({ message: "Failed to load groups", type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGroupClick = (groupId) => {
+    navigate(`/admin/group/${groupId}`);
+  };
+
   if (loading) {
     return (
-      <div className="bg-light min-vh-100 py-4">
+      <div className="admin-page-container">
         <div className="container text-center py-5">
           <div className="spinner-border text-primary" role="status"></div>
-          <p className="mt-3">Loading study groups...</p>
+          <p className="mt-3 text-muted">Loading study groups...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="bg-light min-vh-100 py-4">
-      <div className="container">
-        <BackButton to={`/admin/users/${id}`} label="← Back to User Details" />
+    <div className="admin-page-container">
+      <Toast 
+        message={toast.message} 
+        type={toast.type} 
+        onClose={() => setToast({ message: "", type: "success" })} 
+      />
+      
+      <div className="container py-4">
+        {/* Back Button */}
+        <div className="mb-3">
+          <button 
+            onClick={() => navigate(`/admin/users/${id}`)} 
+            className="btn btn-outline-secondary btn-sm"
+          >
+            <FaArrowLeft className="me-1" /> Back to User Details
+          </button>
+        </div>
         
         <div className="d-flex justify-content-between align-items-center mb-4">
-          <h3 className="fw-bold">👥 Student Study Groups</h3>
+          <h3 className="fw-bold mb-0">👥 Student Study Groups</h3>
           <span className="badge bg-primary fs-6">{groups.length} Groups</span>
         </div>
 
         {groups.length === 0 ? (
-          <div className="alert alert-info text-center py-5">
-            <div className="fs-1 mb-3">👥</div>
-            <h5>No Study Groups Found</h5>
-            <p>This student hasn't joined any study groups yet.</p>
+          <div className="card text-center py-5">
+            <div className="card-body">
+              <div className="fs-1 mb-3">👥</div>
+              <h5>No Study Groups Found</h5>
+              <p className="text-muted">This student hasn't joined any study groups yet.</p>
+            </div>
           </div>
         ) : (
           <div className="row g-4">
             {groups.map((group) => (
               <div key={group._id} className="col-md-6 col-lg-4">
-                <div className="group-admin-card">
+                <div 
+                  className="group-admin-card clickable"
+                  onClick={() => handleGroupClick(group._id)}
+                >
                   <div className="group-code-badge">Code: {group.code}</div>
                   <h5 className="group-name">{group.name}</h5>
                   <p className="group-description">{group.description || "No description"}</p>
@@ -67,7 +91,10 @@ export default function AdminGroupsView() {
                     <span>👥 Members: {group.members?.length || 0}</span>
                   </div>
                   <div className="group-date">
-                    📅 {new Date(group.createdAt).toLocaleDateString()}
+                    📅 Created: {new Date(group.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="group-click-hint">
+                    Click to view chats and shared content →
                   </div>
                 </div>
               </div>
@@ -77,6 +104,10 @@ export default function AdminGroupsView() {
       </div>
 
       <style>{`
+        .admin-page-container {
+          background: #f0f2f5;
+          min-height: 100vh;
+        }
         .group-admin-card {
           background: white;
           border-radius: 16px;
@@ -85,10 +116,12 @@ export default function AdminGroupsView() {
           box-shadow: 0 2px 8px rgba(0,0,0,0.08);
           position: relative;
           height: 100%;
+          cursor: pointer;
         }
-        .group-admin-card:hover {
+        .group-admin-card.clickable:hover {
           transform: translateY(-5px);
           box-shadow: 0 12px 25px rgba(0,0,0,0.15);
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
         }
         .group-code-badge {
           position: absolute;
@@ -125,6 +158,25 @@ export default function AdminGroupsView() {
         .group-date {
           font-size: 10px;
           color: #94a3b8;
+        }
+        .group-click-hint {
+          margin-top: 12px;
+          font-size: 11px;
+          color: #4f46e5;
+          text-align: right;
+          opacity: 0.7;
+        }
+        .group-admin-card:hover .group-click-hint {
+          opacity: 1;
+        }
+        .btn-outline-secondary {
+          border-radius: 20px;
+          padding: 6px 16px;
+        }
+        .card {
+          border: none;
+          border-radius: 16px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
       `}</style>
     </div>
