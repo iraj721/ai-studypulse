@@ -2,7 +2,13 @@ const Assignment = require("../models/Assignment");
 const Submission = require("../models/Submission");
 const Class = require("../models/Class");
 const User = require("../models/User");
-const { sendEmailToClass, sendEmailNotification } = require("../services/notificationService");
+const { sendEmailToClass, sendEmailNotification, sendClassroomNotification } = require("../services/notificationService");
+
+/* Helper to get frontend URL */
+const getFrontendUrl = () => {
+  let url = process.env.FRONTEND_URL || "http://localhost:5173";
+  return url.replace(/\/$/, '');
+};
 
 /* Teacher: Get assignments for a class */
 const getAssignmentsByClass = async (req, res) => {
@@ -42,7 +48,7 @@ const getSubmissionsByAssignment = async (req, res) => {
   }
 };
 
-/* Teacher: Create assignment with email */
+/* Teacher: Create assignment with email - WITH DIRECT LINK */
 const createAssignment = async (req, res) => {
   try {
     const { title, instructions, dueDate, marks } = req.body;
@@ -64,10 +70,23 @@ const createAssignment = async (req, res) => {
     cls.assignments.push(assignment._id);
     await cls.save();
 
-    // Send email notifications
+    const frontendUrl = getFrontendUrl();
+    const directLink = `${frontendUrl}/student/class/${cls._id}/assignments/${assignment._id}`;
     const dueDateText = dueDate ? `\n\n📅 Due Date: ${new Date(dueDate).toLocaleString()}` : "";
     const marksText = marks ? `\n\n🏆 Total Marks: ${marks}` : "";
-    await sendEmailToClass(cls.students, cls.name, title, instructions + dueDateText + marksText, "assignment");
+
+    // Send email with direct link
+    for (const student of cls.students) {
+      await sendClassroomNotification(
+        student.email,
+        student.name,
+        cls.name,
+        `${instructions || "New assignment available"}${dueDateText}${marksText}\n\n<a href="${directLink}">Click here to view and submit</a>`,
+        "assignment",
+        cls._id,
+        assignment._id
+      );
+    }
 
     res.status(201).json({ 
       success: true,
@@ -141,7 +160,7 @@ const deleteAssignment = async (req, res) => {
   }
 };
 
-/* Teacher: Assign marks to submission */
+/* Teacher: Assign marks to submission - WITH DIRECT LINK */
 const assignMarksToSubmission = async (req, res) => {
   try {
     const { classId, assignmentId, submissionId } = req.params;
@@ -162,14 +181,17 @@ const assignMarksToSubmission = async (req, res) => {
     submission.marks = marks;
     await submission.save();
 
-    // Send email to student about marks
+    // Send email to student about marks with direct link
     if (submission.student?.email) {
       const assignment = await Assignment.findById(assignmentId);
+      const frontendUrl = getFrontendUrl();
+      const directLink = `${frontendUrl}/student/class/${classId}/assignments/${assignmentId}`;
+      
       await sendEmailNotification(
         submission.student.email,
         submission.student.name,
         `📝 Marks Released: ${assignment?.title}`,
-        `You have received ${marks} marks for your submission in "${assignment?.title}".\n\nKeep up the good work!`
+        `You have received ${marks} marks for your submission in "${assignment?.title}".\n\n<a href="${directLink}">Click here to view your marks</a>`
       );
     }
 
@@ -180,19 +202,13 @@ const assignMarksToSubmission = async (req, res) => {
   }
 };
 
-/* Student: Submit assignment */
-/* Student: Submit assignment - FIXED for Cloudinary */
+/* Student: Submit assignment - WITH DIRECT LINK TO TEACHER */
 const submitAssignment = async (req, res) => {
   try {
     const { classId, assignmentId } = req.params;
     const { answerText } = req.body;
     
-    // ✅ Get Cloudinary URL from req.file.path
     const fileUrl = req.file ? req.file.path : null;
-
-    console.log("=== SUBMIT ASSIGNMENT DEBUG ===");
-    console.log("Cloudinary file URL:", fileUrl);
-    console.log("=================================");
 
     const cls = await Class.findById(classId).populate("teacher", "name email");
     if (!cls) return res.status(404).json({ message: "Class not found" });
@@ -205,24 +221,25 @@ const submitAssignment = async (req, res) => {
       return res.status(400).json({ message: "Cannot submit after due date" });
     }
 
-    // Remove existing submission
     await Submission.findOneAndDelete({ assignment: assignmentId, student: req.user._id });
 
     const submission = await Submission.create({
       assignment: assignmentId,
       student: req.user._id,
-      file: fileUrl,  // ✅ This will be Cloudinary URL
+      file: fileUrl,
       answerText: answerText || "",
     });
 
-    // Send email notification to teacher
+    // Send email notification to teacher with direct link
     if (cls.teacher?.email) {
-      const { sendEmailNotification } = require("../services/notificationService");
+      const frontendUrl = getFrontendUrl();
+      const directLink = `${frontendUrl}/teacher/class/${classId}/assignments/${assignmentId}/submissions`;
+      
       await sendEmailNotification(
         cls.teacher.email,
         cls.teacher.name,
         `📝 New Assignment Submission: ${assignment.title}`,
-        `Student ${req.user.name} has submitted "${assignment.title}".\n\n${answerText ? `Answer: ${answerText.substring(0, 200)}...` : ""}\n\nPlease review and grade.`
+        `Student ${req.user.name} has submitted "${assignment.title}".\n\n${answerText ? `Answer: ${answerText.substring(0, 200)}...` : ""}\n\n<a href="${directLink}">Click here to review and grade</a>`
       );
     }
 
@@ -231,7 +248,7 @@ const submitAssignment = async (req, res) => {
       message: "Assignment submitted successfully",
       submission: {
         ...submission.toObject(),
-        fileUrl: fileUrl  // Return the Cloudinary URL
+        fileUrl: fileUrl
       }
     });
   } catch (err) {

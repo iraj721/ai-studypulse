@@ -24,7 +24,10 @@ const createGroup = async (req, res) => {
       description,
       code,
       createdBy: req.user._id,
-      members: [req.user._id],
+      members: [{
+        user: req.user._id,
+        joinedAt: new Date()
+      }],
     });
 
     res.status(201).json(group);
@@ -44,15 +47,25 @@ const joinGroup = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (group.members.includes(req.user._id)) {
+    // Check if already a member (check in members array)
+    const alreadyMember = group.members.some(
+      m => m.user.toString() === req.user._id.toString()
+    );
+    
+    if (alreadyMember) {
       return res.status(400).json({ message: "Already a member" });
     }
 
-    group.members.push(req.user._id);
+    // Add member with joinedAt date
+    group.members.push({
+      user: req.user._id,
+      joinedAt: new Date()
+    });
+    
     group.updatedAt = new Date();
     await group.save();
 
-    const members = await User.find({ _id: { $in: group.members } });
+    const members = await User.find({ _id: { $in: group.members.map(m => m.user) } });
     for (const member of members) {
       if (member._id.toString() !== req.user._id.toString()) {
         await sendGroupEmailNotification(
@@ -61,7 +74,7 @@ const joinGroup = async (req, res) => {
           group.name,
           `${req.user.name} has joined the group!`,
           "member_joined",
-          group._id, // ✅ Added groupId
+          group._id
         );
       }
     }
@@ -76,10 +89,21 @@ const joinGroup = async (req, res) => {
 // Get user's groups
 const getUserGroups = async (req, res) => {
   try {
-    const groups = await StudyGroup.find({ members: req.user._id })
+    const groups = await StudyGroup.find({ 
+      "members.user": req.user._id 
+    })
       .populate("createdBy", "name email")
+      .populate("members.user", "name email")
       .sort({ updatedAt: -1 });
-    res.json(groups);
+    
+    // Transform to old format for frontend compatibility
+    const transformedGroups = groups.map(group => {
+      const groupObj = group.toObject();
+      groupObj.members = group.members.map(m => m.user);
+      return groupObj;
+    });
+    
+    res.json(transformedGroups);
   } catch (err) {
     console.error(err);
     res.json([]);
@@ -90,7 +114,7 @@ const getUserGroups = async (req, res) => {
 const getGroupDetails = async (req, res) => {
   try {
     const group = await StudyGroup.findById(req.params.id)
-      .populate("members", "name email")
+      .populate("members.user", "name email")  // Updated populate
       .populate("messages.user", "name")
       .populate("sharedContent.sharedBy", "name");
 
@@ -98,13 +122,34 @@ const getGroupDetails = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
-    if (
-      !group.members.some((m) => m._id.toString() === req.user._id.toString())
-    ) {
+    // Check if user is a member and get their join date
+    const memberInfo = group.members.find(
+      m => m.user._id.toString() === req.user._id.toString()
+    );
+    
+    if (!memberInfo) {
       return res.status(403).json({ message: "Not a member" });
     }
 
-    res.json(group);
+    const userJoinDate = memberInfo.joinedAt;
+    
+    // Filter messages - only show messages created after user joined
+    const filteredMessages = group.messages.filter(
+      msg => new Date(msg.createdAt) >= new Date(userJoinDate)
+    );
+    
+    // Filter shared content - only show content shared after user joined
+    const filteredSharedContent = group.sharedContent.filter(
+      content => new Date(content.sharedAt) >= new Date(userJoinDate)
+    );
+
+    // Return group with filtered data
+    const responseGroup = group.toObject();
+    responseGroup.messages = filteredMessages;
+    responseGroup.sharedContent = filteredSharedContent;
+    responseGroup.members = group.members; // Keep members as is
+
+    res.json(responseGroup);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -1195,6 +1240,183 @@ const shareFile = async (req, res) => {
   }
 };
 
+// Leave group
+const leaveGroup = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const group = await StudyGroup.findById(id);
+    
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    
+    // Check if user is a member
+    if (!group.members.includes(req.user._id)) {
+      return res.status(400).json({ message: "You are not a member of this group" });
+    }
+    
+    // Remove user from members
+    group.members = group.members.filter(
+      member => member.toString() !== req.user._id.toString()
+    );
+    
+    // If creator leaves, assign new creator or delete group
+    if (group.createdBy.toString() === req.user._id.toString()) {
+      if (group.members.length > 0) {
+        // Assign new creator (first member)
+        group.createdBy = group.members[0];
+        await group.save();
+        
+        // Notify new creator
+        const newCreator = await User.findById(group.createdBy);
+        if (newCreator) {
+          await sendGroupEmailNotification(
+            newCreator.email,
+            newCreator.name,
+            group.name,
+            `${req.user.name} left the group. You are now the group creator.`,
+            "member_left",
+            group._id
+          );
+        }
+      } else {
+        // Delete group if no members left
+        await StudyGroup.findByIdAndDelete(id);
+        return res.json({ message: "Group deleted as you were the last member" });
+      }
+    }
+    
+    await group.save();
+    
+    // Notify other members
+    const members = await User.find({ _id: { $in: group.members } });
+    for (const member of members) {
+      if (member._id.toString() !== req.user._id.toString()) {
+        await sendGroupEmailNotification(
+          member.email,
+          member.name,
+          group.name,
+          `${req.user.name} has left the group.`,
+          "member_left",
+          group._id
+        );
+      }
+    }
+    
+    // Emit socket event
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(`group_${id}`).emit("memberLeft", {
+        userId: req.user._id,
+        userName: req.user.name
+      });
+    }
+    
+    res.json({ message: "Left group successfully" });
+  } catch (err) {
+    console.error("Leave group error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Remove member from group (only creator can do this)
+const removeMember = async (req, res) => {
+  try {
+    const { id, memberId } = req.params;
+    const group = await StudyGroup.findById(id);
+    
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    
+    // Check if current user is creator
+    if (group.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Only group creator can remove members" });
+    }
+    
+    // Check if member exists
+    if (!group.members.includes(memberId)) {
+      return res.status(404).json({ message: "Member not found in group" });
+    }
+    
+    // Cannot remove yourself
+    if (memberId.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: "Use leave group to remove yourself" });
+    }
+    
+    // Remove member
+    group.members = group.members.filter(
+      member => member.toString() !== memberId
+    );
+    await group.save();
+    
+    // Notify removed member
+    const removedUser = await User.findById(memberId);
+    if (removedUser) {
+      await sendGroupEmailNotification(
+        removedUser.email,
+        removedUser.name,
+        group.name,
+        `You have been removed from the group by ${req.user.name}.`,
+        "member_removed",
+        group._id
+      );
+    }
+    
+    // Notify other members
+    const members = await User.find({ _id: { $in: group.members } });
+    for (const member of members) {
+      if (member._id.toString() !== req.user._id.toString()) {
+        await sendGroupEmailNotification(
+          member.email,
+          member.name,
+          group.name,
+          `${removedUser?.name || "A member"} has been removed from the group.`,
+          "member_removed",
+          group._id
+        );
+      }
+    }
+    
+    // Emit socket event
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(`group_${id}`).emit("memberRemoved", {
+        userId: memberId,
+        userName: removedUser?.name
+      });
+    }
+    
+    res.json({ message: "Member removed successfully" });
+  } catch (err) {
+    console.error("Remove member error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
+// Get group members (for admin panel)
+const getGroupMembers = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const group = await StudyGroup.findById(id)
+      .populate("members", "name email _id")
+      .populate("createdBy", "name email _id");
+    
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+    
+    res.json({
+      members: group.members,
+      createdBy: group.createdBy,
+      isCreator: group.createdBy._id.toString() === req.user._id.toString()
+    });
+  } catch (err) {
+    console.error("Get members error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   createGroup,
   joinGroup,
@@ -1214,4 +1436,7 @@ module.exports = {
   viewSharedNote,
   viewSharedQuiz,
   viewSharedFlashcard,
+  leaveGroup,       
+  removeMember,    
+  getGroupMembers,  
 };

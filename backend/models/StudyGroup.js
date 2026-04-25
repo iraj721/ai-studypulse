@@ -31,6 +31,12 @@ const SharedContentSchema = new mongoose.Schema({
   metadata: { type: mongoose.Schema.Types.Mixed },
 });
 
+// Member Schema with joinedAt
+const MemberSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  joinedAt: { type: Date, default: Date.now },
+});
+
 const StudyGroupSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String },
@@ -40,7 +46,7 @@ const StudyGroupSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
-  members: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+  members: [MemberSchema],  // Changed: now stores objects with joinedAt
   messages: [GroupMessageSchema],
   sharedContent: [SharedContentSchema],
   createdAt: { type: Date, default: Date.now },

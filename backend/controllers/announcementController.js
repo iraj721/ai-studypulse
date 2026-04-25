@@ -1,7 +1,7 @@
 const Announcement = require("../models/Announcement");
 const Class = require("../models/Class");
 const User = require("../models/User");
-const { sendEmailNotification } = require("../services/notificationService");
+const { sendClassroomNotification } = require("../services/notificationService");
 
 // Teacher: Create announcement
 exports.createAnnouncement = async (req, res) => {
@@ -23,6 +23,21 @@ exports.createAnnouncement = async (req, res) => {
       text,
       attachment: attachment || null,
     });
+
+    // ✅ Send email to all students
+    const students = await User.find({ _id: { $in: cls.students } });
+    for (const student of students) {
+      await sendClassroomNotification(
+        student.email,
+        student.name,
+        cls.name,
+        text.substring(0, 100) + (text.length > 100 ? "..." : ""),
+        "📢 New Announcement",
+        "announcement",
+        cls._id,
+        announcement._id
+      );
+    }
 
     res.status(201).json(announcement);
   } catch (err) {
@@ -53,7 +68,6 @@ exports.getAnnouncementsForClass = async (req, res) => {
 };
 
 // Student: Reply to announcement - WITH EMAIL TO TEACHER
-// Student: Reply to announcement - WITH EMAIL TO TEACHER
 exports.replyToAnnouncement = async (req, res) => {
   try {
     const { classId, announcementId } = req.params;
@@ -64,7 +78,6 @@ exports.replyToAnnouncement = async (req, res) => {
     const cls = await Class.findById(classId).populate("teacher", "name email");
     if (!cls) return res.status(404).json({ message: "Class not found" });
 
-    // Check if student belongs to class
     if (!cls.students.includes(req.user._id)) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -72,7 +85,6 @@ exports.replyToAnnouncement = async (req, res) => {
     const announcement = await Announcement.findById(announcementId);
     if (!announcement) return res.status(404).json({ message: "Announcement not found" });
 
-    // Add reply
     announcement.replies.push({
       student: req.user._id,
       studentName: req.user.name,
@@ -82,12 +94,15 @@ exports.replyToAnnouncement = async (req, res) => {
 
     // ✅ Send email to teacher
     if (cls.teacher && cls.teacher.email) {
-      const { sendEmailNotification } = require("../services/notificationService");
-      await sendEmailNotification(
+      await sendClassroomNotification(
         cls.teacher.email,
         cls.teacher.name,
-        `💬 New Reply on Announcement - ${cls.name}`,
-        `Student ${req.user.name} replied to your announcement:\n\n"${text}"\n\nClass: ${cls.name}`
+        cls.name,
+        `${req.user.name} replied: "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"`,
+        "💬 New Reply on Announcement",
+        "announcement",
+        classId,
+        announcementId
       );
     }
 

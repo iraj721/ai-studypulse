@@ -21,6 +21,8 @@ import {
   FaIdCard,
   FaFilePdf,
   FaEye,
+  FaSignOutAlt,
+  FaUserMinus,
 } from "react-icons/fa";
 
 export default function StudyGroupsPage() {
@@ -55,6 +57,9 @@ export default function StudyGroupsPage() {
   const [insights, setInsights] = useState([]);
   const [flashcardGroups, setFlashcardGroups] = useState([]);
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [isCreator, setIsCreator] = useState(false);
 
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
@@ -77,7 +82,6 @@ export default function StudyGroupsPage() {
       socketRef.current.on("newGroupMessage", (data) => {
         console.log("New message received:", data);
         setMessages((prev) => {
-          // Remove temp message if exists, then add real one
           const filtered = prev.filter(
             (msg) => msg._id !== data._id && !msg.isTemp,
           );
@@ -111,12 +115,27 @@ export default function StudyGroupsPage() {
       socketRef.current.on("contentDeleted", ({ contentId }) => {
         setSharedContent((prev) => prev.filter((c) => c._id !== contentId));
       });
+
+      socketRef.current.on("memberLeft", ({ userId, userName }) => {
+        setToast({ message: `${userName} left the group`, type: "info" });
+        fetchGroupDetails(selectedGroup._id);
+      });
+
+      socketRef.current.on("memberRemoved", ({ userId, userName }) => {
+        setToast({
+          message: `${userName} was removed from the group`,
+          type: "info",
+        });
+        fetchGroupDetails(selectedGroup._id);
+      });
     }
     return () => {
       if (socketRef.current) {
         socketRef.current.off("newGroupMessage");
         socketRef.current.off("messageDeleted");
         socketRef.current.off("contentDeleted");
+        socketRef.current.off("memberLeft");
+        socketRef.current.off("memberRemoved");
       }
     };
   }, [selectedGroup]);
@@ -148,13 +167,18 @@ export default function StudyGroupsPage() {
   const fetchGroupDetails = async (groupId) => {
     try {
       const res = await api.get(`/student/groups/${groupId}`);
-      setSelectedGroup(res.data);
+      setSelectedGroup({
+        ...res.data,
+        members: res.data.members || [],
+      });
       setMessages(res.data.messages || []);
+      setSharedContent(res.data.sharedContent || []);
 
-      const contentRes = await api.get(
-        `/student/groups/${groupId}/shared-content`,
+      // Check if user is creator
+      setIsCreator(
+        res.data.createdBy?._id === user?._id ||
+          res.data.createdBy === user?._id,
       );
-      setSharedContent(contentRes.data || []);
     } catch (err) {
       setToast({ message: "Failed to load group details", type: "error" });
     }
@@ -197,7 +221,6 @@ export default function StudyGroupsPage() {
 
       socketRef.current.on("connect", () => {
         console.log("Socket connected successfully, ID:", socketRef.current.id);
-        // Re-join group if already selected
         if (selectedGroup && selectedGroup._id) {
           socketRef.current.emit("joinGroupRoom", selectedGroup._id);
           console.log("Re-joined group room:", selectedGroup._id);
@@ -214,7 +237,6 @@ export default function StudyGroupsPage() {
 
       socketRef.current.on("reconnect", (attemptNumber) => {
         console.log("Socket reconnected after", attemptNumber, "attempts");
-        // Re-join group after reconnection
         if (selectedGroup && selectedGroup._id) {
           socketRef.current.emit("joinGroupRoom", selectedGroup._id);
         }
@@ -272,7 +294,6 @@ export default function StudyGroupsPage() {
     const messageContent = messageText;
     setMessageText("");
 
-    // Optimistically add message to UI
     const tempId = Date.now();
     const tempMessage = {
       _id: tempId,
@@ -296,12 +317,10 @@ export default function StudyGroupsPage() {
         },
       );
 
-      // Replace temp message with real one
       setMessages((prev) =>
         prev.map((msg) => (msg._id === tempId ? response.data.data : msg)),
       );
 
-      // Also emit via socket for immediate delivery to other clients (redundant but safe)
       if (socketRef.current && socketRef.current.connected) {
         socketRef.current.emit("newGroupMessage", response.data.data);
       }
@@ -437,6 +456,45 @@ export default function StudyGroupsPage() {
       setToast({ message: "Failed to share file", type: "error" });
     } finally {
       setUploadingFile(false);
+    }
+  };
+
+  // Leave Group Function
+  const leaveGroup = async () => {
+    if (!selectedGroup) return;
+    if (
+      !window.confirm(`Are you sure you want to leave "${selectedGroup.name}"?`)
+    )
+      return;
+
+    try {
+      await api.post(`/student/groups/${selectedGroup._id}/leave`);
+      setToast({ message: "Left group successfully", type: "success" });
+      setGroups((prev) => prev.filter((g) => g._id !== selectedGroup._id));
+      setSelectedGroup(null);
+      setMessages([]);
+      setSharedContent([]);
+    } catch (err) {
+      setToast({ message: "Failed to leave group", type: "error" });
+    }
+  };
+
+  // Remove Member Function (only for creator)
+  const removeMember = async (memberId, memberName) => {
+    if (!selectedGroup) return;
+    if (!window.confirm(`Remove ${memberName} from the group?`)) return;
+
+    try {
+      await api.delete(
+        `/student/groups/${selectedGroup._id}/members/${memberId}`,
+      );
+      setToast({
+        message: `${memberName} removed from group`,
+        type: "success",
+      });
+      await fetchGroupDetails(selectedGroup._id);
+    } catch (err) {
+      setToast({ message: "Failed to remove member", type: "error" });
     }
   };
 
@@ -619,6 +677,17 @@ export default function StudyGroupsPage() {
                     <span className="member-count">
                       👥 {selectedGroup.members?.length || 0} members
                     </span>
+                  </div>
+                  <div className="group-actions-buttons">
+                    <button
+                      onClick={() => setShowMembersModal(true)}
+                      className="btn-members"
+                    >
+                      <FaUsers /> Members
+                    </button>
+                    <button onClick={leaveGroup} className="btn-leave">
+                      <FaSignOutAlt /> Leave Group
+                    </button>
                   </div>
                   <div className="share-buttons">
                     <button
@@ -1012,6 +1081,45 @@ export default function StudyGroupsPage() {
         </div>
       )}
 
+      {/* Members Modal */}
+      {showMembersModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowMembersModal(false)}
+        >
+          <div
+            className="modal-content members-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h4>👥 Group Members</h4>
+            <div className="members-list">
+              {groupMembers.map((member) => (
+                <div key={member._id} className="member-item">
+                  <div className="member-info">
+                    <strong>{member.name}</strong>
+                    <small>{member.email}</small>
+                  </div>
+                  {member._id === selectedGroup?.createdBy?._id && (
+                    <span className="creator-badge">Creator</span>
+                  )}
+                  {isCreator && member._id !== user?._id && (
+                    <button
+                      className="remove-member-btn"
+                      onClick={() => removeMember(member._id, member.name)}
+                    >
+                      <FaUserMinus /> Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setShowMembersModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View Content Modal */}
       {showContentModal && viewingContent && (
         <div
@@ -1240,8 +1348,13 @@ export default function StudyGroupsPage() {
         .group-code { font-size: 10px; opacity: 0.7; cursor: pointer; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
         .groups-main { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 20px; padding: 20px; color: white; }
         .group-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .group-actions-buttons { display: flex; gap: 10px; margin-bottom: 10px; }
+        .btn-members, .btn-leave { padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 6px; border: none; font-weight: 500; transition: all 0.2s; }
+        .btn-members { background: #3b82f6; color: white; }
+        .btn-leave { background: #ef4444; color: white; }
+        .btn-members:hover, .btn-leave:hover { transform: translateY(-2px); opacity: 0.9; }
         .member-count { display: inline-block; background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 20px; font-size: 12px; margin-top: 8px; }
-        .share-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+        .share-buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
         .share-btn { padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; border: none; font-weight: 500; transition: all 0.2s; }
         .share-btn.note { background: #3b82f6; color: white; }
         .share-btn.quiz { background: #10b981; color: white; }
@@ -1299,6 +1412,15 @@ export default function StudyGroupsPage() {
         .no-group-selected, .no-messages, .no-content { display: flex; align-items: center; justify-content: center; height: 400px; opacity: 0.6; text-align: center; font-size: 14px; }
         .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; color: black; }
+        .members-modal { max-width: 500px; }
+        .members-list { max-height: 400px; overflow-y: auto; }
+        .member-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #e2e8f0; }
+        .member-info { display: flex; flex-direction: column; }
+        .member-info strong { font-size: 14px; }
+        .member-info small { font-size: 11px; color: #64748b; }
+        .creator-badge { background: #e0e7ff; color: #4f46e5; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+        .remove-member-btn { background: none; border: none; color: #ef4444; cursor: pointer; padding: 6px 12px; border-radius: 8px; font-size: 12px; display: flex; align-items: center; gap: 5px; transition: all 0.2s; }
+        .remove-member-btn:hover { background: #fee2e2; }
         .share-modal { max-width: 500px; }
         .content-view-modal { max-width: 700px; max-height: 80vh; overflow-y: auto; }
         .content-meta { font-size: 12px; color: #666; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
@@ -1336,6 +1458,10 @@ export default function StudyGroupsPage() {
           .groups-actions { width: 100%; justify-content: center; }
           .btn-create, .btn-join { flex: 1; justify-content: center; }
           .message-bubble { max-width: 85%; }
+          .group-header { flex-direction: column; }
+          .group-actions-buttons { width: 100%; }
+          .btn-members, .btn-leave { flex: 1; justify-content: center; }
+          .share-buttons { justify-content: center; }
         }
       `}</style>
     </div>

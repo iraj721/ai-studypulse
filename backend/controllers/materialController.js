@@ -1,8 +1,14 @@
 const Material = require("../models/Material");
 const Class = require("../models/Class");
-const { sendEmailToClass } = require("../services/notificationService");
+const { sendEmailToClass, sendClassroomNotification } = require("../services/notificationService");
 
-/* Teacher upload with email */
+/* Helper to get frontend URL */
+const getFrontendUrl = () => {
+  let url = process.env.FRONTEND_URL || "http://localhost:5173";
+  return url.replace(/\/$/, '');
+};
+
+/* Teacher upload with email - WITH DIRECT LINK */
 exports.uploadMaterial = async (req, res) => {
   try {
     const { title, content } = req.body;
@@ -28,8 +34,21 @@ exports.uploadMaterial = async (req, res) => {
     cls.materials.push(material._id);
     await cls.save();
 
-    // Send email notifications
-    await sendEmailToClass(cls.students, cls.name, title, content || "New study material available", "material");
+    const frontendUrl = getFrontendUrl();
+    const directLink = `${frontendUrl}/student/class/${cls._id}/materials`;
+
+    // Send email notifications with direct link
+    for (const student of cls.students) {
+      await sendClassroomNotification(
+        student.email,
+        student.name,
+        cls.name,
+        `${content || "New study material available"}\n\n📄 ${title}\n\n<a href="${directLink}">Click here to view material</a>`,
+        "material",
+        cls._id,
+        material._id
+      );
+    }
 
     res.status(201).json({ 
       success: true,

@@ -84,5 +84,13 @@ router.post('/groups/:id/share-insight', shareInsight);
 router.post('/groups/:id/share-flashcard', shareFlashcard);
 router.post('/groups/:id/share-flashcard-group', shareFlashcardGroup);
 router.post('/groups/:id/share-file', upload.single('file'), shareFile);
+// Leave group
+router.post('/groups/:id/leave', leaveGroup);
+
+// Remove member (creator only)
+router.delete('/groups/:id/members/:memberId', removeMember);
+
+// Get group members
+router.get('/groups/:id/members', getGroupMembers);
 
 module.exports = router;
