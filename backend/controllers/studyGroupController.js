@@ -682,6 +682,7 @@ const shareFlashcard = async (req, res) => {
 };
 
 // Share AI insight in group
+// Share AI insight in group
 const shareInsight = async (req, res) => {
   try {
     const { insightId } = req.body;
@@ -695,18 +696,34 @@ const shareInsight = async (req, res) => {
     let insightContent =
       "Based on your learning patterns, you're making great progress!";
 
+    // Try to get real insight from database
     try {
-      const AIInsight = require("../models/AIInsight");
-      const insight = await AIInsight.findOne({
+      const AIInsights = require("../models/AIInsight");
+      const insight = await AIInsights.findOne({
         _id: insightId,
         user: req.user._id,
       });
       if (insight) {
         insightTitle = insight.title || insightTitle;
         insightContent = insight.content || insightContent;
+        console.log(
+          "Found insight:",
+          insightTitle,
+          "Content length:",
+          insightContent.length,
+        );
+      } else {
+        console.log("Insight not found with ID:", insightId);
+        // Try to find any insight for this user
+        const anyInsight = await AIInsights.findOne({ user: req.user._id });
+        if (anyInsight) {
+          insightTitle = anyInsight.title || insightTitle;
+          insightContent = anyInsight.content || insightContent;
+          console.log("Using alternative insight:", insightTitle);
+        }
       }
     } catch (err) {
-      console.log("AIInsight model not found, using default insight");
+      console.log("AIInsights model error:", err.message);
     }
 
     const sharedContent = {
@@ -718,7 +735,7 @@ const shareInsight = async (req, res) => {
       sharedByName: req.user.name,
       sharedAt: new Date(),
       metadata: {
-        insightId: insightId,
+        insightId: insightId || "default",
         title: insightTitle,
         fullContent: insightContent,
       },
@@ -733,7 +750,7 @@ const shareInsight = async (req, res) => {
     const newMessage = {
       user: req.user._id,
       userName: req.user.name,
-      message: `💡 Shared an AI insight: ${insightTitle}`,
+      message: `💡 Shared an AI insight: ${insightTitle.substring(0, 50)}...`,
       type: "insight",
       sharedData: savedContent,
       deleted: false,
@@ -751,23 +768,25 @@ const shareInsight = async (req, res) => {
           member.email,
           member.name,
           group.name,
-          `${req.user.name} shared an AI insight: "${insightTitle}"`,
+          `${req.user.name} shared an AI insight: "${insightTitle.substring(0, 50)}..."`,
           "shared_insight",
         );
       }
     }
 
     const io = req.app.locals.io;
-    io.to(`group_${req.params.id}`).emit("newGroupMessage", {
-      _id: savedMessage._id,
-      user: req.user._id,
-      userName: req.user.name,
-      message: newMessage.message,
-      type: "insight",
-      sharedData: savedContent,
-      deleted: false,
-      createdAt: new Date(),
-    });
+    if (io) {
+      io.to(`group_${req.params.id}`).emit("newGroupMessage", {
+        _id: savedMessage._id,
+        user: req.user._id,
+        userName: req.user.name,
+        message: newMessage.message,
+        type: "insight",
+        sharedData: savedContent,
+        deleted: false,
+        createdAt: new Date(),
+      });
+    }
 
     res
       .status(201)
@@ -802,7 +821,11 @@ const getSharedContent = async (req, res) => {
 const viewSharedNote = async (req, res) => {
   try {
     const { groupId, noteId } = req.params;
-    console.log("View shared note called:", { groupId, noteId, userId: req.user._id });
+    console.log("View shared note called:", {
+      groupId,
+      noteId,
+      userId: req.user._id,
+    });
 
     const group = await StudyGroup.findById(groupId);
     if (!group) {
@@ -812,11 +835,14 @@ const viewSharedNote = async (req, res) => {
 
     if (!group.members.includes(req.user._id)) {
       console.log("User not a member of group");
-      return res.status(403).json({ message: "You are not a member of this group" });
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this group" });
     }
 
     const sharedContent = group.sharedContent.find(
-      (content) => content.type === "note" && content.metadata?.noteId === noteId
+      (content) =>
+        content.type === "note" && content.metadata?.noteId === noteId,
     );
 
     if (!sharedContent) {
@@ -839,11 +865,130 @@ const viewSharedNote = async (req, res) => {
   }
 };
 
+// Share entire flashcard group (all flashcards of a note)
+const shareFlashcardGroup = async (req, res) => {
+  try {
+    const { noteId } = req.body;
+    const group = await StudyGroup.findById(req.params.id);
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    if (!group.members.includes(req.user._id)) {
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this group" });
+    }
+
+    const Flashcard = require("../models/Flashcard");
+    const flashcards = await Flashcard.find({
+      user: req.user._id,
+      noteId: noteId,
+    });
+
+    if (!flashcards || flashcards.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No flashcards found for this note" });
+    }
+
+    const firstCard = flashcards[0];
+    const flashcardCount = flashcards.length;
+
+    // Create flashcard set content
+    let flashcardContent = `**${flashcardCount} Flashcards**\n\n`;
+    flashcards.forEach((card, index) => {
+      flashcardContent += `**${index + 1}. Q:** ${card.front}\n`;
+      flashcardContent += `**A:** ${card.back}\n\n`;
+    });
+
+    const sharedContent = {
+      type: "flashcard",
+      title: `📚 Flashcard Set: ${firstCard.noteTopic || "Study Cards"} (${flashcardCount} cards)`,
+      content: flashcardContent.substring(0, 500),
+      link: `/flashcards`,
+      sharedBy: req.user._id,
+      sharedByName: req.user.name,
+      sharedAt: new Date(),
+      metadata: {
+        noteId: noteId,
+        noteTopic: firstCard.noteTopic,
+        noteSubject: firstCard.noteSubject,
+        flashcardCount: flashcardCount,
+        flashcards: flashcards.map((card) => ({
+          front: card.front,
+          back: card.back,
+        })),
+      },
+    };
+
+    group.sharedContent.push(sharedContent);
+    group.updatedAt = new Date();
+    await group.save();
+
+    const savedContent = group.sharedContent[group.sharedContent.length - 1];
+
+    const newMessage = {
+      user: req.user._id,
+      userName: req.user.name,
+      message: `🃏 Shared a flashcard set: "${firstCard.noteTopic || "Study Cards"}" (${flashcardCount} cards)`,
+      type: "flashcard",
+      sharedData: savedContent,
+      deleted: false,
+      createdAt: new Date(),
+    };
+    group.messages.push(newMessage);
+    await group.save();
+
+    const savedMessage = group.messages[group.messages.length - 1];
+
+    const members = await User.find({ _id: { $in: group.members } });
+    for (const member of members) {
+      if (member._id.toString() !== req.user._id.toString()) {
+        await sendGroupEmailNotification(
+          member.email,
+          member.name,
+          group.name,
+          `${req.user.name} shared a flashcard set: "${firstCard.noteTopic || "Study Cards"}" (${flashcardCount} cards)`,
+          "shared_flashcard",
+        );
+      }
+    }
+
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(`group_${req.params.id}`).emit("newGroupMessage", {
+        _id: savedMessage._id,
+        user: req.user._id,
+        userName: req.user.name,
+        message: newMessage.message,
+        type: "flashcard",
+        sharedData: savedContent,
+        deleted: false,
+        createdAt: new Date(),
+      });
+    }
+
+    res.status(201).json({
+      message: "Flashcard set shared successfully",
+      data: savedContent,
+    });
+  } catch (err) {
+    console.error("Share flashcard group error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+};
+
 // View shared quiz (accessible by all group members)
 const viewSharedQuiz = async (req, res) => {
   try {
     const { groupId, quizId } = req.params;
-    console.log("View shared quiz called:", { groupId, quizId, userId: req.user._id });
+    console.log("View shared quiz called:", {
+      groupId,
+      quizId,
+      userId: req.user._id,
+    });
 
     const group = await StudyGroup.findById(groupId);
     if (!group) {
@@ -851,11 +996,14 @@ const viewSharedQuiz = async (req, res) => {
     }
 
     if (!group.members.includes(req.user._id)) {
-      return res.status(403).json({ message: "You are not a member of this group" });
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this group" });
     }
 
     const sharedContent = group.sharedContent.find(
-      (content) => content.type === "quiz" && content.metadata?.quizId === quizId
+      (content) =>
+        content.type === "quiz" && content.metadata?.quizId === quizId,
     );
 
     if (!sharedContent) {
@@ -880,7 +1028,11 @@ const viewSharedQuiz = async (req, res) => {
 const viewSharedFlashcard = async (req, res) => {
   try {
     const { groupId, flashcardId } = req.params;
-    console.log("View shared flashcard called:", { groupId, flashcardId, userId: req.user._id });
+    console.log("View shared flashcard called:", {
+      groupId,
+      flashcardId,
+      userId: req.user._id,
+    });
 
     const group = await StudyGroup.findById(groupId);
     if (!group) {
@@ -888,11 +1040,15 @@ const viewSharedFlashcard = async (req, res) => {
     }
 
     if (!group.members.includes(req.user._id)) {
-      return res.status(403).json({ message: "You are not a member of this group" });
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this group" });
     }
 
     const sharedContent = group.sharedContent.find(
-      (content) => content.type === "flashcard" && content.metadata?.flashcardId === flashcardId
+      (content) =>
+        content.type === "flashcard" &&
+        content.metadata?.flashcardId === flashcardId,
     );
 
     if (!sharedContent) {
@@ -919,31 +1075,33 @@ const shareFile = async (req, res) => {
   try {
     const file = req.file;
     const groupId = req.params.id;
-    
+
     if (!file) {
       return res.status(400).json({ message: "File is required" });
     }
-    
+
     const group = await StudyGroup.findById(groupId);
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
     }
-    
+
     if (!group.members.includes(req.user._id)) {
-      return res.status(403).json({ message: "You are not a member of this group" });
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this group" });
     }
-    
+
     const fileUrl = `/uploads/shared/${file.filename}`;
     const fileType = file.mimetype;
     const fileName = file.originalname;
     const fileSize = file.size;
-    
+
     let fileIcon = "📄";
     if (fileType === "application/pdf") fileIcon = "📕";
     else if (fileType.includes("word")) fileIcon = "📘";
     else if (fileType.includes("image")) fileIcon = "🖼️";
     else if (fileType === "text/plain") fileIcon = "📃";
-    
+
     const sharedContent = {
       type: "file",
       title: `${fileIcon} ${fileName}`,
@@ -957,16 +1115,16 @@ const shareFile = async (req, res) => {
         fileName: fileName,
         fileType: fileType,
         fileSize: fileSize,
-        fileIcon: fileIcon
-      }
+        fileIcon: fileIcon,
+      },
     };
-    
+
     group.sharedContent.push(sharedContent);
     group.updatedAt = new Date();
     await group.save();
-    
+
     const savedContent = group.sharedContent[group.sharedContent.length - 1];
-    
+
     const newMessage = {
       user: req.user._id,
       userName: req.user.name,
@@ -974,13 +1132,13 @@ const shareFile = async (req, res) => {
       type: "file",
       sharedData: savedContent,
       deleted: false,
-      createdAt: new Date()
+      createdAt: new Date(),
     };
     group.messages.push(newMessage);
     await group.save();
-    
+
     const savedMessage = group.messages[group.messages.length - 1];
-    
+
     try {
       const members = await User.find({ _id: { $in: group.members } });
       for (const member of members) {
@@ -990,14 +1148,17 @@ const shareFile = async (req, res) => {
             member.name,
             group.name,
             `${req.user.name} shared a file: "${fileName}"`,
-            "shared_file"
+            "shared_file",
           );
         }
       }
     } catch (emailErr) {
-      console.error("Email notification error (non-critical):", emailErr.message);
+      console.error(
+        "Email notification error (non-critical):",
+        emailErr.message,
+      );
     }
-    
+
     const io = req.app.locals.io;
     if (io) {
       io.to(`group_${groupId}`).emit("newGroupMessage", {
@@ -1008,11 +1169,13 @@ const shareFile = async (req, res) => {
         type: "file",
         sharedData: savedContent,
         deleted: false,
-        createdAt: new Date()
+        createdAt: new Date(),
       });
     }
-    
-    res.status(201).json({ message: "File shared successfully", data: savedContent });
+
+    res
+      .status(201)
+      .json({ message: "File shared successfully", data: savedContent });
   } catch (err) {
     console.error("Share file error:", err);
     res.status(500).json({ message: "Server error", error: err.message });
@@ -1032,6 +1195,7 @@ module.exports = {
   shareYouTubeSummary,
   shareInsight,
   shareFlashcard,
+  shareFlashcardGroup,
   shareFile,
   getSharedContent,
   viewSharedNote,

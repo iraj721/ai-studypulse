@@ -46,6 +46,7 @@ const {
   shareYouTubeSummary,
   shareInsight,
   shareFlashcard,
+  shareFlashcardGroup,
   shareFile,
   getSharedContent,
   viewSharedNote,
@@ -70,11 +71,10 @@ router.delete('/groups/:id/messages/:messageId', deleteMessage);
 router.get('/groups/:id/shared-content', getSharedContent);
 router.delete('/groups/:id/shared-content/:contentId', deleteSharedContent);
 
-// ============ IMPORTANT: VIEW SHARED CONTENT ROUTES ============
-// These MUST be before the /groups/:id routes to avoid conflicts
-router.get('/groups/:groupId/view-note/:noteId', protect, viewSharedNote);
-router.get('/groups/:groupId/view-quiz/:quizId', protect, viewSharedQuiz);
-router.get('/groups/:groupId/view-flashcard/:flashcardId', protect, viewSharedFlashcard);
+// View shared content routes
+router.get('/groups/:groupId/view-note/:noteId', viewSharedNote);
+router.get('/groups/:groupId/view-quiz/:quizId', viewSharedQuiz);
+router.get('/groups/:groupId/view-flashcard/:flashcardId', viewSharedFlashcard);
 
 // Share specific content
 router.post('/groups/:id/share-note', shareNote);
@@ -82,6 +82,7 @@ router.post('/groups/:id/share-quiz', shareQuiz);
 router.post('/groups/:id/share-youtube', shareYouTubeSummary);
 router.post('/groups/:id/share-insight', shareInsight);
 router.post('/groups/:id/share-flashcard', shareFlashcard);
+router.post('/groups/:id/share-flashcard-group', shareFlashcardGroup);
 router.post('/groups/:id/share-file', upload.single('file'), shareFile);
 
 module.exports = router;
