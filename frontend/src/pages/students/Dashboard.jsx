@@ -473,6 +473,34 @@ export default function Dashboard() {
               View Bookmarks
             </Link>
           </div>
+
+          {/* AI Suggestions Card */}
+          <div className="card summary-card shadow-sm border-0 text-center hover-card bg-white">
+            <div className="fs-3 mb-2">💡</div>
+            <h6>AI Suggestions</h6>
+            <p className="text-muted small mb-2">
+              Personalized study recommendations
+            </p>
+            <div className="mt-2">
+              {weakTopics.suggestions?.length > 0 ? (
+                <div className="small text-start">
+                  {weakTopics.suggestions.slice(0, 2).map((s, i) => (
+                    <div key={i} className="mb-1">
+                      • {s.substring(0, 40)}...
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-muted small">No suggestions yet</span>
+              )}
+            </div>
+            <Link
+              to="/quizzes/generate"
+              className="btn btn-sm btn-outline-primary mt-2 w-100"
+            >
+              View Suggestions
+            </Link>
+          </div>
         </div>
 
         {/* CHARTS & RECENT ACTIVITIES */}
@@ -498,115 +526,86 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Recent Activities */}
-            <div className="card shadow-sm mb-3 p-3 hover-card bg-white">
-              <h5 className="section-title">Recent Activities</h5>
-              <div className="table-responsive">
-                {activities.length > 0 ? (
-                  <table className="table table-hover align-middle">
-                    <thead>
-                      <tr>
-                        <th>Subject</th>
-                        <th>Topic</th>
-                        <th>Duration</th>
-                        <th>Difficulty</th>
-                        <th>Insights</th>
-                        <th>When</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activities.map((a) => (
-                        <tr key={a._id}>
-                          <td data-label="Subject">{a.subject}</td>
-                          <td data-label="Topic">{a.topic}</td>
-                          <td data-label="Duration">{a.durationMinutes} min</td>
-                          <td data-label="Difficulty">
-                            {a.difficulty === "easy"
-                              ? "🟢 Easy"
-                              : a.difficulty === "medium"
-                                ? "🟡 Medium"
-                                : "🔴 Hard"}
-                          </td>
-                          <td data-label="Insights">
-                            {(a.insights || []).length > 0 ? (
-                              <button
-                                className="btn btn-sm btn-outline-info"
-                                onClick={() => openInsightsModal(a)}
-                              >
-                                View
-                              </button>
-                            ) : (
-                              "-"
-                            )}
-                          </td>
-                          <td data-label="When">
-                            {new Date(a.createdAt).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <div className="empty-activities">
-                    <div className="empty-icon">📭</div>
-                    <h6>No Recent Activities</h6>
-                    <p>
-                      Start your study journey by adding your first activity!
-                    </p>
-                    <Link
-                      to="/activities/add"
-                      className="btn btn-sm btn-primary"
-                    >
-                      + Add Activity
-                    </Link>
-                  </div>
-                )}
-                {activities.length > 0 && (
-                  <Link
-                    to="/activities"
-                    className="btn btn-sm btn-outline-primary mt-2"
-                  >
-                    View All Activities
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
+            {/* Recent Activities - Fully Responsive */}
+            <div className="card shadow-sm mb-3 p-3 hover-card bg-white recent-activities-card">
+              <h5 className="section-title">📋 Recent Activities</h5>
 
-          {/* RIGHT SIDEBAR - Suggestions */}
-          <div className="col-md-4">
-            <div className="card summary-card shadow-sm hover-card bg-white p-3">
-              <h5 className="text-success mb-3">💡 Suggestions</h5>
-              {weakTopics.suggestions?.length > 0 ? (
-                <ul className="list-unstyled">
-                  {weakTopics.suggestions.map((s, i) => (
-                    <li key={i} className="suggestion-item">
-                      <span className="suggestion-text">• {s}</span>
-                      <button
-                        className="btn btn-sm btn-outline-primary suggestion-btn"
-                        onClick={() =>
-                          generateQuiz(weakTopics.weakTopics[i] || s)
-                        }
-                      >
-                        Generate Quiz
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+              {activities.length > 0 ? (
+                <>
+                  <div className="table-responsive">
+                    <table className="activities-table">
+                      <thead>
+                        <tr>
+                          <th>Subject</th>
+                          <th>Topic</th>
+                          <th>Duration</th>
+                          <th>Difficulty</th>
+                          <th>Insights</th>
+                          <th>When</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activities.map((a) => (
+                          <tr key={a._id}>
+                            <td data-label="Subject">
+                              <strong>{a.subject}</strong>
+                            </td>
+                            <td data-label="Topic">{a.topic}</td>
+                            <td data-label="Duration">
+                              <span className="fw-medium">
+                                {a.durationMinutes} min
+                              </span>
+                            </td>
+                            <td data-label="Difficulty">
+                              <span
+                                className={`difficulty-badge ${a.difficulty}`}
+                              >
+                                {a.difficulty === "easy" && "🟢 Easy"}
+                                {a.difficulty === "medium" && "🟡 Medium"}
+                                {a.difficulty === "hard" && "🔴 Hard"}
+                              </span>
+                            </td>
+                            <td data-label="Insights">
+                              {(a.insights || []).length > 0 ? (
+                                <button
+                                  className="insight-btn"
+                                  onClick={() => openInsightsModal(a)}
+                                >
+                                  View Insights
+                                </button>
+                              ) : (
+                                <span className="text-muted">—</span>
+                              )}
+                            </td>
+                            <td data-label="When">
+                              <span className="text-muted small">
+                                {new Date(a.createdAt).toLocaleString()}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {activities.length > 0 && (
+                    <div className="text-center mt-3">
+                      <Link to="/activities" className="view-all-btn">
+                        View All Activities →
+                      </Link>
+                    </div>
+                  )}
+                </>
               ) : (
-                <div className="empty-suggestions">
-                  <div className="empty-icon">🎯</div>
-                  <h6>No Suggestions Yet</h6>
-                  <p>Take some quizzes to get personalized recommendations!</p>
-                  <Link
-                    to="/quizzes/generate"
-                    className="btn btn-sm btn-primary"
-                  >
-                    Take a Quiz
+                <div className="empty-activities">
+                  <div className="empty-icon">📭</div>
+                  <h6>No Recent Activities</h6>
+                  <p>Start your study journey by adding your first activity!</p>
+                  <Link to="/activities/add" className="btn btn-sm btn-primary">
+                    + Add Activity
                   </Link>
                 </div>
               )}
-              <hr />
             </div>
           </div>
         </div>
@@ -722,7 +721,6 @@ export default function Dashboard() {
         }
         .add-activity-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 15px 35px rgba(0,0,0,0.15); }
         
-        /* Summary Cards Grid - 3 columns default */
         .summary-cards-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -747,7 +745,6 @@ export default function Dashboard() {
         .chart-wrapper { width: 100%; height: 350px; }
         .section-title { color: #1e3a8a; font-weight: 700; }
         
-        /* Empty States */
         .empty-activities, .empty-suggestions {
           text-align: center;
           padding: 40px 20px;
@@ -757,24 +754,6 @@ export default function Dashboard() {
         }
         .empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
         
-        /* Suggestion Items */
-        .suggestion-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 12px;
-          margin-bottom: 8px;
-          background: #f8f9fa;
-          border-radius: 12px;
-          transition: all 0.2s;
-          flex-wrap: wrap;
-          gap: 10px;
-        }
-        .suggestion-item:hover { background: #e5e7eb; transform: translateX(4px); }
-        .suggestion-text { flex: 1; font-size: 0.85rem; }
-        .suggestion-btn { font-size: 0.7rem; padding: 4px 12px; }
-        
-        /* History Modal */
         .history-modal-overlay {
           position: fixed; top: 0; left: 0; right: 0; bottom: 0;
           background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 1100;
@@ -792,6 +771,120 @@ export default function Dashboard() {
         .history-modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
         .history-summary { padding: 12px; background: #f3f4f6; border-radius: 8px; text-align: center; }
         
+        /* Recent Activities Table - Fully Responsive */
+        .recent-activities-card {
+          overflow-x: auto;
+        }
+        .activities-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        .activities-table thead tr {
+          background: #f8fafc;
+          border-bottom: 2px solid #e2e8f0;
+        }
+        .activities-table th {
+          padding: 12px 16px;
+          text-align: left;
+          font-weight: 600;
+          color: #1e293b;
+          font-size: 13px;
+        }
+        .activities-table td {
+          padding: 12px 16px;
+          border-bottom: 1px solid #e2e8f0;
+          vertical-align: middle;
+        }
+        .difficulty-badge {
+          display: inline-block;
+          padding: 4px 10px;
+          border-radius: 20px;
+          font-size: 11px;
+          font-weight: 500;
+        }
+        .difficulty-badge.easy {
+          background: #dcfce7;
+          color: #166534;
+        }
+        .difficulty-badge.medium {
+          background: #fef3c7;
+          color: #92400e;
+        }
+        .difficulty-badge.hard {
+          background: #fee2e2;
+          color: #991b1b;
+        }
+        .insight-btn {
+          background: none;
+          border: 1px solid #3b82f6;
+          color: #3b82f6;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 11px;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .insight-btn:hover {
+          background: #3b82f6;
+          color: white;
+        }
+        .view-all-btn {
+          display: inline-block;
+          margin-top: 16px;
+          color: #3b82f6;
+          text-decoration: none;
+          font-size: 13px;
+          font-weight: 500;
+        }
+        .view-all-btn:hover {
+          text-decoration: underline;
+        }
+        
+        /* Mobile View for Activities Table */
+        @media (max-width: 768px) {
+          .activities-table thead {
+            display: none;
+          }
+          .activities-table tbody tr {
+            display: block;
+            margin-bottom: 16px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            background: white;
+          }
+          .activities-table td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border: none;
+            gap: 10px;
+          }
+          .activities-table td::before {
+            content: attr(data-label);
+            font-weight: 600;
+            color: #64748b;
+            font-size: 12px;
+            min-width: 90px;
+          }
+          .difficulty-badge {
+            display: inline-block;
+          }
+        }
+        
+        /* Small Mobile */
+        @media (max-width: 480px) {
+          .activities-table td {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+          }
+          .activities-table td::before {
+            margin-bottom: 4px;
+          }
+        }
+        
         /* Responsive Breakpoints */
         @media (max-width: 992px) {
           .hero-section { min-height: 75vh; padding: 0 30px; text-align: center; }
@@ -803,12 +896,6 @@ export default function Dashboard() {
           .hero-section h1 { font-size: 1.8rem; }
           .summary-cards-grid { grid-template-columns: 1fr; }
           .chart-wrapper { height: 250px; }
-          .suggestion-item { flex-direction: column; text-align: center; }
-          .suggestion-btn { width: 100%; }
-          .table thead { display: none; }
-          .table tbody tr { display: block; margin-bottom: 1rem; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
-          .table tbody tr td { display: flex; justify-content: space-between; padding: 6px 0; }
-          .table tbody tr td::before { content: attr(data-label); font-weight: 600; width: 40%; }
         }
         @media (max-width: 576px) {
           .hero-section { min-height: 65vh; padding: 0 15px; }
@@ -817,6 +904,129 @@ export default function Dashboard() {
           .summary-card { padding: 12px; min-height: auto; }
           .summary-card h3 { font-size: 1.2rem; }
           .chart-wrapper { height: 200px; }
+        }
+        
+        /* Insights Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2000;
+          backdrop-filter: blur(4px);
+        }
+        .insights-modal {
+          background: white;
+          border-radius: 24px;
+          width: 90%;
+          max-width: 550px;
+          max-height: 80vh;
+          overflow: hidden;
+          animation: modalSlideIn 0.3s ease;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        }
+        @keyframes modalSlideIn {
+          from { opacity: 0; transform: scale(0.95) translateY(20px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .insights-modal-header {
+          background: linear-gradient(135deg, #4f46e5, #6366f1);
+          padding: 20px 24px;
+          color: white;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .insights-modal-header h3 { margin: 0; font-size: 1.35rem; font-weight: 600; }
+        .insights-modal-close {
+          background: rgba(255,255,255,0.2);
+          border: none;
+          color: white;
+          font-size: 24px;
+          cursor: pointer;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+        .insights-modal-close:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
+        .insights-modal-body { padding: 24px; max-height: 60vh; overflow-y: auto; }
+        .activity-info-card {
+          background: #f8fafc;
+          border-radius: 16px;
+          padding: 16px;
+          margin-bottom: 20px;
+          border-left: 4px solid #4f46e5;
+        }
+        .activity-info-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #4f46e5;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          margin-bottom: 12px;
+        }
+        .activity-info-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 12px;
+        }
+        .activity-info-item {
+          text-align: center;
+          padding: 8px;
+          background: white;
+          border-radius: 12px;
+        }
+        .activity-info-label { font-size: 11px; color: #64748b; margin-bottom: 4px; }
+        .activity-info-value { font-size: 16px; font-weight: 700; color: #1e293b; }
+        .insights-list { display: flex; flex-direction: column; gap: 12px; }
+        .insight-item {
+          background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
+          border-radius: 14px;
+          padding: 16px;
+          border-left: 4px solid #f59e0b;
+          transition: all 0.2s;
+        }
+        .insight-item:hover { transform: translateX(4px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .insight-bullet { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+        .bullet-point { color: #f59e0b; font-weight: bold; font-size: 16px; }
+        .bullet-text { flex: 1; color: #92400e; line-height: 1.5; font-size: 14px; }
+        .insights-empty { text-align: center; padding: 40px 20px; }
+        .insights-empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.5; }
+        .insights-modal-footer {
+          padding: 16px 24px;
+          border-top: 1px solid #e2e8f0;
+          display: flex;
+          justify-content: flex-end;
+          background: #f8fafc;
+        }
+        .insights-modal-footer .btn-close-modal {
+          background: #e2e8f0;
+          border: none;
+          padding: 8px 20px;
+          border-radius: 40px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #475569;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+        .insights-modal-footer .btn-close-modal:hover { background: #cbd5e1; }
+        .insights-modal-body::-webkit-scrollbar { width: 6px; }
+        .insights-modal-body::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .insights-modal-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        @media (max-width: 640px) {
+          .activity-info-grid { grid-template-columns: 1fr; gap: 8px; }
+          .insights-modal { width: 95%; }
+          .insights-modal-header h3 { font-size: 1.1rem; }
         }
       `}</style>
     </div>

@@ -11,8 +11,8 @@ export default function AuthCard({
   onSubmit,
   linkText,
   linkTo,
-  loading,
-  forgotPasswordLink = false, // New prop
+  isLoading = false,
+  forgotPasswordLink = false,
 }) {
   const [form, setForm] = useState(
     fields.reduce((acc, f) => ({ ...acc, [f.name]: "" }), {}),
@@ -76,6 +76,7 @@ export default function AuthCard({
                   className="form-select form-input"
                   id={`floating${f.name}`}
                   required={f.required}
+                  disabled={isLoading}
                 >
                   {f.options.map((opt, i) => (
                     <option key={i} value={opt.value}>
@@ -99,6 +100,7 @@ export default function AuthCard({
                   id={`floating${f.name}`}
                   placeholder={f.label}
                   required={f.required}
+                  disabled={isLoading}
                 />
               )}
               <label htmlFor={`floating${f.name}`}>{f.label}</label>
@@ -134,17 +136,24 @@ export default function AuthCard({
           <button
             type="submit"
             className="btn btn-primary w-100 btn-login"
-            disabled={loading}
+            disabled={isLoading}
           >
-            {loading ? submitText + "..." : submitText}
+            {isLoading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                {submitText}...
+              </>
+            ) : (
+              submitText
+            )}
           </button>
         </form>
 
         {linkText && linkTo && (
           <div className="d-flex justify-content-between mt-3">
-            <a href={linkTo} className="link-primary small">
+            <Link to={linkTo} className="link-primary small">
               {linkText}
-            </a>
+            </Link>
           </div>
         )}
       </div>
@@ -183,6 +192,11 @@ export default function AuthCard({
           box-shadow: 0 0 12px rgba(0,123,255,0.4);
           outline: none;
         }
+        .form-floating>.form-control:disabled, .form-floating>.form-select:disabled {
+          background: #e9ecef;
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
         .toggle-password {
           position: absolute;
           top: 50%;
@@ -214,7 +228,7 @@ export default function AuthCard({
           font-weight: 600;
           transition: transform 0.3s, box-shadow 0.3s, background 0.3s;
         }
-        .btn-login:hover {
+        .btn-login:hover:not(:disabled) {
           transform: translateY(-3px) scale(1.03);
           box-shadow: 0 15px 35px rgba(0,0,0,0.25);
           background: linear-gradient(135deg, #005ce6, #00bfff);
@@ -222,15 +236,8 @@ export default function AuthCard({
         .btn-login:disabled {
           opacity: 0.6;
           cursor: not-allowed;
+          transform: none;
         }
-        a.link-primary {
-          text-decoration: none;
-          font-weight: 500;
-        }
-        a.link-primary:hover {
-          text-decoration: underline;
-        }
-        /* Forgot Password Link Style */
         .forgot-link {
           color: #0066ff;
           text-decoration: none;
@@ -240,6 +247,13 @@ export default function AuthCard({
         }
         .forgot-link:hover {
           color: #005ce6;
+          text-decoration: underline;
+        }
+        .link-primary {
+          color: #0066ff;
+          text-decoration: none;
+        }
+        .link-primary:hover {
           text-decoration: underline;
         }
         @keyframes fadeInUp {

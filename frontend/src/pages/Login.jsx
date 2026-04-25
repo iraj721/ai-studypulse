@@ -1,16 +1,19 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../services/api";
 import AuthCard from "../components/AuthCard";
 
 export default function Login() {
   const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (form, setToast) => {
     if (!form.email || !form.password) {
       setToast({ message: "Please fill all fields", type: "error" });
       return;
     }
+    
+    setIsLoading(true);
     
     try {
       const res = await api.post("/auth/login", form);
@@ -29,6 +32,7 @@ export default function Login() {
       
       setToast({ message: "Login successful!", type: "success" });
     } catch (err) {
+      setIsLoading(false);
       // Check if email not verified
       if (err.response?.data?.requiresVerification) {
         localStorage.setItem("pendingEmail", form.email);
@@ -52,7 +56,8 @@ export default function Login() {
       onSubmit={handleLogin}
       linkText="Don't have an account? Register"
       linkTo="/register"
-      forgotPasswordLink={true}  // ← Naya prop
+      forgotPasswordLink={true}
+      isLoading={isLoading}
     />
   );
 }
