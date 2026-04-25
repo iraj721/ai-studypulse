@@ -20,8 +20,6 @@ import {
   FaUserPlus,
   FaIdCard,
   FaFilePdf,
-  FaFileWord,
-  FaDownload,
   FaEye,
 } from "react-icons/fa";
 
@@ -44,7 +42,6 @@ export default function StudyGroupsPage() {
   const [notes, setNotes] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   const [videos, setVideos] = useState([]);
-  const [flashcards, setFlashcards] = useState([]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareType, setShareType] = useState(null);
   const [selectedItemId, setSelectedItemId] = useState("");
@@ -57,6 +54,7 @@ export default function StudyGroupsPage() {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [insights, setInsights] = useState([]);
   const [flashcardGroups, setFlashcardGroups] = useState([]);
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
@@ -79,8 +77,11 @@ export default function StudyGroupsPage() {
       socketRef.current.on("newGroupMessage", (data) => {
         console.log("New message received:", data);
         setMessages((prev) => {
-          if (prev.some((msg) => msg._id === data._id)) return prev;
-          return [...prev, data];
+          // Remove temp message if exists, then add real one
+          const filtered = prev.filter(
+            (msg) => msg._id !== data._id && !msg.isTemp,
+          );
+          return [...filtered, data];
         });
         setTimeout(scrollToBottom, 100);
       });
@@ -175,8 +176,6 @@ export default function StudyGroupsPage() {
       setVideos(videosRes.data || []);
       setFlashcardGroups(flashcardGroupsRes.data || []);
       setInsights(insightsRes.data || []);
-
-      console.log("Flashcard groups loaded:", flashcardGroupsRes.data);
     } catch (err) {
       console.error("Fetch error:", err);
     }
@@ -247,15 +246,45 @@ export default function StudyGroupsPage() {
   };
 
   const sendMessage = async () => {
-    if (!messageText.trim() || !selectedGroup) return;
+    if (!messageText.trim() || !selectedGroup || sendingMessage) return;
+
+    setSendingMessage(true);
+    const messageContent = messageText;
+    setMessageText("");
+
+    // Optimistically add message to UI
+    const tempId = Date.now();
+    const tempMessage = {
+      _id: tempId,
+      user: user._id,
+      userName: user.name,
+      message: messageContent,
+      type: "text",
+      deleted: false,
+      createdAt: new Date(),
+      isTemp: true,
+    };
+    setMessages((prev) => [...prev, tempMessage]);
+    scrollToBottom();
+
     try {
-      await api.post(`/student/groups/${selectedGroup._id}/messages`, {
-        message: messageText,
-        type: "text",
-      });
-      setMessageText("");
+      const response = await api.post(
+        `/student/groups/${selectedGroup._id}/messages`,
+        {
+          message: messageContent,
+          type: "text",
+        },
+      );
+
+      setMessages((prev) =>
+        prev.map((msg) => (msg._id === tempId ? response.data.data : msg)),
+      );
     } catch (err) {
+      setMessages((prev) => prev.filter((msg) => msg._id !== tempId));
       setToast({ message: "Failed to send message", type: "error" });
+      setMessageText(messageContent);
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -364,10 +393,9 @@ export default function StudyGroupsPage() {
     setUploadingFile(true);
     const formData = new FormData();
     formData.append("file", selectedFile);
-    formData.append("groupId", selectedGroup._id);
 
     try {
-      const response = await api.post(
+      await api.post(
         `/student/groups/${selectedGroup._id}/share-file`,
         formData,
         {
@@ -414,7 +442,6 @@ export default function StudyGroupsPage() {
   };
 
   const openSharedContent = async (item) => {
-    // For notes - directly show from the shared content data
     if (item.type === "note") {
       setViewingContent({
         type: "note",
@@ -426,9 +453,7 @@ export default function StudyGroupsPage() {
         sharedAt: item.sharedAt,
       });
       setShowContentModal(true);
-    }
-    // For quizzes - directly show from the shared content data
-    else if (item.type === "quiz") {
+    } else if (item.type === "quiz") {
       setViewingContent({
         type: "quiz",
         title: item.title,
@@ -441,9 +466,7 @@ export default function StudyGroupsPage() {
         sharedAt: item.sharedAt,
       });
       setShowContentModal(true);
-    }
-    // For flashcards - directly show from the shared content data
-    else if (item.type === "flashcard") {
+    } else if (item.type === "flashcard") {
       setViewingContent({
         type: "flashcard",
         title: item.title,
@@ -454,9 +477,7 @@ export default function StudyGroupsPage() {
         sharedAt: item.sharedAt,
       });
       setShowContentModal(true);
-    }
-    // For youtube videos
-    else if (item.type === "youtube") {
+    } else if (item.type === "youtube") {
       setViewingContent({
         type: "youtube",
         title: item.title,
@@ -465,9 +486,7 @@ export default function StudyGroupsPage() {
         sharedAt: item.sharedAt,
       });
       setShowContentModal(true);
-    }
-    // For insights
-    else if (item.type === "insight") {
+    } else if (item.type === "insight") {
       setViewingContent({
         type: "insight",
         title: item.title,
@@ -477,14 +496,10 @@ export default function StudyGroupsPage() {
         sharedAt: item.sharedAt,
       });
       setShowContentModal(true);
-    }
-    // For files
-    else if (item.type === "file") {
-      // Get the full file URL
+    } else if (item.type === "file") {
       const fileUrl = item.metadata?.fileUrl || item.link;
       const fileName = item.metadata?.fileName || item.title;
       const fileType = item.metadata?.fileType || "";
-
       setViewingContent({
         type: "file",
         title: fileName,
@@ -496,10 +511,6 @@ export default function StudyGroupsPage() {
       });
       setShowContentModal(true);
     }
-  };
-
-  const downloadFile = (fileUrl, fileName) => {
-    window.open(fileUrl, "_blank");
   };
 
   if (loading) {
@@ -663,9 +674,9 @@ export default function StudyGroupsPage() {
                       ) : (
                         messages.map((msg) => {
                           const isOwnMessage =
-                            msg.user?._id === user?._id ||
-                            msg.user === user?._id;
+                            msg.user?._id === user._id || msg.user === user._id;
                           const isDeleted = msg.deleted === true;
+                          const isTemp = msg.isTemp === true;
                           return (
                             <div
                               key={msg._id}
@@ -677,7 +688,7 @@ export default function StudyGroupsPage() {
                                 </div>
                               )}
                               <div
-                                className={`message-bubble ${isOwnMessage ? "own" : "other"} ${isDeleted ? "deleted" : ""}`}
+                                className={`message-bubble ${isOwnMessage ? "own" : "other"} ${isDeleted ? "deleted" : ""} ${isTemp ? "temp" : ""}`}
                               >
                                 <div className="message-text">
                                   {msg.type !== "text" && !isDeleted && (
@@ -691,12 +702,19 @@ export default function StudyGroupsPage() {
                                     </span>
                                   )}
                                   {msg.message}
+                                  {isTemp && (
+                                    <span className="sending-indicator">
+                                      {" "}
+                                      (sending...)
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="message-footer">
                                   <span className="message-time">
                                     {formatTime(msg.createdAt)}
                                   </span>
                                   {!isDeleted &&
+                                    !isTemp &&
                                     (isOwnMessage ||
                                       canDeleteForEveryone(msg)) && (
                                       <div className="message-delete-wrapper">
@@ -749,9 +767,11 @@ export default function StudyGroupsPage() {
                         onChange={(e) => setMessageText(e.target.value)}
                         placeholder="Type a message..."
                         onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                        disabled={sendingMessage}
                       />
-                      <button onClick={sendMessage}>
-                        <FaPaperPlane /> Send
+                      <button onClick={sendMessage} disabled={sendingMessage}>
+                        <FaPaperPlane />{" "}
+                        {sendingMessage ? "Sending..." : "Send"}
                       </button>
                     </div>
                   </div>
@@ -767,11 +787,11 @@ export default function StudyGroupsPage() {
                     ) : (
                       sharedContent.map((item) => {
                         const isOwner =
-                          item.sharedBy?._id === user?._id ||
-                          item.sharedBy === user?._id;
+                          item.sharedBy?._id === user._id ||
+                          item.sharedBy === user._id;
                         const isGroupCreator =
-                          selectedGroup.createdBy?._id === user?._id ||
-                          selectedGroup.createdBy === user?._id;
+                          selectedGroup.createdBy?._id === user._id ||
+                          selectedGroup.createdBy === user._id;
                         const canDelete = isOwner || isGroupCreator;
                         return (
                           <div key={item._id} className="shared-item">
@@ -910,14 +930,11 @@ export default function StudyGroupsPage() {
               {shareType === "insight" && insights.length > 0
                 ? insights.map((insight) => (
                     <option key={insight._id} value={insight._id}>
-                      💡 {insight.title?.substring(0, 80) || "AI Insight"}...
+                      💡 {insight.title?.substring(0, 80)}...
                     </option>
                   ))
                 : shareType === "insight" && (
-                    <option disabled>
-                      No insights found. Add study activities to generate
-                      insights!
-                    </option>
+                    <option disabled>No insights found</option>
                   )}
               {shareType === "flashcard" && flashcardGroups.length > 0
                 ? flashcardGroups.map((group) => (
@@ -931,9 +948,7 @@ export default function StudyGroupsPage() {
                     </option>
                   ))
                 : shareType === "flashcard" && (
-                    <option disabled>
-                      No flashcard sets found. Generate some first!
-                    </option>
+                    <option disabled>No flashcard sets found</option>
                   )}
             </select>
             <div className="modal-actions">
@@ -1011,7 +1026,6 @@ export default function StudyGroupsPage() {
                   </div>
                 </div>
               )}
-
               {viewingContent.type === "quiz" && viewingContent.content && (
                 <div className="quiz-content">
                   <p>
@@ -1051,7 +1065,6 @@ export default function StudyGroupsPage() {
                   </div>
                 </div>
               )}
-
               {viewingContent.type === "flashcard" && (
                 <div className="flashcard-set-content">
                   <p>
@@ -1072,7 +1085,6 @@ export default function StudyGroupsPage() {
                   </div>
                 </div>
               )}
-
               {viewingContent.type === "youtube" && (
                 <div className="youtube-content">
                   <strong>🎥 Video Summary:</strong>
@@ -1094,7 +1106,6 @@ export default function StudyGroupsPage() {
                   </div>
                 </div>
               )}
-
               {viewingContent.type === "insight" && (
                 <div className="insight-content">
                   <div className="insight-text">
@@ -1107,9 +1118,7 @@ export default function StudyGroupsPage() {
                               className={
                                 line.startsWith("•")
                                   ? "bullet-point"
-                                  : line.startsWith("1.") ||
-                                      line.startsWith("2.") ||
-                                      line.startsWith("3.")
+                                  : line.match(/^\d+\./)
                                     ? "numbered-point"
                                     : ""
                               }
@@ -1125,7 +1134,6 @@ export default function StudyGroupsPage() {
                   </div>
                 </div>
               )}
-
               {viewingContent.type === "file" && (
                 <div className="file-content">
                   <p>
@@ -1231,8 +1239,10 @@ export default function StudyGroupsPage() {
         .message-bubble.own { background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; border-bottom-right-radius: 4px; }
         .message-bubble.other { background: rgba(255,255,255,0.15); color: white; border-bottom-left-radius: 4px; }
         .message-bubble.deleted { opacity: 0.6; font-style: italic; background: rgba(255,255,255,0.08); }
+        .message-bubble.temp { opacity: 0.7; }
         .message-text { font-size: 14px; line-height: 1.4; }
         .message-type-icon { font-weight: bold; margin-right: 4px; }
+        .sending-indicator { font-size: 10px; opacity: 0.6; margin-left: 6px; }
         .message-footer { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 4px; }
         .message-time { font-size: 10px; opacity: 0.6; }
         .message-delete-wrapper { position: relative; display: inline-flex; }
@@ -1243,8 +1253,10 @@ export default function StudyGroupsPage() {
         .delete-menu button:hover { background: #ef4444; }
         .chat-input { display: flex; gap: 10px; margin-top: 10px; }
         .chat-input input { flex: 1; padding: 12px 18px; border: none; border-radius: 24px; background: rgba(255,255,255,0.15); color: white; outline: none; font-size: 14px; }
+        .chat-input input:disabled { opacity: 0.6; cursor: not-allowed; }
         .chat-input input::placeholder { color: rgba(255,255,255,0.6); }
         .chat-input button { padding: 12px 24px; background: linear-gradient(135deg, #4f46e5, #6366f1); border: none; border-radius: 24px; color: white; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; transition: all 0.2s; }
+        .chat-input button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
         .shared-content-container { max-height: 450px; overflow-y: auto; }
         .shared-item { display: flex; align-items: center; gap: 15px; padding: 15px; background: rgba(255,255,255,0.08); border-radius: 12px; margin-bottom: 10px; transition: all 0.2s; }
         .shared-item:hover { background: rgba(255,255,255,0.12); }
@@ -1267,22 +1279,25 @@ export default function StudyGroupsPage() {
         .content-body { margin: 15px 0; }
         .note-content, .quiz-content, .insight-content, .flashcard-content, .youtube-content, .file-content { line-height: 1.6; }
         .note-subject, .note-topic { margin: 5px 0; }
-        .note-text { margin-top: 15px; white-space: pre-wrap; }
-        .quiz-question { margin: 15px 0; padding: 10px; background: #f8f9fa; border-radius: 8px; }
+        .note-text { margin-top: 15px; white-space: pre-wrap; background: #f5f5f5; padding: 15px; border-radius: 8px; max-height: 400px; overflow-y: auto; }
+        .quiz-question { margin: 15px 0; padding: 12px; background: #f8f9fa; border-radius: 8px; }
         .correct-answer { color: #10b981; font-weight: 500; }
-        .insight-tip {
-  background: #f0fdf4;
-  color: #166534;
-  padding: 12px;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 14px;
-}
-        .flashcard-content { display: flex; flex-direction: column; gap: 20px; }
-        .flashcard-front, .flashcard-back { padding: 15px; background: #f8f9fa; border-radius: 12px; }
-        .flashcard-front strong, .flashcard-back strong { color: #4f46e5; display: block; margin-bottom: 8px; }
+        .insight-tip { background: #f0fdf4; color: #166534; padding: 12px; border-radius: 8px; text-align: center; font-size: 14px; }
+        .flashcard-set-content { max-height: 500px; overflow-y: auto; }
+        .flashcard-list { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
+        .flashcard-item { background: #f8f9fa; border-radius: 12px; padding: 15px; border-left: 4px solid #f59e0b; }
+        .flashcard-question { margin-bottom: 10px; color: #1e293b; }
+        .flashcard-answer { color: #475569; padding-left: 15px; border-left: 2px solid #e2e8f0; }
+        .formatted-content { line-height: 1.6; color: #1e293b; }
+        .formatted-content p { margin: 8px 0; }
+        .formatted-content .bullet-point { padding-left: 20px; position: relative; margin: 5px 0; }
+        .formatted-content .numbered-point { margin: 5px 0; padding-left: 5px; }
+        .youtube-content .formatted-content { background: #f1f5f9; padding: 15px; border-radius: 12px; max-height: 400px; overflow-y: auto; white-space: pre-wrap; }
+        .insight-text { background: #ffffff; color: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .insight-text p { margin: 0 0 10px 0; line-height: 1.6; color: #1e293b; }
+        .insight-text .formatted-content { background: #ffffff; padding: 15px; border-radius: 12px; color: #1e293b; white-space: pre-wrap; }
+        .insight-text .formatted-content .bullet-point { padding-left: 20px; }
         .file-actions { display: flex; flex-direction: column; gap: 15px; margin-top: 15px; }
-        .modal-content input, .modal-content textarea, .modal-content select { width: 100%; margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 15px; }
         .modal-actions button { padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
         .modal-actions button:first-child { background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; border: none; }
@@ -1296,138 +1311,6 @@ export default function StudyGroupsPage() {
           .btn-create, .btn-join { flex: 1; justify-content: center; }
           .message-bubble { max-width: 85%; }
         }
-          .content-view-modal {
-  max-width: 700px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-.note-content, .quiz-content, .flashcard-content, .youtube-content, .insight-content, .file-content {
-  line-height: 1.6;
-  margin-top: 15px;
-}
-.note-text {
-  white-space: pre-wrap;
-  background: #f5f5f5;
-  padding: 15px;
-  border-radius: 8px;
-  max-height: 400px;
-  overflow-y: auto;
-}
-.quiz-question {
-  margin: 15px 0;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 8px;
-}
-.correct-answer {
-  color: #10b981;
-  font-weight: 500;
-}
-.flashcard-front, .flashcard-back {
-  padding: 15px;
-  background: #f8f9fa;
-  border-radius: 12px;
-  margin-bottom: 15px;
-}
-.download-btn {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-}
- .insight-text {
-  background: #ffffff;
-  color: #1e293b;
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 15px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.insight-text p {
-  margin: 0 0 10px 0;
-  line-height: 1.6;
-  color: #1e293b;
-}
-.insight-tip {
-  background: #f0fdf4;
-  color: #166534;
-  padding: 12px;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 14px;
-}
-  .flashcard-set-content {
-  max-height: 500px;
-  overflow-y: auto;
-}
-.flashcard-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  margin-top: 15px;
-}
-.flashcard-item {
-  background: #f8f9fa;
-  border-radius: 12px;
-  padding: 15px;
-  border-left: 4px solid #f59e0b;
-}
-.flashcard-question {
-  margin-bottom: 10px;
-  color: #1e293b;
-}
-.flashcard-answer {
-  color: #475569;
-  padding-left: 15px;
-  border-left: 2px solid #e2e8f0;
-}
-  /* Formatted Content Styles */
-.formatted-content {
-  line-height: 1.6;
-  color: #1e293b;
-}
-.formatted-content p {
-  margin: 8px 0;
-}
-.formatted-content .bullet-point {
-  padding-left: 20px;
-  position: relative;
-  margin: 5px 0;
-}
-.formatted-content .numbered-point {
-  margin: 5px 0;
-  padding-left: 5px;
-}
-.youtube-content .formatted-content {
-  background: #f1f5f9;
-  padding: 15px;
-  border-radius: 12px;
-  max-height: 400px;
-  overflow-y: auto;
-  white-space: pre-wrap;
-}
-.insight-text .formatted-content {
-  background: #ffffff;
-  padding: 15px;
-  border-radius: 12px;
-  color: #1e293b;
-  white-space: pre-wrap;
-}
-.insight-text .formatted-content p {
-  color: #1e293b;
-}
-.insight-text .formatted-content .bullet-point {
-  color: #1e293b;
-  padding-left: 20px;
-}
-.insight-text .formatted-content .numbered-point {
-  color: #1e293b;
-}
-  
       `}</style>
     </div>
   );
