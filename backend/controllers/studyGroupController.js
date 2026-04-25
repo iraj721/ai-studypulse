@@ -61,6 +61,7 @@ const joinGroup = async (req, res) => {
           group.name,
           `${req.user.name} has joined the group!`,
           "member_joined",
+          group._id, // ✅ Added groupId
         );
       }
     }
@@ -145,6 +146,7 @@ const sendMessage = async (req, res) => {
           group.name,
           `${req.user.name}: ${message.substring(0, 100)}${message.length > 100 ? "..." : ""}`,
           "new_message",
+          group._id, // ✅ Added groupId
         );
       }
     }
@@ -357,6 +359,7 @@ const shareNote = async (req, res) => {
           group.name,
           `${req.user.name} shared a note: "${note.subject} - ${note.topic}"`,
           "shared_note",
+          group._id, // ✅ Added groupId
         );
       }
     }
@@ -455,6 +458,7 @@ const shareQuiz = async (req, res) => {
           group.name,
           `${req.user.name} shared a quiz: "${quiz.topic}"`,
           "shared_quiz",
+          group._id, // ✅ Added groupId
         );
       }
     }
@@ -551,6 +555,7 @@ const shareYouTubeSummary = async (req, res) => {
           group.name,
           `${req.user.name} shared a video summary: "${video.title}"`,
           "shared_video",
+          group._id, // ✅ Added groupId
         );
       }
     }
@@ -654,6 +659,7 @@ const shareFlashcard = async (req, res) => {
           group.name,
           `${req.user.name} shared a flashcard: "${flashcard.noteTopic || "Study Card"}"`,
           "shared_flashcard",
+          group._id, // ✅ Added groupId
         );
       }
     }
@@ -682,7 +688,6 @@ const shareFlashcard = async (req, res) => {
 };
 
 // Share AI insight in group
-// Share AI insight in group
 const shareInsight = async (req, res) => {
   try {
     const { insightId } = req.body;
@@ -696,7 +701,6 @@ const shareInsight = async (req, res) => {
     let insightContent =
       "Based on your learning patterns, you're making great progress!";
 
-    // Try to get real insight from database
     try {
       const AIInsights = require("../models/AIInsight");
       const insight = await AIInsights.findOne({
@@ -714,7 +718,6 @@ const shareInsight = async (req, res) => {
         );
       } else {
         console.log("Insight not found with ID:", insightId);
-        // Try to find any insight for this user
         const anyInsight = await AIInsights.findOne({ user: req.user._id });
         if (anyInsight) {
           insightTitle = anyInsight.title || insightTitle;
@@ -770,6 +773,7 @@ const shareInsight = async (req, res) => {
           group.name,
           `${req.user.name} shared an AI insight: "${insightTitle.substring(0, 50)}..."`,
           "shared_insight",
+          group._id, // ✅ Added groupId
         );
       }
     }
@@ -817,7 +821,6 @@ const getSharedContent = async (req, res) => {
 };
 
 // ============ VIEW SHARED CONTENT FUNCTIONS ============
-// View shared note (accessible by all group members)
 const viewSharedNote = async (req, res) => {
   try {
     const { groupId, noteId } = req.params;
@@ -896,7 +899,6 @@ const shareFlashcardGroup = async (req, res) => {
     const firstCard = flashcards[0];
     const flashcardCount = flashcards.length;
 
-    // Create flashcard set content
     let flashcardContent = `**${flashcardCount} Flashcards**\n\n`;
     flashcards.forEach((card, index) => {
       flashcardContent += `**${index + 1}. Q:** ${card.front}\n`;
@@ -952,6 +954,7 @@ const shareFlashcardGroup = async (req, res) => {
           group.name,
           `${req.user.name} shared a flashcard set: "${firstCard.noteTopic || "Study Cards"}" (${flashcardCount} cards)`,
           "shared_flashcard",
+          group._id, // ✅ Added groupId
         );
       }
     }
@@ -980,7 +983,6 @@ const shareFlashcardGroup = async (req, res) => {
   }
 };
 
-// View shared quiz (accessible by all group members)
 const viewSharedQuiz = async (req, res) => {
   try {
     const { groupId, quizId } = req.params;
@@ -1024,7 +1026,6 @@ const viewSharedQuiz = async (req, res) => {
   }
 };
 
-// View shared flashcard (accessible by all group members)
 const viewSharedFlashcard = async (req, res) => {
   try {
     const { groupId, flashcardId } = req.params;
@@ -1149,6 +1150,7 @@ const shareFile = async (req, res) => {
             group.name,
             `${req.user.name} shared a file: "${fileName}"`,
             "shared_file",
+            group._id, // ✅ Added groupId
           );
         }
       }

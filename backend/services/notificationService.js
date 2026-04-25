@@ -152,13 +152,14 @@ async function createQuizRecommendation(userId, weakTopics) {
   });
 }
 
-// Send group email notification
+// Send group email notification with direct group link
 async function sendGroupEmailNotification(
   userEmail,
   userName,
   groupName,
   message,
   type,
+  groupId = null
 ) {
   try {
     const typeLabels = {
@@ -173,6 +174,11 @@ async function sendGroupEmailNotification(
     };
 
     const title = typeLabels[type] || "Group Update";
+    
+    // Create direct link to the group (with group ID in URL)
+    const groupLink = groupId 
+      ? `${process.env.FRONTEND_URL}/study-groups?group=${groupId}`
+      : `${process.env.FRONTEND_URL}/study-groups`;
 
     await transporter.sendMail({
       from: `"StudyPulse AI" <${process.env.EMAIL_USER}>`,
@@ -190,6 +196,7 @@ async function sendGroupEmailNotification(
             .content { padding: 30px; }
             .message { background: #f8fafc; padding: 15px; border-radius: 12px; margin: 15px 0; }
             .btn { display: inline-block; background: linear-gradient(135deg, #4f46e5, #6366f1); color: white; padding: 10px 24px; border-radius: 30px; text-decoration: none; margin-top: 15px; }
+            .btn-group { background: linear-gradient(135deg, #22c55e, #16a34a); }
             .footer { background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0; }
           </style>
         </head>
@@ -204,7 +211,10 @@ async function sendGroupEmailNotification(
               <div class="message">
                 ${message}
               </div>
-              <a href="${process.env.FRONTEND_URL}/study-groups" class="btn">View in Group →</a>
+              <a href="${groupLink}" class="btn btn-group">🚀 Go to Group →</a>
+              <p style="font-size: 12px; color: #666; margin-top: 15px;">
+                <strong>💡 Tip:</strong> Click the button above to join the conversation directly!
+              </p>
             </div>
             <div class="footer">
               <p style="margin: 0;">StudyPulse AI - Learn Smarter with AI 🚀</p>
