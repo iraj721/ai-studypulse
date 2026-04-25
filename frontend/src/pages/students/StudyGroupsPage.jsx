@@ -183,24 +183,44 @@ export default function StudyGroupsPage() {
 
   const initSocket = () => {
     if (!socketRef.current) {
-      socketRef.current = io(
-        import.meta.env.VITE_API_URL || "http://localhost:5000",
-        {
-          transports: ["websocket", "polling"],
-          reconnection: true,
-          reconnectionAttempts: 5,
-          reconnectionDelay: 1000,
-        },
-      );
+      const socketUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      console.log("Initializing socket connection to:", socketUrl);
+
+      socketRef.current = io(socketUrl, {
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+      });
 
       socketRef.current.on("connect", () => {
-        console.log("Socket connected");
+        console.log("Socket connected successfully, ID:", socketRef.current.id);
+        // Re-join group if already selected
+        if (selectedGroup && selectedGroup._id) {
+          socketRef.current.emit("joinGroupRoom", selectedGroup._id);
+          console.log("Re-joined group room:", selectedGroup._id);
+        }
       });
 
       socketRef.current.on("connect_error", (error) => {
         console.log("Socket connection error:", error);
       });
+
+      socketRef.current.on("disconnect", (reason) => {
+        console.log("Socket disconnected:", reason);
+      });
+
+      socketRef.current.on("reconnect", (attemptNumber) => {
+        console.log("Socket reconnected after", attemptNumber, "attempts");
+        // Re-join group after reconnection
+        if (selectedGroup && selectedGroup._id) {
+          socketRef.current.emit("joinGroupRoom", selectedGroup._id);
+        }
+      });
     }
+    return socketRef.current;
   };
 
   const createGroup = async () => {
@@ -276,9 +296,15 @@ export default function StudyGroupsPage() {
         },
       );
 
+      // Replace temp message with real one
       setMessages((prev) =>
         prev.map((msg) => (msg._id === tempId ? response.data.data : msg)),
       );
+
+      // Also emit via socket for immediate delivery to other clients (redundant but safe)
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit("newGroupMessage", response.data.data);
+      }
     } catch (err) {
       setMessages((prev) => prev.filter((msg) => msg._id !== tempId));
       setToast({ message: "Failed to send message", type: "error" });
